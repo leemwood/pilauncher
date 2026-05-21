@@ -1340,6 +1340,11 @@
     "finish": "Finish"
   },
   "libraryPage": {
+    "hints": {
+      "switchSection": "Y Switch Sidebar/List",
+      "contextMenu": "X Context Menu",
+      "switchTab": "LT/RT Switch Tab"
+    },
     "views": {
       "all": "All Favorites",
       "mod": "Mods",

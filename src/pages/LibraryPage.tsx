@@ -37,8 +37,8 @@ import { useLibraryResourceDetail } from '../features/Library/hooks/useLibraryRe
 import { useModSetTrackerStore, type ModSetTrackerItemStatus } from '../features/Library/stores/useModSetTrackerStore';
 import { useLauncherStore } from '../store/useLauncherStore';
 import { FocusBoundary } from '../ui/focus/FocusBoundary';
-import { useInputMode } from '../ui/focus/FocusProvider';
 import { useInputAction } from '../ui/focus/InputDriver';
+import { ControlHint } from '../ui/components/ControlHint';
 import type { DropdownOption } from '../ui/primitives/OreDropdown';
 import { OreOverlayScrollArea } from '../ui/primitives/OreOverlayScrollArea';
 import type { VersionGroup } from '../features/Instances/logic/environmentSelection';
@@ -61,7 +61,6 @@ const LibraryPage: React.FC = () => {
   const { t } = useTranslation();
   const setActiveTab = useLauncherStore((state) => state.setActiveTab);
   const currentGlobalTab = useLauncherStore((state) => state.activeTab);
-  const inputMode = useInputMode();
   const trackers = useModSetTrackerStore((state) => state.trackers);
   const isCheckingTrackers = useModSetTrackerStore((state) => state.isChecking);
   const loadTrackers = useModSetTrackerStore((state) => state.loadTrackers);
@@ -114,6 +113,9 @@ const LibraryPage: React.FC = () => {
     anchorRect: LibraryContextMenuAnchor;
     triggerPoint: LibraryContextMenuPoint;
   } | null>(null);
+  const rightAreaLastFocusRef = useRef<string | null>(null);
+  const [activeSection, setActiveSection] = useState<'sidebar' | 'content'>('content');
+  const sidebarLastFocusRef = useRef<string | null>('library-tags-manage');
   const {
     pendingRelationKeys,
     relationError,
@@ -286,14 +288,6 @@ const LibraryPage: React.FC = () => {
     const index = Number(currentFocus.slice(LIBRARY_RESOURCE_FOCUS_PREFIX.length));
     if (!Number.isInteger(index) || index < 0) return null;
     return visibleResources[index] ?? null;
-  };
-  const getFocusedCollection = () => {
-    const currentFocus = getCurrentFocusKey();
-    if (!currentFocus?.startsWith(LIBRARY_COLLECTION_FOCUS_PREFIX)) return null;
-
-    const index = Number(currentFocus.slice(LIBRARY_COLLECTION_FOCUS_PREFIX.length));
-    if (!Number.isInteger(index) || index < 0) return null;
-    return visibleCollections[index] ?? null;
   };
   const getControllerAnchorForFocusKey = (focusKey: string) => {
     const element = document.querySelector<HTMLElement>(
@@ -554,17 +548,9 @@ const LibraryPage: React.FC = () => {
     }
   };
 
-  const handleHeaderArrow = (direction: string) => {
-    if (direction === 'down' && doesFocusableExist('library-search')) {
-      setFocus('library-search');
-      return false;
-    }
-    return true;
-  };
-
   const handleContentArrow = (index: number, direction: string) => {
     if (direction === 'up' && index === 0) {
-      const target = ['library-search', 'library-sort', 'library-view-toggle-0'].find((key) =>
+      const target = ['library-search', 'library-sort'].find((key) =>
         doesFocusableExist(key),
       );
       if (target) {
@@ -594,15 +580,17 @@ const LibraryPage: React.FC = () => {
   useInputAction('ACTION_Y', () => {
     if (currentGlobalTab !== 'library' || hasBlockingOverlay) return;
 
-    const resource = getFocusedResource();
-    if (resource) {
-      openResourceDetail(resource);
-      return;
-    }
-
-    const collection = getFocusedCollection();
-    if (collection?.type === 'mod_set' || collection?.type === 'modpack') {
-      openCollectionMetadataEdit(collection);
+    const currentFocus = getCurrentFocusKey();
+    if (activeSection === 'sidebar') {
+      if (currentFocus && (currentFocus === 'library-tags-manage' || currentFocus.startsWith('library-tag-'))) {
+        sidebarLastFocusRef.current = currentFocus;
+      }
+      setActiveSection('content');
+    } else {
+      if (currentFocus && currentFocus !== 'SN:ROOT') {
+        rightAreaLastFocusRef.current = currentFocus;
+      }
+      setActiveSection('sidebar');
     }
   });
 
@@ -620,7 +608,43 @@ const LibraryPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (currentGlobalTab !== 'library' || inputMode !== 'controller') {
+    if (currentGlobalTab !== 'library') {
+      setActiveSection('content');
+      didInitialControllerFocusRef.current = false;
+    }
+  }, [currentGlobalTab]);
+
+  useEffect(() => {
+    if (currentGlobalTab !== 'library') return;
+
+    if (activeSection === 'sidebar') {
+      const target = sidebarLastFocusRef.current || 'library-tags-manage';
+      const timer = setTimeout(() => {
+        if (doesFocusableExist(target)) {
+          setFocus(target);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      const target = rightAreaLastFocusRef.current;
+      const fallbackTarget = isCategoryView
+        ? `${LIBRARY_COLLECTION_FOCUS_PREFIX}0`
+        : visibleResources.length > 0
+          ? `${LIBRARY_RESOURCE_FOCUS_PREFIX}0`
+          : 'library-search';
+      const finalTarget = (target && doesFocusableExist(target)) ? target : fallbackTarget;
+      
+      const timer = setTimeout(() => {
+        if (doesFocusableExist(finalTarget)) {
+          setFocus(finalTarget);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeSection, isCategoryView, visibleResources.length, visibleCollections.length, currentGlobalTab]);
+
+  useEffect(() => {
+    if (currentGlobalTab !== 'library') {
       didInitialControllerFocusRef.current = false;
       return;
     }
@@ -628,6 +652,8 @@ const LibraryPage: React.FC = () => {
 
     const currentFocus = getCurrentFocusKey();
     if (currentFocus && currentFocus !== 'SN:ROOT' && doesFocusableExist(currentFocus)) {
+      const isInSidebar = currentFocus === 'library-tags-manage' || currentFocus?.startsWith('library-tag-');
+      setActiveSection(isInSidebar ? 'sidebar' : 'content');
       didInitialControllerFocusRef.current = true;
       return;
     }
@@ -636,7 +662,7 @@ const LibraryPage: React.FC = () => {
       ? `${LIBRARY_COLLECTION_FOCUS_PREFIX}0`
       : visibleResources.length > 0
         ? `${LIBRARY_RESOURCE_FOCUS_PREFIX}0`
-        : 'library-view-toggle-0';
+        : 'library-search';
 
     if (didInitialControllerFocusRef.current && !doesFocusableExist(preferredTarget)) return;
 
@@ -644,8 +670,6 @@ const LibraryPage: React.FC = () => {
       const target = [
         preferredTarget,
         'library-search',
-        'library-view-toggle-0',
-        'library-tags-manage',
       ].find((key) => doesFocusableExist(key));
       if (target) {
         setFocus(target);
@@ -657,7 +681,6 @@ const LibraryPage: React.FC = () => {
   }, [
     currentGlobalTab,
     hasBlockingOverlay,
-    inputMode,
     isCategoryView,
     visibleResources.length,
     visibleCollections.length,
@@ -666,13 +689,12 @@ const LibraryPage: React.FC = () => {
   return (
     <FocusBoundary
       id="library-page"
-      defaultFocusKey="library-view-toggle-0"
+      defaultFocusKey="library-search"
       className="flex h-full w-full flex-col overflow-hidden bg-[rgba(18,18,19,0.86)] font-sans text-[var(--ore-color-text-primary-default)]"
     >
       <LibraryHeader
         activeView={activeHeaderView}
         onViewChange={handleHeaderViewChange}
-        onArrowPress={handleHeaderArrow}
       />
 
       <ModSetTrackerPanel
@@ -704,6 +726,7 @@ const LibraryPage: React.FC = () => {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="w-[272px] shrink-0 overflow-hidden border-r-2 border-[var(--ore-library-sidebar-panel-border)] bg-[var(--ore-color-background-surface-raised)]">
           <CollectionSidebar
+            focusable={activeSection === 'sidebar'}
             selectedGroupId={selectedGroupId}
             onSelectGroup={setSelectedGroupId}
             collections={collections}
@@ -808,6 +831,28 @@ const LibraryPage: React.FC = () => {
                 onPlaceItem={handlePlaceCollectionItem}
               />
             )}
+          </div>
+
+          <div className="flex h-10 shrink-0 items-center justify-between border-t-2 border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-surface-panel)] px-5 text-xs text-[var(--ore-color-text-muted-default)]">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <ControlHint label="Y" variant="face" tone="yellow" />
+                <span className="font-minecraft">{t('libraryPage.hints.switchSection')}</span>
+              </div>
+              {!isCategoryView && visibleResources.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <ControlHint label="X" variant="face" tone="blue" />
+                  <span className="font-minecraft">{t('libraryPage.hints.contextMenu')}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <ControlHint label="LT" variant="trigger" tone="neutral" />
+                <ControlHint label="RT" variant="trigger" tone="neutral" />
+                <span className="font-minecraft">{t('libraryPage.hints.switchTab')}</span>
+              </div>
+            </div>
           </div>
         </main>
       </div>

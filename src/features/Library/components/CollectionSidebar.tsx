@@ -26,6 +26,7 @@ interface CollectionSidebarProps {
   onCreateCollection: (collection: Collection) => Promise<void>;
   onUpdateCollection: (collection: Collection) => Promise<void>;
   onRemoveCollection: (id: string) => Promise<void>;
+  focusable?: boolean;
 }
 
 interface SectionHeaderProps {
@@ -33,13 +34,14 @@ interface SectionHeaderProps {
   actionLabel?: string;
   onAction?: () => void;
   actionFocusKey?: string;
+  focusable?: boolean;
 }
 
-const SectionHeader: React.FC<SectionHeaderProps> = ({ label, actionLabel, onAction, actionFocusKey }) => (
+const SectionHeader: React.FC<SectionHeaderProps> = ({ label, actionLabel, onAction, actionFocusKey, focusable = true }) => (
   <div className="mb-[1rem] mt-[0.5rem] flex w-full items-center justify-between px-[1rem] font-minecraft text-[length:var(--ore-typography-size-sm)] text-[var(--ore-color-text-muted-dim)]">
     <span className="uppercase tracking-[0.05em]">{label}</span>
     {onAction && (
-      <FocusItem focusKey={actionFocusKey} onEnter={onAction}>
+      <FocusItem focusKey={actionFocusKey} onEnter={onAction} focusable={focusable}>
         {({ ref, focused }) => (
           <button
             ref={ref as React.RefObject<HTMLButtonElement>}
@@ -160,6 +162,7 @@ export const CollectionSidebar: React.FC<CollectionSidebarProps> = ({
   onCreateCollection,
   onUpdateCollection,
   onRemoveCollection,
+  focusable = true,
 }) => {
   const { t } = useTranslation();
   const collectionItems = useLibraryStore((state) => state.collectionItems);
@@ -328,6 +331,7 @@ export const CollectionSidebar: React.FC<CollectionSidebarProps> = ({
           actionLabel={t('libraryPage.sidebar.manageTags')}
           actionFocusKey="library-tags-manage"
           onAction={() => setIsManagingTags(true)}
+          focusable={focusable}
         />
 
         {groups.length === 0 ? (
@@ -337,14 +341,15 @@ export const CollectionSidebar: React.FC<CollectionSidebarProps> = ({
         ) : (
           <div className="flex flex-wrap gap-[0.5rem] px-[1rem] py-[0.5rem]">
             {groups.map((collection) => {
-              const active = selectedGroupId === collection.id;
-              const tagColor = normalizeTagColor(collection.coverImage);
-              const SidebarTagIcon = getOreIcon(getTagIconId(collection.description));
-              return (
+               const active = selectedGroupId === collection.id;
+               const tagColor = normalizeTagColor(collection.coverImage);
+               const SidebarTagIcon = getOreIcon(getTagIconId(collection.description));
+               return (
                 <FocusItem
                   key={collection.id}
                   focusKey={`library-tag-${collection.id}`}
                   onEnter={() => onSelectGroup(collection.id)}
+                  focusable={focusable}
                 >
                   {({ ref, focused }) => (
                     <button

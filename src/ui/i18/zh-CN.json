@@ -1340,6 +1340,11 @@
     "finish": "完成"
   },
   "libraryPage": {
+    "hints": {
+      "switchSection": "Y 切换侧边栏/列表",
+      "contextMenu": "X 操作菜单",
+      "switchTab": "LT/RT 切换页签"
+    },
     "views": {
       "all": "全部收藏",
       "mod": "模组",

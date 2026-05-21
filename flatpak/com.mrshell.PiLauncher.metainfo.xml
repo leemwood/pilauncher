@@ -49,6 +49,22 @@
   </categories>
 
   <releases>
+    <release version="0.1.36" date="2026-05-21">
+      <description>
+        <p xml:lang="zh_CN">新增 WebDAV 同步与增强皮肤管理功能</p>
+        <ul xml:lang="zh_CN">
+          <li>[新功能] 引入全新的 WebDAV 自动同步功能，支持跨设备同步启动器设置与皮肤资源。</li>
+          <li>[优化] 升级“衣柜”功能，全面增强了皮肤管理体验和模型渲染效果。</li>
+        </ul>
+        <p>Added WebDAV sync and enhanced skin management</p>
+        <ul>
+          <li>[New] Introduced WebDAV auto-sync to effortlessly synchronize launcher settings and skin assets across devices.</li>
+          <li>[Optimization] Upgraded the Wardrobe feature with an enhanced skin management experience and improved 3D rendering.</li>
+
+        </ul>
+      </description>
+    </release>
+
     <release version="0.1.35" date="2026-05-15">
       <description>
         <p xml:lang="zh_CN">新增资源库功能，并改进资源浏览与掌机设置体验。</p>
