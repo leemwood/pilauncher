@@ -24,6 +24,8 @@ const normalizeConfig = (config: WebDavSettings): WebDavSettings => ({
   password: config.password,
   syncFavorites: config.syncFavorites,
   syncSkinAssets: config.syncSkinAssets ?? true,
+  autoSyncInterval: config.autoSyncInterval || '1d',
+  lastSyncTime: config.lastSyncTime,
 });
 
 export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWebDavSyncOptions) => {
@@ -90,13 +92,20 @@ export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWeb
         });
       }
 
+      const updatedWebDav = {
+        ...normalized,
+        lastSyncTime: Date.now(),
+      };
+      updateGeneralSetting('webDav', updatedWebDav);
+      setDraft(updatedWebDav);
+
       setSyncResult(nextResult);
     } catch (caught) {
       setError(String(caught));
     } finally {
       setIsSyncing(false);
     }
-  }, [deviceId, initializeLibrary, save]);
+  }, [deviceId, initializeLibrary, save, updateGeneralSetting]);
 
   return {
     isOpen,

@@ -1024,6 +1024,17 @@
         "usernamePlaceholder": "Leave empty to skip username",
         "password": "Password",
         "passwordPlaceholder": "Leave empty to skip password",
+        "autoSyncInterval": "Auto Sync Interval",
+        "autoSyncIntervalDesc": "Time interval to automatically sync and back up local data in the background.",
+        "intervals": {
+          "3h": "3 Hours",
+          "12h": "12 Hours",
+          "1d": "1 Day",
+          "3d": "3 Days",
+          "5d": "5 Days",
+          "7d": "7 Days",
+          "off": "Off"
+        },
         "backupItems": "Sync Backup Items",
         "backupDesc": "Choose the local data to sync to WebDAV. Disabled items are skipped during manual sync.",
         "libraryFavorites": "Library Favorites",

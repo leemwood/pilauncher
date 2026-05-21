@@ -27,6 +27,7 @@ import { SetupWizard } from './features/Setup/components/SetupWizard';
 import { JavaGuard } from './features/runtime/components/JavaGuard';
 import { JavaEnvironmentChangedDialog } from './features/runtime/components/JavaEnvironmentChangedDialog';
 import { StartupUpdateChecker } from './features/Settings/components/StartupUpdateChecker';
+import { useWebDavAutoSync } from './hooks/useWebDavAutoSync';
 
 const News = lazy(() => import('./pages/News'));
 const Instances = lazy(() => import('./pages/Instances'));
@@ -123,6 +124,7 @@ const ResourceDownloadGuard: React.FC<{ activeTab: string }> = ({ activeTab }) =
 };
 
 const App: React.FC = () => {
+  useWebDavAutoSync();
   const activeTab = useLauncherStore((state) => state.activeTab);
   const ensureSessionRefresh = useNewsStore((state) => state.ensureSessionRefresh);
   const { appearance, general, game } = useSettingsStore((state) => state.settings);

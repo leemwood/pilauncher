@@ -4,6 +4,7 @@ import i18n from '../../../../../../ui/i18';
 import { CloudCog, RefreshCw, Save, Shirt, Star } from 'lucide-react';
 
 import { OreButton } from '../../../../../../ui/primitives/OreButton';
+import { OreDropdown } from '../../../../../../ui/primitives/OreDropdown';
 import { OreInput } from '../../../../../../ui/primitives/OreInput';
 import { OreModal } from '../../../../../../ui/primitives/OreModal';
 import { OreSwitch } from '../../../../../../ui/primitives/OreSwitch';
@@ -47,6 +48,19 @@ export const WebDavSettingsModal: React.FC<WebDavSettingsModalProps> = ({
   const { t } = useTranslation();
   const endpointHint = useMemo(() => getEndpointHint(draft.address), [draft.address]);
   const canSync = draft.address.trim() !== '' && (draft.syncFavorites || draft.syncSkinAssets) && !isSyncing;
+
+  const autoSyncIntervalOptions = useMemo(
+    () => [
+      { label: t('settings.data.webdav.intervals.3h'), value: '3h' },
+      { label: t('settings.data.webdav.intervals.12h'), value: '12h' },
+      { label: t('settings.data.webdav.intervals.1d'), value: '1d' },
+      { label: t('settings.data.webdav.intervals.3d'), value: '3d' },
+      { label: t('settings.data.webdav.intervals.5d'), value: '5d' },
+      { label: t('settings.data.webdav.intervals.7d'), value: '7d' },
+      { label: t('settings.data.webdav.intervals.off'), value: 'off' },
+    ],
+    [t]
+  );
 
   return (
     <OreModal
@@ -121,6 +135,23 @@ export const WebDavSettingsModal: React.FC<WebDavSettingsModalProps> = ({
             placeholder={t('settings.data.webdav.passwordPlaceholder')}
             focusKey="webdav-password"
           />
+          <div className="flex flex-col gap-1.5 w-full">
+            <label className="text-sm font-minecraft font-bold ore-text-shadow text-white">
+              {t('settings.data.webdav.autoSyncInterval')}
+            </label>
+            <div className="relative focus-within:z-50 w-full">
+              <OreDropdown
+                options={autoSyncIntervalOptions}
+                value={draft.autoSyncInterval || '1d'}
+                onChange={(value) => onChange({ autoSyncInterval: value as WebDavSettings['autoSyncInterval'] })}
+                className="w-full"
+                focusKey="webdav-auto-sync-interval"
+              />
+            </div>
+            <span className="text-xs font-minecraft mt-0.5 text-[#B1B2B5]">
+              {t('settings.data.webdav.autoSyncIntervalDesc')}
+            </span>
+          </div>
         </section>
 
         <aside className="grid min-w-0 gap-4">

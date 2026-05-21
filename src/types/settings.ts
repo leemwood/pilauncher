@@ -10,6 +10,8 @@ export interface WebDavSettings {
   password: string;
   syncFavorites: boolean;
   syncSkinAssets: boolean;
+  autoSyncInterval?: '3h' | '12h' | '1d' | '3d' | '5d' | '7d' | 'off';
+  lastSyncTime?: number;
 }
 
 export interface GeneralSettings {
@@ -139,6 +141,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       password: '',
       syncFavorites: true,
       syncSkinAssets: true,
+      autoSyncInterval: '1d',
     },
     lastAgreedLegalDate: '',
     linuxDisableDmabuf: false,
