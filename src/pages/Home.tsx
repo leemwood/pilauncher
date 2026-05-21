@@ -73,7 +73,7 @@ const Home: React.FC = () => {
           focusKey="btn-wardrobe"
           variant="secondary"
           size="auto"
-          className="!h-[var(--home-action-h)] !w-full !min-w-0 !px-[clamp(1rem,1.4vw,2rem)] !text-[length:var(--home-action-font)] !text-[#111214] [&_svg]:!text-[#111214]"
+          className="!h-[var(--home-action-h)] !w-[40%] !min-w-0 !px-[clamp(1rem,1.4vw,2rem)] !text-[length:var(--home-action-font)] !text-[#111214] [&_svg]:!text-[#111214]"
           onClick={() => setActiveTab('wardrobe')}
           autoScroll={false}
         >

@@ -1,6 +1,7 @@
 use crate::domain::library::{
     Collection, CollectionItem, LibraryExportFile, LibraryImportOptions, LibraryImportPreview,
-    LibraryImportResult, ModSetTracker, StarredItem, WebDavFavoriteSyncResult, WebDavSyncConfig,
+    LibraryImportResult, ModSetTracker, StarredItem, WebDavFavoriteSyncResult,
+    WebDavSkinSyncResult, WebDavSyncConfig,
 };
 use crate::services::db_service::AppDatabase;
 use crate::services::library_service::LibraryService;
@@ -185,4 +186,12 @@ pub async fn sync_webdav_favorites<R: Runtime>(
     config: WebDavSyncConfig,
 ) -> Result<WebDavFavoriteSyncResult, String> {
     WebDavSyncService::sync_favorites(&app, &db.pool, &config).await
+}
+
+#[tauri::command]
+pub async fn sync_webdav_skin_assets<R: Runtime>(
+    app: AppHandle<R>,
+    config: WebDavSyncConfig,
+) -> Result<WebDavSkinSyncResult, String> {
+    WebDavSyncService::sync_skin_assets(&app, &config).await
 }

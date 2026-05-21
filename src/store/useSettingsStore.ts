@@ -234,7 +234,14 @@ export const useSettingsStore = create<SettingsStore>()(
           settings: {
             ...currentState.settings,
             ...(persistedState.settings || {}),
-            general: { ...currentState.settings.general, ...persistedState.settings?.general },
+            general: {
+              ...currentState.settings.general,
+              ...persistedState.settings?.general,
+              webDav: {
+                ...currentState.settings.general.webDav,
+                ...persistedState.settings?.general?.webDav
+              }
+            },
             appearance: {
               ...currentState.settings.appearance,
               ...persistedState.settings?.appearance

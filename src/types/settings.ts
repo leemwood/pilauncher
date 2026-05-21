@@ -9,6 +9,7 @@ export interface WebDavSettings {
   username: string;
   password: string;
   syncFavorites: boolean;
+  syncSkinAssets: boolean;
 }
 
 export interface GeneralSettings {
@@ -137,6 +138,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       username: '',
       password: '',
       syncFavorites: true,
+      syncSkinAssets: true,
     },
     lastAgreedLegalDate: '',
     linuxDisableDmabuf: false,

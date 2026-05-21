@@ -178,3 +178,16 @@ pub struct WebDavFavoriteSyncResult {
     pub snapshot_updated: bool,
     pub compacted_operations: usize,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WebDavSkinSyncResult {
+    pub remote_root: String,
+    pub remote_created: bool,
+    pub uploaded_files: usize,
+    pub downloaded_files: usize,
+    pub local_files: usize,
+    pub remote_files: usize,
+    pub archive_updated: bool,
+    pub restored: bool,
+}

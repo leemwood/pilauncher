@@ -1,10 +1,16 @@
 import { useCallback, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import i18n from '../../../../../../ui/i18';
 
 import { useLibraryStore } from '../../../../../../stores/useLibraryStore';
 import type { WebDavSettings } from '../../../../../../types/settings';
-import type { UpdateGeneralSetting, WebDavFavoriteSyncResult } from '../types';
+import type {
+  UpdateGeneralSetting,
+  WebDavFavoriteSyncResult,
+  WebDavSkinSyncResult,
+  WebDavSyncResult,
+} from '../types';
 
 interface UseWebDavSyncOptions {
   config: WebDavSettings;
@@ -17,6 +23,7 @@ const normalizeConfig = (config: WebDavSettings): WebDavSettings => ({
   username: config.username.trim(),
   password: config.password,
   syncFavorites: config.syncFavorites,
+  syncSkinAssets: config.syncSkinAssets ?? true,
 });
 
 export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWebDavSyncOptions) => {
@@ -24,7 +31,7 @@ export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWeb
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<WebDavSettings>(() => normalizeConfig(config));
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<WebDavFavoriteSyncResult | null>(null);
+  const [syncResult, setSyncResult] = useState<WebDavSyncResult | null>(null);
   const [error, setError] = useState('');
 
   const open = useCallback(() => {
@@ -51,24 +58,39 @@ export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWeb
     return normalized;
   }, [draft, updateGeneralSetting]);
 
-  const syncFavorites = useCallback(async () => {
+  const sync = useCallback(async () => {
     const normalized = save();
-    if (!normalized.syncFavorites) return;
+    if (!normalized.syncFavorites && !normalized.syncSkinAssets) {
+      setError(i18n.t('settings.data.webdav.noItemsEnabled'));
+      return;
+    }
 
     setIsSyncing(true);
     setError('');
     setSyncResult(null);
     try {
-      const result = await invoke<WebDavFavoriteSyncResult>('sync_webdav_favorites', {
-        config: {
-          baseUrl: normalized.address,
-          username: normalized.username,
-          password: normalized.password,
-          deviceId,
-        },
-      });
-      setSyncResult(result);
-      await initializeLibrary();
+      const config = {
+        baseUrl: normalized.address,
+        username: normalized.username,
+        password: normalized.password,
+        deviceId,
+      };
+      const nextResult: WebDavSyncResult = {};
+
+      if (normalized.syncFavorites) {
+        nextResult.favorites = await invoke<WebDavFavoriteSyncResult>('sync_webdav_favorites', {
+          config,
+        });
+        await initializeLibrary();
+      }
+
+      if (normalized.syncSkinAssets) {
+        nextResult.skins = await invoke<WebDavSkinSyncResult>('sync_webdav_skin_assets', {
+          config,
+        });
+      }
+
+      setSyncResult(nextResult);
     } catch (caught) {
       setError(String(caught));
     } finally {
@@ -86,6 +108,6 @@ export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWeb
     close,
     updateDraft,
     save,
-    syncFavorites,
+    sync,
   };
 };

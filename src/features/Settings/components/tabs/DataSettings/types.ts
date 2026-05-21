@@ -1,5 +1,9 @@
 import type { AppSettings } from '../../../../../types/settings';
-import type { WebDavFavoriteSyncResult } from '../../../../../types/webdav';
+import type {
+  WebDavFavoriteSyncResult,
+  WebDavSkinSyncResult,
+  WebDavSyncResult,
+} from '../../../../../types/webdav';
 
 export interface LogShareHistoryRecord {
   uuid: string;
@@ -11,7 +15,7 @@ export interface LogShareHistoryRecord {
   expiresAt: number;
 }
 
-export type { WebDavFavoriteSyncResult };
+export type { WebDavFavoriteSyncResult, WebDavSkinSyncResult, WebDavSyncResult };
 
 export type CleanLogsPhase = 'idle' | 'confirm' | 'cleaning' | 'done' | 'error';
 

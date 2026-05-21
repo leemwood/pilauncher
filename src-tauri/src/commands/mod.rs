@@ -207,6 +207,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         library_cmd::preview_library_import,
         library_cmd::import_library_data,
         library_cmd::sync_webdav_favorites,
+        library_cmd::sync_webdav_skin_assets,
         wiki_cmd::get_wiki_url,
         logshare_cmd::share_minecraft_log,
         logshare_cmd::analyse_minecraft_log,

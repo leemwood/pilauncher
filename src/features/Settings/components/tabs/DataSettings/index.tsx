@@ -181,7 +181,7 @@ export const DataSettings: React.FC = () => {
         onClose={webDavSync.close}
         onChange={webDavSync.updateDraft}
         onSave={webDavSync.save}
-        onSyncFavorites={webDavSync.syncFavorites}
+        onSync={webDavSync.sync}
       />
 
       <SettingsSection title={t('settings.data.sections.privacy')} icon={<BarChart3 size={18} />}>

@@ -29,7 +29,7 @@ pub struct SkinMetadataEntry {
     pub is_deleted: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SkinMetadata {
     #[serde(default)]
     pub user_id: String,
@@ -37,6 +37,8 @@ pub struct SkinMetadata {
     pub current_skin_id: String,
     #[serde(default)]
     pub current_profile_skin_url: Option<String>,
+    #[serde(default)]
+    pub updated_at: i64,
     #[serde(default)]
     pub skins: Vec<SkinMetadataEntry>,
 }
@@ -105,8 +107,7 @@ fn valid_skin_asset_path(assets_dir: &Path, asset_id: &str) -> Option<PathBuf> {
 fn remove_skin_asset_file(assets_dir: &Path, asset_id: &str) -> Result<(), String> {
     let asset_path = paths::skin_asset_file_path(assets_dir, asset_id);
     if asset_path.exists() {
-        fs::remove_file(&asset_path)
-            .map_err(|e| format!("鐗╃悊鍒犻櫎鐨偆鏂囦欢澶辫触: {}", e))?;
+        fs::remove_file(&asset_path).map_err(|e| format!("鐗╃悊鍒犻櫎鐨偆鏂囦欢澶辫触: {}", e))?;
     }
     Ok(())
 }
@@ -120,8 +121,7 @@ fn copy_skin_asset_to_runtime<R: Runtime>(
 
     let runtime_skin_path = paths::active_account_skin_path(app, account_uuid)?;
     if let Some(parent) = runtime_skin_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("鍒涘缓璐﹀彿鐨偆鐩綍澶辫触: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("鍒涘缓璐﹀彿鐨偆鐩綍澶辫触: {}", e))?;
     }
 
     fs::copy(asset_path, &runtime_skin_path)
@@ -143,7 +143,10 @@ fn write_stored_skin_library(path: &Path, library: &SkinMetadata) -> Result<(), 
         fs::create_dir_all(parent).map_err(|e| format!("创建皮肤资产目录失败: {}", e))?;
     }
 
-    let serialized = serde_json::to_string_pretty(library)
+    let mut persisted = library.clone();
+    persisted.updated_at = chrono::Utc::now().timestamp_millis();
+
+    let serialized = serde_json::to_string_pretty(&persisted)
         .map_err(|e| format!("序列化皮肤资产清单失败: {}", e))?;
     fs::write(path, serialized).map_err(|e| format!("写入皮肤资产清单失败: {}", e))
 }
@@ -458,14 +461,9 @@ pub async fn cache_profile_assets<R: Runtime>(
         active_profile_local_asset_path(app, account_uuid, active_skin_url)
     {
         let _ = copy_skin_asset_to_runtime(app, account_uuid, &local_asset_path);
-        let _ = minecraft::cache_account_assets(
-            app,
-            account_uuid,
-            &profile.id,
-            None,
-            active_cape_url,
-        )
-        .await;
+        let _ =
+            minecraft::cache_account_assets(app, account_uuid, &profile.id, None, active_cape_url)
+                .await;
         return;
     }
 

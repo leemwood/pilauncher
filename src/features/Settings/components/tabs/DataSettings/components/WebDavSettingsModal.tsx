@@ -1,25 +1,25 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../../../../../ui/i18';
-import { CloudCog, RefreshCw, Save } from 'lucide-react';
+import { CloudCog, RefreshCw, Save, Shirt, Star } from 'lucide-react';
 
 import { OreButton } from '../../../../../../ui/primitives/OreButton';
 import { OreInput } from '../../../../../../ui/primitives/OreInput';
 import { OreModal } from '../../../../../../ui/primitives/OreModal';
 import { OreSwitch } from '../../../../../../ui/primitives/OreSwitch';
 import type { WebDavSettings } from '../../../../../../types/settings';
-import type { WebDavFavoriteSyncResult } from '../types';
+import type { WebDavSyncResult } from '../types';
 
 interface WebDavSettingsModalProps {
   isOpen: boolean;
   draft: WebDavSettings;
   isSyncing: boolean;
-  syncResult: WebDavFavoriteSyncResult | null;
+  syncResult: WebDavSyncResult | null;
   error: string;
   onClose: () => void;
   onChange: (patch: Partial<WebDavSettings>) => void;
   onSave: () => void;
-  onSyncFavorites: () => Promise<void>;
+  onSync: () => Promise<void>;
 }
 
 const getEndpointHint = (address: string) => {
@@ -42,11 +42,11 @@ export const WebDavSettingsModal: React.FC<WebDavSettingsModalProps> = ({
   onClose,
   onChange,
   onSave,
-  onSyncFavorites,
+  onSync,
 }) => {
   const { t } = useTranslation();
   const endpointHint = useMemo(() => getEndpointHint(draft.address), [draft.address]);
-  const canSync = draft.address.trim() !== '' && draft.syncFavorites && !isSyncing;
+  const canSync = draft.address.trim() !== '' && (draft.syncFavorites || draft.syncSkinAssets) && !isSyncing;
 
   return (
     <OreModal
@@ -76,7 +76,7 @@ export const WebDavSettingsModal: React.FC<WebDavSettingsModalProps> = ({
           </OreButton>
           <OreButton
             variant="primary"
-            onClick={() => { void onSyncFavorites(); }}
+            onClick={() => { void onSync(); }}
             focusKey="webdav-sync"
             disabled={!canSync}
           >
@@ -136,7 +136,10 @@ export const WebDavSettingsModal: React.FC<WebDavSettingsModalProps> = ({
 
           <div className="flex min-h-[8.75rem] flex-col justify-between border-2 border-[#1E1E1F] bg-[#242526] px-4 py-3">
             <div>
-              <div className="font-minecraft text-sm text-white">{t('settings.data.webdav.libraryFavorites')}</div>
+              <div className="flex items-center gap-2 font-minecraft text-sm text-white">
+                <Star size={15} className="text-[#F5C84B]" />
+                {t('settings.data.webdav.libraryFavorites')}
+              </div>
               <div className="mt-1 text-xs leading-5 text-[#B1B2B5]">
                 {t('settings.data.webdav.remoteDirPrefix')} <span className="font-mono">PiLauncherSync/favorites/operations</span>.
                 {t('settings.data.webdav.operationDesc')}
@@ -148,6 +151,27 @@ export const WebDavSettingsModal: React.FC<WebDavSettingsModalProps> = ({
                 checked={draft.syncFavorites}
                 onChange={(value) => onChange({ syncFavorites: value })}
                 focusKey="webdav-sync-favorites"
+              />
+            </div>
+          </div>
+
+          <div className="flex min-h-[8.75rem] flex-col justify-between border-2 border-[#1E1E1F] bg-[#242526] px-4 py-3">
+            <div>
+              <div className="flex items-center gap-2 font-minecraft text-sm text-white">
+                <Shirt size={15} className="text-[#6CC349]" />
+                {t('settings.data.webdav.skinAssets')}
+              </div>
+              <div className="mt-1 text-xs leading-5 text-[#B1B2B5]">
+                {t('settings.data.webdav.remoteDirPrefix')} <span className="font-mono">PiLauncherSync/wardrobe/skins</span>.
+                {t('settings.data.webdav.skinBackupDesc')}
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+              <span className="text-xs text-[#D0D1D4]">{t('settings.data.webdav.enableSync')}</span>
+              <OreSwitch
+                checked={draft.syncSkinAssets}
+                onChange={(value) => onChange({ syncSkinAssets: value })}
+                focusKey="webdav-sync-skins"
               />
             </div>
           </div>
@@ -164,10 +188,35 @@ export const WebDavSettingsModal: React.FC<WebDavSettingsModalProps> = ({
 
           {syncResult && (
             <div className="border-2 border-[#1D4D13] bg-[#1C2A1B] px-3 py-2 text-sm leading-6 text-[#A7F08A]">
-              已完成：上传 {syncResult.uploadedOperations} 条操作、下载 {syncResult.downloadedOperations} 条操作。
-              当前基于 {syncResult.totalOperations} 条操作重建出 {syncResult.mergedFavorites} 条收藏，
-              快照{syncResult.snapshotUpdated ? '已更新' : '未更新'}
-              {syncResult.compactedOperations > 0 ? `，本轮压缩 ${syncResult.compactedOperations} 条旧操作。` : '。'}
+              {syncResult.favorites && (
+                <div>
+                  {t('settings.data.webdav.favoriteResult', {
+                    uploaded: syncResult.favorites.uploadedOperations,
+                    downloaded: syncResult.favorites.downloadedOperations,
+                    total: syncResult.favorites.totalOperations,
+                    favorites: syncResult.favorites.mergedFavorites,
+                    snapshot: syncResult.favorites.snapshotUpdated
+                      ? t('settings.data.webdav.snapshotUpdated')
+                      : t('settings.data.webdav.snapshotUnchanged'),
+                    compacted: syncResult.favorites.compactedOperations,
+                  })}
+                </div>
+              )}
+              {syncResult.skins && (
+                <div>
+                  {t('settings.data.webdav.skinResult', {
+                    uploaded: syncResult.skins.uploadedFiles,
+                    downloaded: syncResult.skins.downloadedFiles,
+                    local: syncResult.skins.localFiles,
+                    remote: syncResult.skins.remoteFiles,
+                    action: syncResult.skins.restored
+                      ? t('settings.data.webdav.skinRestored')
+                      : syncResult.skins.archiveUpdated
+                        ? t('settings.data.webdav.skinUploaded')
+                        : t('settings.data.webdav.skinUnchanged'),
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
