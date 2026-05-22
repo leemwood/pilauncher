@@ -10,6 +10,8 @@ export interface WebDavSettings {
   password: string;
   syncFavorites: boolean;
   syncSkinAssets: boolean;
+  syncSaveBackups: boolean;
+  saveBackupMode: 'sync' | 'backup';
   autoSyncInterval?: '3h' | '12h' | '1d' | '3d' | '5d' | '7d' | 'off';
   lastSyncTime?: number;
 }
@@ -141,6 +143,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       password: '',
       syncFavorites: true,
       syncSkinAssets: true,
+      syncSaveBackups: false,
+      saveBackupMode: 'backup',
       autoSyncInterval: '1d',
     },
     lastAgreedLegalDate: '',

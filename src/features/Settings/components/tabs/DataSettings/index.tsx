@@ -21,6 +21,7 @@ import { RenameDirModal } from './components/RenameDirModal';
 import { ThirdPartyDirsSection } from './components/ThirdPartyDirsSection';
 import { WebDavSection } from './components/WebDavSection';
 import { WebDavSettingsModal } from './components/WebDavSettingsModal';
+import { WebDavManageModal } from './components/WebDavManageModal';
 import { useCoreDirectory } from './hooks/useCoreDirectory';
 import { useLogCleaner } from './hooks/useLogCleaner';
 import { useRemoteLogs } from './hooks/useRemoteLogs';
@@ -43,6 +44,7 @@ export const DataSettings: React.FC = () => {
     updateGeneralSetting,
   });
   const [removeDirTarget, setRemoveDirTarget] = useState<string | null>(null);
+  const [isManageOpen, setIsManageOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -80,7 +82,9 @@ export const DataSettings: React.FC = () => {
       'settings-data-rename-dir',
       'settings-data-clean-logs',
       'settings-data-remote-logs',
-      'settings-data-webdav'
+      'settings-data-webdav',
+      'settings-data-webdav-manage',
+      'settings-data-webdav-auto-sync'
     ];
     const thirdPartyFocus = thirdPartyDirs.map((_, idx) => `settings-data-remove-dir-${idx}`);
     return [...baseFocus, ...thirdPartyFocus];
@@ -92,7 +96,8 @@ export const DataSettings: React.FC = () => {
     !removeDirTarget &&
     logCleaner.phase === 'idle' &&
     !remoteLogs.isOpen &&
-    !webDavSync.isOpen;
+    !webDavSync.isOpen &&
+    !isManageOpen;
 
   const { handleLinearArrow } = useLinearNavigation(
     focusOrder,
@@ -184,6 +189,14 @@ export const DataSettings: React.FC = () => {
         onSync={webDavSync.sync}
       />
 
+      <WebDavManageModal
+        isOpen={isManageOpen}
+        onClose={() => {
+          setIsManageOpen(false);
+          setTimeout(() => setFocus('settings-data-webdav-manage'), 50);
+        }}
+      />
+
       <SettingsSection title={t('settings.data.sections.privacy')} icon={<BarChart3 size={18} />}>
         <FormRow
           label={t('settings.data.telemetryUpload.label')}
@@ -217,6 +230,14 @@ export const DataSettings: React.FC = () => {
       <WebDavSection
         configured={webDavConfig.address.trim() !== ''}
         onOpen={webDavSync.open}
+        onOpenManage={() => setIsManageOpen(true)}
+        autoSyncInterval={webDavConfig.autoSyncInterval || '1d'}
+        onChangeAutoSyncInterval={(value) => {
+          updateGeneralSetting('webDav', {
+            ...webDavConfig,
+            autoSyncInterval: value,
+          });
+        }}
         onArrowPress={handleLinearArrow}
       />
     </SettingsPageLayout>

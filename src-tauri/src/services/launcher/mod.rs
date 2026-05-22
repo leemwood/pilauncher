@@ -522,6 +522,8 @@ Module Path Entries: {}\n\
         if let Err(e) = PlaytimeService::finish_session(app, &pool, instance_id).await {
             eprintln!("[Playtime] Failed to finish session: {}", e);
         }
+        crate::commands::launcher_cmd::CURRENT_GAME_PID
+            .store(0, std::sync::atomic::Ordering::SeqCst);
 
         let exit_msg = format!("游戏进程已退出，状态: {}", status);
         println!("{}", exit_msg);
@@ -529,7 +531,34 @@ Module Path Entries: {}\n\
         append_log_line(&log_path, &exit_msg);
 
         let code = status.code().unwrap_or(1);
-        let _ = app.emit("game-exit", serde_json::json!({ "code": code }));
+        let _ = app.emit(
+            "game-exit",
+            serde_json::json!({ "code": code, "instanceId": instance_id }),
+        );
+
+        let backup_app = app.clone();
+        let backup_instance_id = instance_id.to_string();
+        tauri::async_runtime::spawn_blocking(move || {
+            match crate::services::instance::save_manager::SaveManagerService::backup_recent_save_on_game_exit(
+                &backup_app,
+                &backup_instance_id,
+            ) {
+                Ok(backups) if !backups.is_empty() => {
+                    let message = format!(
+                        "[SaveBackup] auto_exit completed for {} save(s)",
+                        backups.len()
+                    );
+                    println!("{}", message);
+                    let _ = backup_app.emit("game-log", message);
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    let message = format!("[SaveBackup] auto_exit skipped or failed: {}", error);
+                    eprintln!("{}", message);
+                    let _ = backup_app.emit("game-log", message);
+                }
+            }
+        });
 
         Ok(())
     }

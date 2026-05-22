@@ -149,6 +149,27 @@ export const useSaveManager = (instanceId: string) => {
     }
   };
 
+  const setSaveWebDavBackupEnabled = async (folderName: string, enabled: boolean) => {
+    setSaves((prev) =>
+      prev.map((item) =>
+        item.folderName === folderName
+          ? { ...item, webdavBackupEnabled: enabled }
+          : item
+      )
+    );
+    try {
+      const updated = await saveService.setSaveWebDavBackupEnabled(instanceId, folderName, enabled);
+      setSaves((prev) =>
+        prev.map((item) => (item.folderName === folderName ? updated : item))
+      );
+      return updated;
+    } catch (error) {
+      console.error('Failed to update save WebDAV backup flag:', error);
+      await loadSavesAndBackups();
+      throw error;
+    }
+  };
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -172,6 +193,7 @@ export const useSaveManager = (instanceId: string) => {
     restoreBackup,
     deleteSave,
     deleteBackup,
+    setSaveWebDavBackupEnabled,
     clearBackupProgress,
     formatSize,
     formatDate,

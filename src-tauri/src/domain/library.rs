@@ -164,6 +164,12 @@ pub struct WebDavSyncConfig {
     pub username: String,
     pub password: String,
     pub device_id: String,
+    #[serde(default = "default_save_backup_mode")]
+    pub save_backup_mode: String,
+}
+
+fn default_save_backup_mode() -> String {
+    "backup".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -190,4 +196,21 @@ pub struct WebDavSkinSyncResult {
     pub remote_files: usize,
     pub archive_updated: bool,
     pub restored: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WebDavSaveBackupSyncResult {
+    pub remote_root: String,
+    pub remote_created: bool,
+    pub mode: String,
+    pub uploaded_files: usize,
+    pub downloaded_files: usize,
+    pub local_files: usize,
+    pub remote_files: usize,
+    pub local_backups: usize,
+    pub remote_backups: usize,
+    pub archive_updated: bool,
+    pub restored: bool,
+    pub verified: bool,
 }

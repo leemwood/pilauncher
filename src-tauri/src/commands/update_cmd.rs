@@ -152,8 +152,9 @@ pub async fn install_update<R: Runtime>(
     expected_version: Option<String>,
 ) -> Result<(), String> {
     if current_package_format() == "flatpak" {
-        let message = "Flatpak 版本不支持应用内下载更新，请通过 Discover 或 Flathub 更新 PiLauncher。"
-            .to_string();
+        let message =
+            "Flatpak 版本不支持应用内下载更新，请通过 Discover 或 Flathub 更新 PiLauncher。"
+                .to_string();
         emit_update_progress(
             &app,
             expected_version.as_deref().unwrap_or(""),
@@ -394,8 +395,7 @@ fn current_package_format() -> String {
 fn is_flatpak_runtime() -> bool {
     #[cfg(target_os = "linux")]
     {
-        std::env::var_os("FLATPAK_ID").is_some()
-            || std::path::Path::new("/.flatpak-info").exists()
+        std::env::var_os("FLATPAK_ID").is_some() || std::path::Path::new("/.flatpak-info").exists()
     }
 
     #[cfg(not(target_os = "linux"))]

@@ -39,6 +39,14 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
     }
   }, [instanceId]);
 
+  const backupListSave = state.backupListWorldUuid
+    ? saves.find(
+        (save) =>
+          save.worldUuid === state.backupListWorldUuid ||
+          save.folderName === state.backupListWorldUuid
+      ) ?? null
+    : null;
+
   return (
     <SettingsPageLayout>
       <div className="relative flex h-full w-full flex-col">
@@ -89,8 +97,12 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
             className="flex flex-col space-y-2 overflow-y-auto px-2 pb-4 custom-scrollbar"
           >
             {saves.map((save, index) => {
-              const summary = state.backupSummaryByWorld.get(save.worldUuid) ?? state.backupSummaryByWorld.get(save.folderName) ?? { count: 0, latest: null };
-              const isCurrentBackupTarget = isBackingUp && state.activeBackupSave?.folderName === save.folderName;
+              const summary =
+                state.backupSummaryByWorld.get(save.worldUuid) ??
+                state.backupSummaryByWorld.get(save.folderName) ??
+                { count: 0, latest: null };
+              const isCurrentBackupTarget =
+                isBackingUp && state.activeBackupSave?.folderName === save.folderName;
 
               return (
                 <SaveListRow
@@ -109,13 +121,20 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
                   onActionArrow={actions.handleActionArrow}
                   onBackup={(idx, saveObj) => {
                     actions.setReturnFocusKey(getActionFocusKey(idx, 'backup'));
-                    actions.setPendingBackupSave({ folderName: saveObj.folderName, worldName: saveObj.worldName });
+                    actions.setPendingBackupSave({
+                      folderName: saveObj.folderName,
+                      worldName: saveObj.worldName,
+                    });
                   }}
                   onHistory={(idx, saveObj) => {
-                    actions.openBackupList(`${saveObj.worldName} 的备份记录`, saveObj.worldUuid || saveObj.folderName, getActionFocusKey(idx, 'history'));
+                    actions.openBackupList(
+                      `${saveObj.worldName} 的备份记录`,
+                      saveObj.worldUuid || saveObj.folderName,
+                      getActionFocusKey(idx, 'history')
+                    );
                   }}
-                  onDelete={(idx, saveObj, e) => {
-                    e.stopPropagation();
+                  onDelete={(idx, saveObj, event) => {
+                    event.stopPropagation();
                     actions.setReturnFocusKey(getActionFocusKey(idx, 'delete'));
                     actions.setSaveToDelete(saveObj.folderName);
                   }}
@@ -133,7 +152,20 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
           formatSize={formatSize}
           formatDate={formatDate}
           deletingBackupId={isDeletingBackup ? state.backupToDelete?.backupId ?? null : null}
-          isBusy={isRestoring || isDeletingBackup}
+          isBusy={isRestoring || isDeletingBackup || state.isUploadingWebDav}
+          webDavBackupEnabled={backupListSave?.webdavBackupEnabled}
+          onToggleWebDavBackup={
+            backupListSave
+              ? () => {
+                  void actions.handleToggleSaveWebDavBackup(
+                    backupListSave.folderName,
+                    !backupListSave.webdavBackupEnabled
+                  );
+                }
+              : undefined
+          }
+          isUploadingWebDav={state.isUploadingWebDav}
+          onUploadWebDav={actions.handleUploadWebDav}
           onSelectBackup={actions.handleSelectBackup}
           onDeleteBackup={actions.openBackupDeleteModal}
         />
@@ -155,8 +187,14 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
           onClose={actions.closeRestoreModal}
           onConfirmRestore={async ({ backupId, restoreConfigs }) => {
             const result = await restoreBackup(backupId, restoreConfigs);
-            const guardText = result.guardBackupId ? `\n已自动创建恢复前保护备份：${result.guardBackupId}` : '';
-            alert(`已恢复世界 “${result.restoredFolderName}”。${result.restoredConfigs ? '\n已同时恢复配置文件。' : ''}${guardText}`);
+            const guardText = result.guardBackupId
+              ? `\n已自动创建恢复前保护备份：${result.guardBackupId}`
+              : '';
+            alert(
+              `已恢复世界“${result.restoredFolderName}”。${
+                result.restoredConfigs ? '\n已同时恢复配置文件。' : ''
+              }${guardText}`
+            );
             actions.setVerifyingBackup(null);
             actions.restoreSavePanelFocus();
           }}
@@ -164,7 +202,12 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
 
         <BackupConfirmModal
           pendingBackupSave={state.pendingBackupSave}
-          hasFullBackup={backups.some(b => (b.world.folderName === state.pendingBackupSave?.folderName || b.world.uuid === state.pendingBackupSave?.folderName) && (b.backupMode === 'full' || !b.backupMode))}
+          hasFullBackup={backups.some(
+            (backup) =>
+              (backup.world.folderName === state.pendingBackupSave?.folderName ||
+                backup.world.uuid === state.pendingBackupSave?.folderName) &&
+              (backup.backupMode === 'full' || !backup.backupMode)
+          )}
           onClose={actions.closeBackupConfirmModal}
           onConfirm={(mode) => { void actions.handleConfirmBackup(mode); }}
         />
@@ -177,9 +220,12 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
 
         <SaveDeleteConfirmModal
           saveToDelete={state.saveToDelete}
-          onClose={() => { actions.setSaveToDelete(null); actions.restoreSavePanelFocus(); }}
+          onClose={() => {
+            actions.setSaveToDelete(null);
+            actions.restoreSavePanelFocus();
+          }}
           onDelete={(save, permanent) => {
-            deleteSave(save, permanent);
+            void deleteSave(save, permanent);
             actions.setSaveToDelete(null);
             actions.restoreSavePanelFocus();
           }}

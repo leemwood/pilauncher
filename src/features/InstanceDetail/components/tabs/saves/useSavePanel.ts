@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { focusManager } from '../../../../../ui/focus/FocusManager';
 import { useInputMode } from '../../../../../ui/focus/FocusProvider';
 import { useLinearNavigation } from '../../../../../ui/focus/useLinearNavigation';
 import { useSaveManager } from '../../../hooks/useSaveManager';
 import { type SaveBackupMetadata } from '../../../logic/saveService';
-import { getBackupActionFocusKey } from './BackupListModal';
+import { useSettingsStore } from '../../../../../store/useSettingsStore';
+export type BackupRowAction = 'restore' | 'delete';
+
+export const getBackupActionFocusKey = (backupId: string, action: BackupRowAction) =>
+  `backup-list-${action}-${backupId}`;
 
 export const TOP_FOCUS_ORDER = ['save-btn-history', 'save-btn-folder'];
 export const ROW_ACTIONS = ['backup', 'history', 'delete'] as const;
@@ -23,6 +28,7 @@ export const useSavePanel = (instanceId: string) => {
     backupProgress,
     backupSave,
     deleteBackup,
+    setSaveWebDavBackupEnabled,
     clearBackupProgress,
   } = manager;
 
@@ -36,6 +42,7 @@ export const useSavePanel = (instanceId: string) => {
   const [pendingBackupSave, setPendingBackupSave] = useState<{ folderName: string; worldName: string } | null>(null);
   const [activeBackupSave, setActiveBackupSave] = useState<{ folderName: string; worldName: string } | null>(null);
   const [operationRowIndex, setOperationRowIndex] = useState<number | null>(null);
+  const [isUploadingWebDav, setIsUploadingWebDav] = useState(false);
   const [returnFocusKey, setReturnFocusKey] = useState<string>('save-btn-history');
   const backupProgressTimerRef = useRef<number | null>(null);
   const inputMode = useInputMode();
@@ -215,6 +222,54 @@ export const useSavePanel = (instanceId: string) => {
     }
   }, [backupDeleteReturnFocusKey, backupToDelete, deleteBackup, isBackupListOpen, restoreBackupListFocus, restoreSavePanelFocus]);
 
+  const handleToggleSaveWebDavBackup = useCallback(async (folderName: string, enabled: boolean) => {
+    try {
+      await setSaveWebDavBackupEnabled(folderName, enabled);
+    } catch (error) {
+      alert(`WebDAV 标记更新失败: ${error}`);
+    }
+  }, [setSaveWebDavBackupEnabled]);
+
+  const handleUploadWebDav = useCallback(async () => {
+    const { settings, updateGeneralSetting } = useSettingsStore.getState();
+    const webDav = settings.general.webDav;
+    const address = webDav?.address?.trim();
+    const username = webDav?.username?.trim();
+    const password = webDav?.password;
+    const deviceId = settings.general.deviceId;
+    const saveBackupMode = webDav?.saveBackupMode || 'backup';
+
+    if (!address) {
+      alert('请先在“设置 - 数据设置 - WebDAV设置”中配置 WebDAV 地址。');
+      return;
+    }
+
+    setIsUploadingWebDav(true);
+    try {
+      const config = {
+        baseUrl: address,
+        username,
+        password,
+        deviceId,
+        saveBackupMode,
+      };
+      await invoke('sync_webdav_save_backups', { config });
+      
+      updateGeneralSetting('webDav', {
+        ...webDav,
+        lastSyncTime: Date.now(),
+      });
+      
+      await manager.loadSavesAndBackups();
+      alert('备份上传成功！');
+    } catch (error) {
+      console.error('Manual upload backup failed:', error);
+      alert(`上传备份失败: ${error}`);
+    } finally {
+      setIsUploadingWebDav(false);
+    }
+  }, [manager]);
+
   const enterRowOperation = useCallback((index: number) => {
     setOperationRowIndex(index);
     const firstAction = getActionFocusKey(index, 'backup');
@@ -293,7 +348,10 @@ export const useSavePanel = (instanceId: string) => {
           return false;
         }
 
-        const nextRowIndex = direction === 'down' ? Math.min(saves.length - 1, index + 1) : Math.max(0, index - 1);
+        const nextRowIndex =
+          direction === 'down'
+            ? Math.min(saves.length - 1, index + 1)
+            : Math.max(0, index - 1);
         if (nextRowIndex !== index) {
           setOperationRowIndex(nextRowIndex);
           const target = getActionFocusKey(nextRowIndex, action);
@@ -316,6 +374,7 @@ export const useSavePanel = (instanceId: string) => {
     state: {
       isBackupListOpen,
       backupListTitle,
+      backupListWorldUuid,
       visibleBackups,
       verifyingBackup,
       backupToDelete,
@@ -325,6 +384,7 @@ export const useSavePanel = (instanceId: string) => {
       operationRowIndex,
       backupSummaryByWorld,
       isBackupProgressOpen: !!activeBackupSave && (!!backupProgress || isBackingUp),
+      isUploadingWebDav,
     },
     actions: {
       setReturnFocusKey,
@@ -340,6 +400,8 @@ export const useSavePanel = (instanceId: string) => {
       closeBackupConfirmModal,
       handleConfirmBackup,
       handleConfirmDeleteBackup,
+      handleToggleSaveWebDavBackup,
+      handleUploadWebDav,
       enterRowOperation,
       handleTopArrow,
       handleActionArrow,

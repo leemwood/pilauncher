@@ -1,6 +1,6 @@
 import React from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { Archive, Globe, History, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
+import { Archive, CloudOff, Globe, History, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
 
 import { FocusItem } from '../../../../../ui/focus/FocusItem';
 import { OreAssetRow } from '../../../../../ui/primitives/OreAssetRow';
@@ -44,6 +44,7 @@ export const SaveListRow: React.FC<SaveListRowProps> = ({
   onDelete,
 }) => {
   const latestBackup = summary.latest;
+  const showWebDavMissingBadge = summary.count > 0 && !save.webdavBackupEnabled;
 
   return (
     <FocusItem
@@ -79,16 +80,24 @@ export const SaveListRow: React.FC<SaveListRowProps> = ({
                 <Globe size={28} className="text-[var(--ore-downloadDetail-labelText)] drop-shadow-md" />
               )
             }
-            badges={
-              latestBackup?.state.safeBackup ? (
-                <span className="inline-flex items-center gap-1 rounded-sm border border-ore-green/40 bg-ore-green/10 px-2 py-0.5 text-[11px] text-ore-green">
-                  <ShieldCheck size={12} />
-                  安全快照
-                </span>
-              ) : null
-            }
+            badges={(
+              <div className="flex flex-wrap items-center gap-1.5">
+                {showWebDavMissingBadge && (
+                  <span className="inline-flex items-center gap-1 rounded-sm border border-red-400/50 bg-red-950/50 px-2 py-0.5 text-[11px] text-red-200">
+                    <CloudOff size={12} />
+                    未备份到webdav
+                  </span>
+                )}
+                {latestBackup?.state.safeBackup && (
+                  <span className="inline-flex items-center gap-1 rounded-sm border border-ore-green/40 bg-ore-green/10 px-2 py-0.5 text-[11px] text-ore-green">
+                    <ShieldCheck size={12} />
+                    安全快照
+                  </span>
+                )}
+              </div>
+            )}
             trailingClassName="flex items-center space-x-3"
-            trailing={
+            trailing={(
               <>
                 <OreButton
                   focusKey={getActionFocusKey(index, 'backup')}
@@ -131,7 +140,7 @@ export const SaveListRow: React.FC<SaveListRowProps> = ({
                   删除
                 </OreButton>
               </>
-            }
+            )}
           />
         </div>
       )}

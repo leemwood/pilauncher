@@ -7,6 +7,13 @@ pub(crate) const WARDROBE_DIR: &str = "PiLauncherSync/wardrobe";
 pub(crate) const SKINS_DIR: &str = "PiLauncherSync/wardrobe/skins";
 pub(crate) const SKINS_ARCHIVE_PATH: &str = "PiLauncherSync/wardrobe/skins/skins.zip";
 pub(crate) const SKINS_MANIFEST_PATH: &str = "PiLauncherSync/wardrobe/skins/manifest.json";
+pub(crate) const SAVE_BACKUPS_DIR: &str = "PiLauncherSync/save-backups";
+pub(crate) const SAVE_BACKUPS_BACKUPS_DIR: &str = "PiLauncherSync/save-backups/backups";
+pub(crate) const SAVE_BACKUPS_DATA_DIR: &str = "PiLauncherSync/save-backups/backups/saves";
+pub(crate) const SAVE_BACKUPS_ARCHIVE_PATH: &str = "PiLauncherSync/save-backups/save-backups.zip";
+pub(crate) const SAVE_BACKUPS_ARCHIVE_TEMP_PATH: &str =
+    "PiLauncherSync/save-backups/save-backups.zip.tmp";
+pub(crate) const SAVE_BACKUPS_MANIFEST_PATH: &str = "PiLauncherSync/save-backups/manifest.json";
 pub(crate) const LEGACY_FAVORITES_FILE: &str = "pilauncher-favorites.sync.json";
 pub(crate) const SYNC_META_VERSION: i32 = 1;
 pub(crate) const SNAPSHOT_OPERATION_THRESHOLD: usize = 100;

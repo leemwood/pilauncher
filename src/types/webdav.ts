@@ -20,7 +20,23 @@ export interface WebDavSkinSyncResult {
   restored: boolean;
 }
 
+export interface WebDavSaveBackupSyncResult {
+  remoteRoot: string;
+  remoteCreated: boolean;
+  mode: 'sync' | 'backup';
+  uploadedFiles: number;
+  downloadedFiles: number;
+  localFiles: number;
+  remoteFiles: number;
+  localBackups: number;
+  remoteBackups: number;
+  archiveUpdated: boolean;
+  restored: boolean;
+  verified: boolean;
+}
+
 export interface WebDavSyncResult {
   favorites?: WebDavFavoriteSyncResult;
   skins?: WebDavSkinSyncResult;
+  saveBackups?: WebDavSaveBackupSyncResult;
 }

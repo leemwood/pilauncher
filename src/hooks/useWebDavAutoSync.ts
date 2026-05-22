@@ -22,13 +22,15 @@ export const useWebDavAutoSync = () => {
   const autoSyncInterval = webDav?.autoSyncInterval || '1d';
   const syncFavorites = webDav?.syncFavorites;
   const syncSkinAssets = webDav?.syncSkinAssets;
+  const syncSaveBackups = webDav?.syncSaveBackups;
+  const saveBackupMode = webDav?.saveBackupMode || 'backup';
   const username = webDav?.username?.trim();
   const password = webDav?.password;
   const deviceId = settings.general.deviceId;
 
   useEffect(() => {
     if (autoSyncInterval === 'off' || !address) return;
-    if (!syncFavorites && !syncSkinAssets) return;
+    if (!syncFavorites && !syncSkinAssets && !syncSaveBackups) return;
 
     const intervalMs = INTERVALS_MS[autoSyncInterval as keyof typeof INTERVALS_MS] || INTERVALS_MS['1d'];
 
@@ -42,6 +44,7 @@ export const useWebDavAutoSync = () => {
           username,
           password,
           deviceId,
+          saveBackupMode,
         };
 
         if (syncFavorites) {
@@ -51,6 +54,10 @@ export const useWebDavAutoSync = () => {
 
         if (syncSkinAssets) {
           await invoke('sync_webdav_skin_assets', { config });
+        }
+
+        if (syncSaveBackups) {
+          await invoke('sync_webdav_save_backups', { config });
         }
 
         console.log('[WebDAV AutoSync] Auto sync completed successfully');
@@ -86,6 +93,8 @@ export const useWebDavAutoSync = () => {
     autoSyncInterval,
     syncFavorites,
     syncSkinAssets,
+    syncSaveBackups,
+    saveBackupMode,
     username,
     password,
     deviceId,

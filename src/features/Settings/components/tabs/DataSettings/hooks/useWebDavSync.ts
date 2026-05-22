@@ -8,6 +8,7 @@ import type { WebDavSettings } from '../../../../../../types/settings';
 import type {
   UpdateGeneralSetting,
   WebDavFavoriteSyncResult,
+  WebDavSaveBackupSyncResult,
   WebDavSkinSyncResult,
   WebDavSyncResult,
 } from '../types';
@@ -24,6 +25,8 @@ const normalizeConfig = (config: WebDavSettings): WebDavSettings => ({
   password: config.password,
   syncFavorites: config.syncFavorites,
   syncSkinAssets: config.syncSkinAssets ?? true,
+  syncSaveBackups: config.syncSaveBackups ?? false,
+  saveBackupMode: config.saveBackupMode || 'backup',
   autoSyncInterval: config.autoSyncInterval || '1d',
   lastSyncTime: config.lastSyncTime,
 });
@@ -62,7 +65,7 @@ export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWeb
 
   const sync = useCallback(async () => {
     const normalized = save();
-    if (!normalized.syncFavorites && !normalized.syncSkinAssets) {
+    if (!normalized.syncFavorites && !normalized.syncSkinAssets && !normalized.syncSaveBackups) {
       setError(i18n.t('settings.data.webdav.noItemsEnabled'));
       return;
     }
@@ -76,6 +79,7 @@ export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWeb
         username: normalized.username,
         password: normalized.password,
         deviceId,
+        saveBackupMode: normalized.saveBackupMode,
       };
       const nextResult: WebDavSyncResult = {};
 
@@ -88,6 +92,12 @@ export const useWebDavSync = ({ config, deviceId, updateGeneralSetting }: UseWeb
 
       if (normalized.syncSkinAssets) {
         nextResult.skins = await invoke<WebDavSkinSyncResult>('sync_webdav_skin_assets', {
+          config,
+        });
+      }
+
+      if (normalized.syncSaveBackups) {
+        nextResult.saveBackups = await invoke<WebDavSaveBackupSyncResult>('sync_webdav_save_backups', {
           config,
         });
       }

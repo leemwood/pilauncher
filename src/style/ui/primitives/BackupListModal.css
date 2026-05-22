@@ -23,7 +23,7 @@
 
 .ore-backup-list-modal__hero {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: clamp(0.75rem, 1.2vw, 1rem);
   align-items: center;
   padding: clamp(0.8rem, 1.08vw, 1rem) var(--ore-backup-list-padding);

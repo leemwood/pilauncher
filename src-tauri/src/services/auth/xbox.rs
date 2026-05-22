@@ -103,9 +103,7 @@ pub async fn auth_xsts_identity_for_relying_party(
         serde_json::from_str(&text).map_err(|e| format!("XSTS 数据解析异常: {}", e))?;
     let token = data["Token"].as_str().ok_or("XSTS 返回缺少 Token")?;
     let xui = &data["DisplayClaims"]["xui"][0];
-    let uhs = xui["uhs"]
-        .as_str()
-        .ok_or("XSTS 返回缺少 uhs")?;
+    let uhs = xui["uhs"].as_str().ok_or("XSTS 返回缺少 uhs")?;
 
     let xuid = xui["xid"]
         .as_str()

@@ -5,6 +5,7 @@ mod migration;
 mod models;
 mod paths;
 mod remote;
+mod save_backups;
 mod skins;
 mod snapshot;
 mod state;
@@ -12,7 +13,7 @@ mod util;
 
 use crate::domain::library::{
     FavoriteOperation, FavoriteOperationAction, StarredItem, WebDavFavoriteSyncResult,
-    WebDavSkinSyncResult, WebDavSyncConfig,
+    WebDavSaveBackupSyncResult, WebDavSkinSyncResult, WebDavSyncConfig,
 };
 use reqwest::Client;
 use sqlx::SqlitePool;
@@ -191,5 +192,12 @@ impl WebDavSyncService {
         config: &WebDavSyncConfig,
     ) -> Result<WebDavSkinSyncResult, String> {
         skins::sync_skin_assets(app, config).await
+    }
+
+    pub async fn sync_save_backups<R: Runtime>(
+        app: &AppHandle<R>,
+        config: &WebDavSyncConfig,
+    ) -> Result<WebDavSaveBackupSyncResult, String> {
+        save_backups::sync_save_backups(app, config).await
     }
 }

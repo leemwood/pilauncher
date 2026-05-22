@@ -28,6 +28,9 @@ export interface SaveBackupFiles {
   worldSize: number;
   configSize: number;
   totalSize: number;
+  worldHash?: string;
+  configHash?: string;
+  manifestHash?: string;
 }
 
 export interface SaveBackupState {
@@ -73,6 +76,8 @@ export interface SaveRestoreResult {
   restoredFolderName: string;
   restoredConfigs: boolean;
   guardBackupId?: string | null;
+  partial?: boolean;
+  warnings?: string[];
 }
 
 export interface SaveBackupProgress {
@@ -92,12 +97,16 @@ export interface SaveItem {
   lastPlayedTime: number;
   createdTime: number;
   iconPath?: string;
+  webdavBackupEnabled: boolean;
 }
 
 export type SaveDetail = SaveItem;
 
 export const saveService = {
   getSaves: (id: string) => invoke<SaveItem[]>('get_saves', { id }),
+
+  setSaveWebDavBackupEnabled: (id: string, folderName: string, enabled: boolean) =>
+    invoke<SaveItem>('set_save_webdav_backup_enabled', { id, folderName, enabled }),
 
   backupSave: (id: string, folderName: string, mode: 'full' | 'differential' = 'full') =>
     invoke<SaveBackupMetadata>('backup_save', { id, folderName, mode }),

@@ -10,6 +10,16 @@ pub async fn get_saves<R: Runtime>(app: AppHandle<R>, id: String) -> Result<Vec<
 }
 
 #[tauri::command]
+pub async fn set_save_webdav_backup_enabled<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+    folder_name: String,
+    enabled: bool,
+) -> Result<SaveItem, String> {
+    SaveManagerService::set_save_webdav_backup_enabled(&app, &id, &folder_name, enabled)
+}
+
+#[tauri::command]
 pub async fn backup_save<R: Runtime>(
     app: AppHandle<R>,
     id: String,

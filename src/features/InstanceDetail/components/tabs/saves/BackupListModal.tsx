@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import {
   Archive,
   Clock3,
+  Cloud,
+  CloudOff,
   FolderArchive,
   Loader2,
   RotateCcw,
@@ -18,10 +20,7 @@ import { OreModal } from '../../../../../ui/primitives/OreModal';
 
 import type { SaveBackupMetadata } from '../../../logic/saveService';
 
-type BackupRowAction = 'restore' | 'delete';
-
-export const getBackupActionFocusKey = (backupId: string, action: BackupRowAction) =>
-  `backup-list-${action}-${backupId}`;
+import { getBackupActionFocusKey } from './useSavePanel';
 
 interface BackupListModalProps {
   isOpen: boolean;
@@ -32,8 +31,12 @@ interface BackupListModalProps {
   formatDate: (timestamp: number) => string;
   deletingBackupId?: string | null;
   isBusy?: boolean;
+  webDavBackupEnabled?: boolean;
+  onToggleWebDavBackup?: () => void;
   onSelectBackup: (backup: SaveBackupMetadata) => void;
   onDeleteBackup: (backup: SaveBackupMetadata, focusKey: string) => void;
+  isUploadingWebDav?: boolean;
+  onUploadWebDav?: () => void;
 }
 
 const formatTrigger = (trigger: string) => {
@@ -60,18 +63,33 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
   formatDate,
   deletingBackupId,
   isBusy = false,
+  webDavBackupEnabled,
+  onToggleWebDavBackup,
   onSelectBackup,
   onDeleteBackup,
+  isUploadingWebDav = false,
+  onUploadWebDav,
 }) => {
   const focusOrder = useMemo(
-    () =>
-      backups.length > 0
-        ? backups.flatMap((backup) => [
+    () => {
+      const headerActions: string[] = [];
+      if (onToggleWebDavBackup) {
+        headerActions.push('backup-list-webdav-toggle');
+      }
+      if (onUploadWebDav) {
+        headerActions.push('backup-list-webdav-upload');
+      }
+      return backups.length > 0
+        ? [
+            ...headerActions,
+            ...backups.flatMap((backup) => [
             getBackupActionFocusKey(backup.backupId, 'restore'),
             getBackupActionFocusKey(backup.backupId, 'delete'),
-          ])
-        : ['backup-list-empty-close'],
-    [backups]
+          ]),
+          ]
+        : [...headerActions, 'backup-list-empty-close'];
+    },
+    [backups, onToggleWebDavBackup, onUploadWebDav]
   );
   const defaultFocusKey = focusOrder[0];
   const { handleLinearArrow } = useLinearNavigation(
@@ -102,8 +120,46 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
               : '这里会展示当前实例的压缩备份记录，包括世界快照、配置快照和环境信息。'}
           </p>
         </div>
-      </div>
+        <div className="flex items-center space-x-3 shrink-0 ml-auto justify-end">
+          {onToggleWebDavBackup && (
+            <OreButton
+              focusKey="backup-list-webdav-toggle"
+              variant={webDavBackupEnabled ? 'secondary' : 'danger'}
+              size="auto"
+              onArrowPress={handleLinearArrow}
+              onClick={onToggleWebDavBackup}
+              disabled={isBusy}
+              className="!h-10 !min-h-10 shrink-0"
+            >
+              {webDavBackupEnabled ? (
+                <Cloud size={16} className="mr-2" />
+              ) : (
+                <CloudOff size={16} className="mr-2" />
+              )}
+              {webDavBackupEnabled ? '已纳入 WebDAV' : '纳入 WebDAV'}
+            </OreButton>
+          )}
 
+          {onUploadWebDav && (
+            <OreButton
+              focusKey="backup-list-webdav-upload"
+              variant="secondary"
+              size="auto"
+              onArrowPress={handleLinearArrow}
+              onClick={onUploadWebDav}
+              disabled={isBusy || isUploadingWebDav}
+              className="!h-10 !min-h-10 shrink-0"
+            >
+              {isUploadingWebDav ? (
+                <Loader2 size={16} className="mr-2 animate-spin" />
+              ) : (
+                <Cloud size={16} className="mr-2" />
+              )}
+              手动上传备份
+            </OreButton>
+          )}
+        </div>
+      </div>
       <FocusBoundary
         id="backup-list-boundary"
         className="flex min-h-0 flex-1 flex-col"

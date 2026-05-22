@@ -15,9 +15,7 @@ pub struct JavaFriendStatus {
     pub avatar_url: Option<String>,
 }
 
-pub async fn fetch_minecraft_friends_all(
-    mc_token: &str,
-) -> Result<Vec<JavaFriendStatus>, String> {
+pub async fn fetch_minecraft_friends_all(mc_token: &str) -> Result<Vec<JavaFriendStatus>, String> {
     let client = get_client();
     let endpoints = [
         "https://api.minecraftservices.com/friends/all",
@@ -136,7 +134,13 @@ fn parse_minecraft_friends(value: Value) -> Vec<JavaFriendStatus> {
             )?;
             let name = pick_string(
                 item,
-                &["name", "gamertag", "minecraftName", "profileName", "displayName"],
+                &[
+                    "name",
+                    "gamertag",
+                    "minecraftName",
+                    "profileName",
+                    "displayName",
+                ],
             )
             .unwrap_or_else(|| uuid.clone());
 
@@ -184,8 +188,14 @@ fn parse_peoplehub_friends(value: Value) -> Vec<JavaFriendStatus> {
                 xuid: Some(xuid),
                 name,
                 is_online,
-                activity: peoplehub_activity(item)
-                    .unwrap_or_else(|| if is_online { "Xbox Live online" } else { "Xbox Live friend" }.to_string()),
+                activity: peoplehub_activity(item).unwrap_or_else(|| {
+                    if is_online {
+                        "Xbox Live online"
+                    } else {
+                        "Xbox Live friend"
+                    }
+                    .to_string()
+                }),
                 can_join: peoplehub_can_join(item),
                 avatar_url: pick_string(item, &["displayPicRaw", "displayPicUrl"]),
             })

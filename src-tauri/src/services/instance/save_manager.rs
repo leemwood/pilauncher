@@ -3,9 +3,12 @@ use crate::services::config_service::ConfigService;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
-use std::io;
-use std::path::{Path, PathBuf};
+use std::io::{self, Read};
+use std::path::{Component, Path, PathBuf};
+use std::thread;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Runtime};
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -13,11 +16,15 @@ use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
 const SAVE_METADATA_FILE: &str = ".saves_metadata.json";
+const SAVE_WEBDAV_SELECTION_FILE: &str = "save-webdav-selection.json";
 const BACKUP_META_FILE: &str = "meta.json";
 const BACKUP_WORLD_ARCHIVE_FILE: &str = "world.zip";
 const BACKUP_CONFIG_ARCHIVE_FILE: &str = "configs.zip";
 const BACKUP_PREVIEW_FILE: &str = "preview.png";
+const BACKUP_MANIFEST_FILE: &str = "manifest.json";
 const SAVE_BACKUP_PROGRESS_EVENT: &str = "save-backup-progress";
+const DEFAULT_EXIT_BACKUP_COOLDOWN_SECONDS: u64 = 5;
+const DEFAULT_STABLE_WINDOW_SECONDS: u64 = 2;
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +36,15 @@ pub struct SaveItem {
     pub last_played_time: i64,
     pub created_time: i64,
     pub icon_path: Option<String>,
+    #[serde(default)]
+    pub webdav_backup_enabled: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveWebDavSelection {
+    #[serde(default)]
+    pub selected_worlds: HashSet<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -83,12 +99,43 @@ pub struct SaveBackupFiles {
     pub world_size: u64,
     pub config_size: u64,
     pub total_size: u64,
+    #[serde(default)]
+    pub world_hash: String,
+    #[serde(default)]
+    pub config_hash: String,
+    #[serde(default)]
+    pub manifest_hash: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveBackupState {
     pub safe_backup: bool,
+}
+
+#[derive(Clone)]
+struct SaveBackupPolicy {
+    enabled: bool,
+    auto_on_exit: bool,
+    include_configs: bool,
+    backup_all_worlds_on_exit: bool,
+    wait_after_exit_seconds: u64,
+    require_stable_files: bool,
+    stable_window_seconds: u64,
+}
+
+impl Default for SaveBackupPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            auto_on_exit: true,
+            include_configs: true,
+            backup_all_worlds_on_exit: false,
+            wait_after_exit_seconds: DEFAULT_EXIT_BACKUP_COOLDOWN_SECONDS,
+            require_stable_files: true,
+            stable_window_seconds: DEFAULT_STABLE_WINDOW_SECONDS,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -98,6 +145,35 @@ pub struct SaveBackupUser {
     pub note: String,
     #[serde(default)]
     pub tags: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveBackupManifestEntry {
+    pub path: String,
+    pub size: u64,
+    pub mtime: i64,
+    pub fingerprint: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveBackupManifest {
+    #[serde(default)]
+    pub entries: Vec<SaveBackupManifestEntry>,
+    #[serde(default)]
+    pub deleted: Vec<String>,
+    #[serde(default)]
+    pub configs: SaveBackupManifestSection,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveBackupManifestSection {
+    #[serde(default)]
+    pub entries: Vec<SaveBackupManifestEntry>,
+    #[serde(default)]
+    pub deleted: Vec<String>,
 }
 
 fn default_backup_mode() -> String {
@@ -148,6 +224,10 @@ pub struct SaveRestoreResult {
     pub restored_folder_name: String,
     pub restored_configs: bool,
     pub guard_backup_id: Option<String>,
+    #[serde(default)]
+    pub partial: bool,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -203,6 +283,47 @@ impl SaveManagerService {
 
     fn get_backups_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
         Ok(Self::get_base_dir(app)?.join("backups").join("saves"))
+    }
+
+    fn get_webdav_selection_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
+        Ok(Self::get_base_dir(app)?
+            .join("backups")
+            .join(SAVE_WEBDAV_SELECTION_FILE))
+    }
+
+    pub fn webdav_selection_key(instance_id: &str, world_identity: &str) -> String {
+        format!("{}/{}", instance_id, world_identity)
+    }
+
+    pub fn load_webdav_backup_selection<R: Runtime>(
+        app: &AppHandle<R>,
+    ) -> Result<SaveWebDavSelection, String> {
+        let path = Self::get_webdav_selection_path(app)?;
+        if !path.exists() {
+            return Ok(SaveWebDavSelection::default());
+        }
+
+        let content = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+        serde_json::from_str::<SaveWebDavSelection>(&content)
+            .map_err(|error| format!("invalid save WebDAV selection: {error}"))
+    }
+
+    fn save_webdav_backup_selection<R: Runtime>(
+        app: &AppHandle<R>,
+        selection: &SaveWebDavSelection,
+    ) -> Result<(), String> {
+        Self::write_json_atomically(&Self::get_webdav_selection_path(app)?, selection)
+    }
+
+    fn save_webdav_enabled(
+        selection: &SaveWebDavSelection,
+        instance_id: &str,
+        save: &SaveItem,
+    ) -> bool {
+        let world_key = Self::webdav_selection_key(instance_id, &save.world_uuid);
+        let folder_key = Self::webdav_selection_key(instance_id, &save.folder_name);
+        selection.selected_worlds.contains(&world_key)
+            || selection.selected_worlds.contains(&folder_key)
     }
 
     fn get_trash_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
@@ -298,6 +419,7 @@ impl SaveManagerService {
         processed_files: &mut u64,
         total_files: u64,
         base_time: Option<i64>,
+        include_paths: Option<&HashSet<String>>,
     ) -> Result<u64, String> {
         let file = File::create(archive_path).map_err(|e| e.to_string())?;
         let mut zip = ZipWriter::new(file);
@@ -344,6 +466,14 @@ impl SaveManagerService {
                 } else {
                     format!("{}/{}", archive_prefix.trim_end_matches('/'), rel_str)
                 };
+
+                if entry.file_type().is_file() {
+                    if let Some(paths) = include_paths {
+                        if !paths.contains(&archive_rel) {
+                            continue;
+                        }
+                    }
+                }
 
                 if entry.file_type().is_dir() {
                     zip.add_directory(format!("{}/", archive_rel.trim_end_matches('/')), options)
@@ -487,6 +617,337 @@ impl SaveManagerService {
             .unwrap_or(0)
     }
 
+    fn read_backup_policy(instance_dir: &Path) -> SaveBackupPolicy {
+        let mut policy = SaveBackupPolicy::default();
+        let content = match fs::read_to_string(instance_dir.join("instance.json")) {
+            Ok(content) => content,
+            Err(_) => return policy,
+        };
+        let value = match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(value) => value,
+            Err(_) => return policy,
+        };
+        let save_backup = match value.get("saveBackup") {
+            Some(value) => value,
+            None => return policy,
+        };
+
+        if let Some(enabled) = save_backup.get("enabled").and_then(|value| value.as_bool()) {
+            policy.enabled = enabled;
+        }
+        if let Some(auto_on_exit) = save_backup
+            .get("autoOnExit")
+            .and_then(|value| value.as_bool())
+        {
+            policy.auto_on_exit = auto_on_exit;
+        }
+        if let Some(include_configs) = save_backup
+            .get("includeConfigs")
+            .and_then(|value| value.as_bool())
+        {
+            policy.include_configs = include_configs;
+        }
+        if let Some(backup_all) = save_backup
+            .get("backupAllWorldsOnExit")
+            .and_then(|value| value.as_bool())
+        {
+            policy.backup_all_worlds_on_exit = backup_all;
+        }
+
+        if let Some(safety) = save_backup.get("safety") {
+            if let Some(seconds) = safety
+                .get("waitAfterExitSeconds")
+                .and_then(|value| value.as_u64())
+            {
+                policy.wait_after_exit_seconds = seconds;
+            }
+            if let Some(require_stable) = safety
+                .get("requireStableFiles")
+                .and_then(|value| value.as_bool())
+            {
+                policy.require_stable_files = require_stable;
+            }
+            if let Some(seconds) = safety
+                .get("stableWindowSeconds")
+                .and_then(|value| value.as_u64())
+            {
+                policy.stable_window_seconds = seconds;
+            }
+        }
+
+        policy
+    }
+
+    fn is_game_process_running() -> bool {
+        crate::commands::launcher_cmd::CURRENT_GAME_PID.load(std::sync::atomic::Ordering::SeqCst)
+            != 0
+    }
+
+    fn snapshot_file_state(root: &Path) -> Result<Vec<(String, u64, i64)>, String> {
+        let mut entries = Vec::new();
+
+        if !root.exists() {
+            return Ok(entries);
+        }
+
+        for entry in WalkDir::new(root)
+            .into_iter()
+            .filter_map(|entry| entry.ok())
+        {
+            if !entry.file_type().is_file() {
+                continue;
+            }
+
+            let rel = match entry.path().strip_prefix(root) {
+                Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+                Err(_) => continue,
+            };
+            let meta = entry.metadata().map_err(|error| error.to_string())?;
+            let modified = meta
+                .modified()
+                .ok()
+                .map(Self::system_time_to_timestamp)
+                .unwrap_or_default();
+            entries.push((rel, meta.len(), modified));
+        }
+
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(entries)
+    }
+
+    fn build_manifest_section_for_root(
+        root: &Path,
+        archive_prefix: &str,
+        base_section: Option<&SaveBackupManifestSection>,
+    ) -> SaveBackupManifestSection {
+        let mut entries = Vec::new();
+
+        if root.exists() {
+            for entry in WalkDir::new(root)
+                .into_iter()
+                .filter_map(|entry| entry.ok())
+            {
+                if !entry.file_type().is_file() {
+                    continue;
+                }
+
+                let rel = match entry.path().strip_prefix(root) {
+                    Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+                    Err(_) => continue,
+                };
+                let path = if archive_prefix.is_empty() {
+                    rel
+                } else {
+                    format!("{}/{}", archive_prefix.trim_end_matches('/'), rel)
+                };
+                let meta = match entry.metadata() {
+                    Ok(meta) => meta,
+                    Err(_) => continue,
+                };
+                let modified = meta
+                    .modified()
+                    .ok()
+                    .map(Self::system_time_to_timestamp)
+                    .unwrap_or_default();
+
+                entries.push(SaveBackupManifestEntry {
+                    path,
+                    size: meta.len(),
+                    mtime: modified,
+                    fingerprint: Self::quick_file_fingerprint(entry.path()),
+                });
+            }
+        }
+
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+
+        let deleted = base_section
+            .map(|base| {
+                let current_paths = entries
+                    .iter()
+                    .map(|entry| entry.path.as_str())
+                    .collect::<HashSet<_>>();
+                base.entries
+                    .iter()
+                    .filter(|entry| !current_paths.contains(entry.path.as_str()))
+                    .map(|entry| entry.path.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        SaveBackupManifestSection { entries, deleted }
+    }
+
+    fn build_manifest_section_for_sources(
+        sources: &[(PathBuf, String)],
+        base_section: Option<&SaveBackupManifestSection>,
+    ) -> SaveBackupManifestSection {
+        let mut entries = Vec::new();
+
+        for (root, archive_prefix) in sources {
+            let section = Self::build_manifest_section_for_root(root, archive_prefix, None);
+            entries.extend(section.entries);
+        }
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+
+        let deleted = base_section
+            .map(|base| {
+                let current_paths = entries
+                    .iter()
+                    .map(|entry| entry.path.as_str())
+                    .collect::<HashSet<_>>();
+                base.entries
+                    .iter()
+                    .filter(|entry| !current_paths.contains(entry.path.as_str()))
+                    .map(|entry| entry.path.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        SaveBackupManifestSection { entries, deleted }
+    }
+
+    fn build_save_manifest(
+        save_dir: &Path,
+        config_sources: &[(PathBuf, String)],
+        base_manifest: Option<&SaveBackupManifest>,
+    ) -> SaveBackupManifest {
+        let world_section = Self::build_manifest_section_for_root(
+            save_dir,
+            "",
+            base_manifest
+                .map(|manifest| SaveBackupManifestSection {
+                    entries: manifest.entries.clone(),
+                    deleted: manifest.deleted.clone(),
+                })
+                .as_ref(),
+        );
+        let config_section = Self::build_manifest_section_for_sources(
+            config_sources,
+            base_manifest.map(|manifest| &manifest.configs),
+        );
+
+        SaveBackupManifest {
+            entries: world_section.entries,
+            deleted: world_section.deleted,
+            configs: config_section,
+        }
+    }
+
+    fn load_manifest(backup_dir: &Path) -> Option<SaveBackupManifest> {
+        fs::read_to_string(backup_dir.join(BACKUP_MANIFEST_FILE))
+            .ok()
+            .and_then(|content| serde_json::from_str::<SaveBackupManifest>(&content).ok())
+    }
+
+    fn changed_manifest_paths(
+        manifest: &SaveBackupManifest,
+        base_manifest: Option<&SaveBackupManifest>,
+    ) -> Option<HashSet<String>> {
+        Self::changed_manifest_section_paths(
+            &SaveBackupManifestSection {
+                entries: manifest.entries.clone(),
+                deleted: manifest.deleted.clone(),
+            },
+            base_manifest
+                .map(|base| SaveBackupManifestSection {
+                    entries: base.entries.clone(),
+                    deleted: base.deleted.clone(),
+                })
+                .as_ref(),
+        )
+    }
+
+    fn changed_manifest_section_paths(
+        section: &SaveBackupManifestSection,
+        base_section: Option<&SaveBackupManifestSection>,
+    ) -> Option<HashSet<String>> {
+        let base_section = base_section?;
+        let base_entries = base_section
+            .entries
+            .iter()
+            .map(|entry| (entry.path.as_str(), entry))
+            .collect::<HashMap<_, _>>();
+
+        Some(
+            section
+                .entries
+                .iter()
+                .filter(|entry| match base_entries.get(entry.path.as_str()) {
+                    Some(base_entry) => *base_entry != *entry,
+                    None => true,
+                })
+                .map(|entry| entry.path.clone())
+                .collect(),
+        )
+    }
+
+    fn remove_manifest_deleted_entries(
+        root: &Path,
+        manifest: &SaveBackupManifest,
+    ) -> Result<(), String> {
+        Self::remove_manifest_section_deleted_entries(
+            root,
+            &SaveBackupManifestSection {
+                entries: manifest.entries.clone(),
+                deleted: manifest.deleted.clone(),
+            },
+        )
+    }
+
+    fn remove_manifest_section_deleted_entries(
+        root: &Path,
+        section: &SaveBackupManifestSection,
+    ) -> Result<(), String> {
+        for rel in &section.deleted {
+            let rel_path = Path::new(rel);
+            if rel_path.is_absolute()
+                || rel_path.components().any(|component| {
+                    matches!(component, Component::ParentDir | Component::Prefix(_))
+                })
+            {
+                return Err(format!("manifest contains an unsafe deleted path: {}", rel));
+            }
+
+            let target = root.join(rel_path);
+            if target.is_file() {
+                fs::remove_file(&target).map_err(|error| error.to_string())?;
+            } else if target.is_dir() {
+                fs::remove_dir_all(&target).map_err(|error| error.to_string())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn is_save_tree_stable(save_dir: &Path, stable_window_seconds: u64) -> bool {
+        let before = match Self::snapshot_file_state(save_dir) {
+            Ok(snapshot) => snapshot,
+            Err(_) => return false,
+        };
+
+        if stable_window_seconds > 0 {
+            thread::sleep(Duration::from_secs(stable_window_seconds));
+        }
+
+        match Self::snapshot_file_state(save_dir) {
+            Ok(after) => before == after,
+            Err(_) => false,
+        }
+    }
+
+    fn assess_backup_safety(save_dir: &Path, policy: &SaveBackupPolicy) -> bool {
+        if Self::is_game_process_running() {
+            return false;
+        }
+
+        if policy.require_stable_files {
+            return Self::is_save_tree_stable(save_dir, policy.stable_window_seconds);
+        }
+
+        true
+    }
+
     fn quick_file_fingerprint(path: &Path) -> String {
         match fs::metadata(path) {
             Ok(meta) => {
@@ -499,6 +960,86 @@ impl SaveManagerService {
             }
             Err(_) => "missing".to_string(),
         }
+    }
+
+    fn sha1_file(path: &Path) -> Result<String, String> {
+        let mut file = File::open(path).map_err(|error| error.to_string())?;
+        let mut hasher = Sha1::new();
+        let mut buffer = [0u8; 64 * 1024];
+
+        loop {
+            let read = file.read(&mut buffer).map_err(|error| error.to_string())?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+        }
+
+        Ok(format!("{:x}", hasher.finalize()))
+    }
+
+    fn sha1_json<T: Serialize>(value: &T) -> Result<String, String> {
+        let bytes = serde_json::to_vec(value).map_err(|error| error.to_string())?;
+        let mut hasher = Sha1::new();
+        hasher.update(bytes);
+        Ok(format!("{:x}", hasher.finalize()))
+    }
+
+    fn verify_payload_hash(
+        path: &Path,
+        expected_hash: &str,
+        payload_name: &str,
+    ) -> Result<(), String> {
+        if expected_hash.is_empty() {
+            return Ok(());
+        }
+
+        let actual_hash = Self::sha1_file(path)?;
+        if actual_hash == expected_hash {
+            Ok(())
+        } else {
+            Err(format!(
+                "{} payload hash mismatch: expected {}, got {}",
+                payload_name, expected_hash, actual_hash
+            ))
+        }
+    }
+
+    fn verify_backup_record_payloads(
+        record: &BackupRecord,
+        include_configs: bool,
+    ) -> Result<(), String> {
+        match &record.world_payload {
+            BackupPayload::Archive(path) => {
+                Self::verify_payload_hash(path, &record.meta.files.world_hash, "world")?;
+            }
+            BackupPayload::Missing => return Err("backup world payload is missing".to_string()),
+        }
+
+        if include_configs && record.meta.has_configs {
+            match &record.configs_payload {
+                BackupPayload::Archive(path) => {
+                    Self::verify_payload_hash(path, &record.meta.files.config_hash, "config")?;
+                }
+                BackupPayload::Missing => {
+                    return Err("backup config payload is missing".to_string())
+                }
+            }
+        }
+
+        if !record.meta.files.manifest_hash.is_empty() {
+            let manifest = Self::load_manifest(&record.backup_dir)
+                .ok_or_else(|| "backup manifest is missing".to_string())?;
+            let actual_hash = Self::sha1_json(&manifest)?;
+            if actual_hash != record.meta.files.manifest_hash {
+                return Err(format!(
+                    "backup manifest hash mismatch: expected {}, got {}",
+                    record.meta.files.manifest_hash, actual_hash
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     fn stable_world_uuid(instance_id: &str, folder_name: &str) -> String {
@@ -662,8 +1203,8 @@ impl SaveManagerService {
         instance_id: &str,
         folder_name: &str,
         trigger: &str,
-        safe_backup: bool,
         mode: &str,
+        policy: &SaveBackupPolicy,
     ) -> Result<SaveBackupMetadata, String> {
         let instance_dir = Self::get_instance_dir(app, instance_id)?;
         let game_dir = Self::get_game_dir(app, instance_id)?;
@@ -674,18 +1215,25 @@ impl SaveManagerService {
 
         let instance_config = Self::get_instance_config(&instance_dir)?;
         let save_cache = Self::inspect_save_folder(instance_id, folder_name, &src_save_dir)?;
+        let safe_backup = Self::assess_backup_safety(&src_save_dir, policy);
 
         let mut base_backup_id = None;
         let mut base_time = None;
+        let mut base_manifest = None;
         if mode == "differential" {
-            if let Ok(backups) = Self::get_backups(app, instance_id) {
+            if let Ok(backups) = Self::load_backup_records(app, instance_id) {
                 if let Some(base) = backups
                     .into_iter()
-                    .filter(|b| b.world.folder_name == folder_name && b.backup_mode == "full")
-                    .max_by_key(|b| b.created_at)
+                    .filter(|b| {
+                        b.meta.world.folder_name == folder_name && b.meta.backup_mode == "full"
+                    })
+                    .max_by_key(|b| b.meta.created_at)
                 {
-                    base_backup_id = Some(base.backup_id.clone());
-                    base_time = Some(base.created_at);
+                    if let Some(manifest) = Self::load_manifest(&base.backup_dir) {
+                        base_backup_id = Some(base.meta.backup_id.clone());
+                        base_time = Some(base.meta.created_at);
+                        base_manifest = Some(manifest);
+                    }
                 }
             }
         }
@@ -703,12 +1251,31 @@ impl SaveManagerService {
         let final_backup_dir = world_root_dir.join(&backup_id);
         let temp_backup_dir = world_root_dir.join(format!(".{}.tmp", backup_id));
         let world_file_count = Self::count_files(&src_save_dir);
-        let config_sources = Self::get_config_backup_sources(&game_dir);
+        let config_sources = if policy.include_configs {
+            Self::get_config_backup_sources(&game_dir)
+        } else {
+            Vec::new()
+        };
         let config_file_count = config_sources
             .iter()
             .map(|(path, _)| Self::count_files(path))
             .sum::<u64>();
         let total_files = (world_file_count + config_file_count).max(1);
+        let manifest =
+            Self::build_save_manifest(&src_save_dir, &config_sources, base_manifest.as_ref());
+        let changed_world_paths = if actual_backup_mode == "differential" {
+            Self::changed_manifest_paths(&manifest, base_manifest.as_ref())
+        } else {
+            None
+        };
+        let changed_config_paths = if actual_backup_mode == "differential" {
+            Self::changed_manifest_section_paths(
+                &manifest.configs,
+                base_manifest.as_ref().map(|manifest| &manifest.configs),
+            )
+        } else {
+            None
+        };
 
         Self::emit_backup_progress(
             app,
@@ -737,7 +1304,12 @@ impl SaveManagerService {
                 "PACK_WORLD",
                 &mut processed_files,
                 total_files,
-                base_time,
+                if changed_world_paths.is_some() {
+                    None
+                } else {
+                    base_time
+                },
+                changed_world_paths.as_ref(),
             )?;
             let config_size = if config_file_count > 0 {
                 Self::zip_sources(
@@ -749,11 +1321,23 @@ impl SaveManagerService {
                     "PACK_CONFIGS",
                     &mut processed_files,
                     total_files,
-                    base_time,
+                    if changed_config_paths.is_some() {
+                        None
+                    } else {
+                        base_time
+                    },
+                    changed_config_paths.as_ref(),
                 )?
             } else {
                 0
             };
+            let world_hash = Self::sha1_file(&temp_backup_dir.join(BACKUP_WORLD_ARCHIVE_FILE))?;
+            let config_hash = if config_size > 0 {
+                Self::sha1_file(&temp_backup_dir.join(BACKUP_CONFIG_ARCHIVE_FILE))?
+            } else {
+                String::new()
+            };
+            let manifest_hash = Self::sha1_json(&manifest)?;
 
             let preview_src = src_save_dir.join("icon.png");
             if preview_src.exists() {
@@ -795,6 +1379,9 @@ impl SaveManagerService {
                     world_size,
                     config_size,
                     total_size: world_size + config_size,
+                    world_hash,
+                    config_hash,
+                    manifest_hash,
                 },
                 state: SaveBackupState { safe_backup },
                 user: SaveBackupUser::default(),
@@ -802,6 +1389,7 @@ impl SaveManagerService {
             };
 
             Self::write_json_atomically(&temp_backup_dir.join(BACKUP_META_FILE), &meta)?;
+            Self::write_json_atomically(&temp_backup_dir.join(BACKUP_MANIFEST_FILE), &manifest)?;
             Self::move_dir_with_fallback(&temp_backup_dir, &final_backup_dir)?;
             Self::emit_backup_progress(
                 app,
@@ -967,6 +1555,22 @@ impl SaveManagerService {
         let current_environment = Self::snapshot_environment(&game_dir);
         let mut warnings = Vec::new();
 
+        if meta.backup_mode == "differential" {
+            let base_id = meta
+                .base_backup_id
+                .as_deref()
+                .ok_or_else(|| "differential backup is missing base backup id".to_string())?;
+            let base_record = Self::find_backup_record(app, instance_id, base_id)
+                .map_err(|_| format!("differential base backup is missing: {}", base_id))?;
+            Self::verify_backup_record_payloads(&base_record, false)?;
+            if matches!(base_record.world_payload, BackupPayload::Missing) {
+                return Err(format!(
+                    "differential base backup world payload is missing: {}",
+                    base_id
+                ));
+            }
+        }
+
         let game_matches = instance_config.mc_version == meta.game.mc_version;
         if !game_matches {
             warnings.push(format!(
@@ -1048,15 +1652,36 @@ impl SaveManagerService {
         })
     }
 
-    fn restore_snapshot_dir(src: &Path, dst: &Path) -> Result<(), String> {
+    fn restore_snapshot_dir_with_rollback(
+        src: &Path,
+        dst: &Path,
+        rollback: &Path,
+    ) -> Result<(), String> {
+        if rollback.exists() {
+            Self::remove_dir_if_exists(rollback)?;
+        }
+
         if dst.exists() {
-            fs::remove_dir_all(dst).map_err(|e| e.to_string())?;
+            Self::move_dir_with_fallback(dst, rollback)?;
         }
-        if src.exists() {
-            Self::copy_dir_all(src, dst).map_err(|e| e.to_string())?;
+
+        let restore_result = if src.exists() {
+            Self::move_dir_with_fallback(src, dst)
         } else {
-            fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+            fs::create_dir_all(dst).map_err(|error| error.to_string())
+        };
+
+        if let Err(error) = restore_result {
+            if dst.exists() {
+                let _ = Self::remove_dir_if_exists(dst);
+            }
+            if rollback.exists() {
+                let _ = Self::move_dir_with_fallback(rollback, dst);
+            }
+            return Err(error);
         }
+
+        let _ = Self::remove_dir_if_exists(rollback);
         Ok(())
     }
 
@@ -1067,6 +1692,7 @@ impl SaveManagerService {
         let saves_dir = Self::get_game_dir(app, instance_id)?.join("saves");
         fs::create_dir_all(&saves_dir).map_err(|e| e.to_string())?;
 
+        let webdav_selection = Self::load_webdav_backup_selection(app).unwrap_or_default();
         let mut saves = Vec::new();
         if let Ok(entries) = fs::read_dir(&saves_dir) {
             for entry in entries.filter_map(|entry| entry.ok()) {
@@ -1076,10 +1702,13 @@ impl SaveManagerService {
                 }
 
                 let folder_name = entry.file_name().to_string_lossy().to_string();
+                if folder_name.starts_with('.') {
+                    continue;
+                }
                 let cache = Self::inspect_save_folder(instance_id, &folder_name, &path)?;
                 let icon_path = path.join("icon.png");
 
-                saves.push(SaveItem {
+                let mut save = SaveItem {
                     folder_name,
                     world_name: cache.world_name,
                     world_uuid: cache.world_uuid,
@@ -1089,12 +1718,64 @@ impl SaveManagerService {
                     icon_path: icon_path
                         .exists()
                         .then(|| icon_path.to_string_lossy().to_string()),
-                });
+                    webdav_backup_enabled: false,
+                };
+                save.webdav_backup_enabled =
+                    Self::save_webdav_enabled(&webdav_selection, instance_id, &save);
+                saves.push(save);
             }
         }
 
         saves.sort_by(|a, b| b.last_played_time.cmp(&a.last_played_time));
         Ok(saves)
+    }
+
+    pub fn set_save_webdav_backup_enabled<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+        folder_name: &str,
+        enabled: bool,
+    ) -> Result<SaveItem, String> {
+        let save_dir = Self::get_game_dir(app, instance_id)?
+            .join("saves")
+            .join(folder_name);
+        if !save_dir.is_dir() {
+            return Err(format!("save folder does not exist: {folder_name}"));
+        }
+
+        let cache = Self::inspect_save_folder(instance_id, folder_name, &save_dir)?;
+        let icon_path = save_dir.join("icon.png");
+        let mut save = SaveItem {
+            folder_name: folder_name.to_string(),
+            world_name: cache.world_name,
+            world_uuid: cache.world_uuid,
+            size_bytes: cache.size_bytes,
+            last_played_time: cache.last_played_time,
+            created_time: cache.created_time,
+            icon_path: icon_path
+                .exists()
+                .then(|| icon_path.to_string_lossy().to_string()),
+            webdav_backup_enabled: enabled,
+        };
+
+        let identity = if save.world_uuid.trim().is_empty() {
+            save.folder_name.clone()
+        } else {
+            save.world_uuid.clone()
+        };
+        let key = Self::webdav_selection_key(instance_id, &identity);
+        let folder_key = Self::webdav_selection_key(instance_id, &save.folder_name);
+
+        let mut selection = Self::load_webdav_backup_selection(app).unwrap_or_default();
+        selection.selected_worlds.remove(&folder_key);
+        if enabled {
+            selection.selected_worlds.insert(key);
+        } else {
+            selection.selected_worlds.remove(&key);
+        }
+        Self::save_webdav_backup_selection(app, &selection)?;
+        save.webdav_backup_enabled = Self::save_webdav_enabled(&selection, instance_id, &save);
+        Ok(save)
     }
 
     pub fn backup_save<R: Runtime>(
@@ -1103,7 +1784,67 @@ impl SaveManagerService {
         folder_name: &str,
         mode: &str,
     ) -> Result<SaveBackupMetadata, String> {
-        Self::create_backup(app, instance_id, folder_name, "manual", true, mode)
+        Self::backup_save_internal(app, instance_id, folder_name, "manual", mode)
+    }
+
+    pub fn backup_save_internal<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+        folder_name: &str,
+        trigger: &str,
+        mode: &str,
+    ) -> Result<SaveBackupMetadata, String> {
+        let instance_dir = Self::get_instance_dir(app, instance_id)?;
+        let policy = Self::read_backup_policy(&instance_dir);
+        if !policy.enabled {
+            return Err("save backup is disabled for this instance".to_string());
+        }
+        Self::create_backup(app, instance_id, folder_name, trigger, mode, &policy)
+    }
+
+    pub fn backup_recent_save_on_game_exit<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+    ) -> Result<Vec<SaveBackupMetadata>, String> {
+        let instance_dir = Self::get_instance_dir(app, instance_id)?;
+        let policy = Self::read_backup_policy(&instance_dir);
+        if !policy.enabled || !policy.auto_on_exit {
+            return Ok(Vec::new());
+        }
+
+        if policy.wait_after_exit_seconds > 0 {
+            thread::sleep(Duration::from_secs(policy.wait_after_exit_seconds));
+        }
+
+        let mut saves = Self::get_saves(app, instance_id)?;
+        if saves.is_empty() {
+            return Ok(Vec::new());
+        }
+        if !policy.backup_all_worlds_on_exit {
+            saves.truncate(1);
+        }
+
+        let mut backups = Vec::new();
+        for save in saves {
+            match Self::create_backup(
+                app,
+                instance_id,
+                &save.folder_name,
+                "auto_exit",
+                "differential",
+                &policy,
+            ) {
+                Ok(meta) => backups.push(meta),
+                Err(error) => {
+                    eprintln!(
+                        "[SaveBackup] auto_exit backup failed for {} / {}: {}",
+                        instance_id, save.folder_name, error
+                    );
+                }
+            }
+        }
+
+        Ok(backups)
     }
 
     pub fn delete_save<R: Runtime>(
@@ -1137,6 +1878,24 @@ impl SaveManagerService {
         backup_id: &str,
     ) -> Result<(), String> {
         let record = Self::find_backup_record(app, instance_id, backup_id)?;
+        if record.meta.backup_mode == "full" {
+            let dependents = Self::load_backup_records(app, instance_id)?
+                .into_iter()
+                .filter(|candidate| {
+                    candidate.meta.backup_mode == "differential"
+                        && candidate.meta.base_backup_id.as_deref() == Some(backup_id)
+                })
+                .map(|candidate| candidate.meta.backup_id)
+                .collect::<Vec<_>>();
+
+            if !dependents.is_empty() {
+                return Err(format!(
+                    "cannot delete full backup because differential backups depend on it: {}",
+                    dependents.join(", ")
+                ));
+            }
+        }
+
         Self::remove_dir_if_exists(&record.backup_dir)?;
 
         if let Some(world_root) = record.backup_dir.parent() {
@@ -1157,6 +1916,7 @@ impl SaveManagerService {
         backup_id: &str,
     ) -> Result<SaveRestoreCheckResult, String> {
         let record = Self::find_backup_record(app, instance_id, backup_id)?;
+        Self::verify_backup_record_payloads(&record, true)?;
         Self::build_restore_check(app, instance_id, &record.meta)
     }
 
@@ -1168,6 +1928,7 @@ impl SaveManagerService {
         auto_backup_current: bool,
     ) -> Result<SaveRestoreResult, String> {
         let record = Self::find_backup_record(app, instance_id, backup_id)?;
+        Self::verify_backup_record_payloads(&record, restore_configs)?;
 
         let instance_dir = Self::get_instance_dir(app, instance_id)?;
         let game_dir = Self::get_game_dir(app, instance_id)?;
@@ -1184,8 +1945,8 @@ impl SaveManagerService {
                     instance_id,
                     &target_folder_name,
                     "restore_guard",
-                    true,
                     "full",
+                    &Self::read_backup_policy(&instance_dir),
                 )?
                 .backup_id,
             )
@@ -1194,64 +1955,151 @@ impl SaveManagerService {
         };
 
         let temp_restore_dir = saves_dir.join(format!(".restore-{}", Uuid::new_v4()));
+        let rollback_save_dir = saves_dir.join(format!(".rollback-{}", Uuid::new_v4()));
         Self::remove_dir_if_exists(&temp_restore_dir)?;
+        Self::remove_dir_if_exists(&rollback_save_dir)?;
 
-        if record.meta.backup_mode == "differential" {
-            if let Some(base_id) = &record.meta.base_backup_id {
-                if let Ok(base_record) = Self::find_backup_record(app, instance_id, base_id) {
-                    if let BackupPayload::Archive(path) = &base_record.world_payload {
-                        let _ = Self::extract_archive_to(path, &temp_restore_dir);
+        let world_restore_result = (|| -> Result<(), String> {
+            if record.meta.backup_mode == "differential" {
+                let base_id =
+                    record.meta.base_backup_id.as_deref().ok_or_else(|| {
+                        "differential backup is missing base backup id".to_string()
+                    })?;
+                let base_record = Self::find_backup_record(app, instance_id, base_id)
+                    .map_err(|_| format!("differential base backup is missing: {}", base_id))?;
+                Self::verify_backup_record_payloads(&base_record, false)?;
+                match &base_record.world_payload {
+                    BackupPayload::Archive(path) => {
+                        Self::extract_archive_to(path, &temp_restore_dir)?;
+                    }
+                    BackupPayload::Missing => {
+                        return Err(format!(
+                            "differential base backup world payload is missing: {}",
+                            base_id
+                        ));
                     }
                 }
             }
-        }
-        match &record.world_payload {
-            BackupPayload::Archive(path) => {
-                Self::extract_archive_to(path, &temp_restore_dir)?;
+
+            match &record.world_payload {
+                BackupPayload::Archive(path) => {
+                    Self::extract_archive_to(path, &temp_restore_dir)?;
+                }
+                BackupPayload::Missing => {
+                    return Err("backup world payload is missing".to_string());
+                }
             }
-            BackupPayload::Missing => {
-                return Err("backup world payload is missing".to_string());
+            if record.meta.backup_mode == "differential" {
+                let manifest = Self::load_manifest(&record.backup_dir).ok_or_else(|| {
+                    "differential backup manifest is missing; restore is blocked".to_string()
+                })?;
+                Self::remove_manifest_deleted_entries(&temp_restore_dir, &manifest)?;
             }
+
+            if target_save_dir.exists() {
+                Self::move_dir_with_fallback(&target_save_dir, &rollback_save_dir)?;
+            }
+            if let Err(error) = Self::move_dir_with_fallback(&temp_restore_dir, &target_save_dir) {
+                if target_save_dir.exists() {
+                    let _ = Self::remove_dir_if_exists(&target_save_dir);
+                }
+                if rollback_save_dir.exists() {
+                    let _ = Self::move_dir_with_fallback(&rollback_save_dir, &target_save_dir);
+                }
+                return Err(format!("failed to swap restored save directory: {}", error));
+            }
+            let _ = Self::remove_dir_if_exists(&rollback_save_dir);
+            Ok(())
+        })();
+
+        if let Err(error) = world_restore_result {
+            let _ = Self::remove_dir_if_exists(&temp_restore_dir);
+            if !target_save_dir.exists() && rollback_save_dir.exists() {
+                let _ = Self::move_dir_with_fallback(&rollback_save_dir, &target_save_dir);
+            }
+            return Err(error);
         }
 
-        if target_save_dir.exists() {
-            fs::remove_dir_all(&target_save_dir).map_err(|e| e.to_string())?;
-        }
-        Self::move_dir_with_fallback(&temp_restore_dir, &target_save_dir)?;
+        let mut restored_configs = false;
+        let mut partial = false;
+        let mut warnings = Vec::new();
 
         if restore_configs && record.meta.has_configs {
             let temp_configs_root =
                 instance_dir.join(format!(".restore-configs-{}", Uuid::new_v4()));
+            let rollback_configs_root =
+                instance_dir.join(format!(".rollback-configs-{}", Uuid::new_v4()));
             Self::remove_dir_if_exists(&temp_configs_root)?;
+            Self::remove_dir_if_exists(&rollback_configs_root)?;
 
-            if record.meta.backup_mode == "differential" {
-                if let Some(base_id) = &record.meta.base_backup_id {
-                    if let Ok(base_record) = Self::find_backup_record(app, instance_id, base_id) {
-                        if let BackupPayload::Archive(path) = &base_record.configs_payload {
-                            let _ = Self::extract_archive_to(path, &temp_configs_root);
+            let config_restore_result = (|| -> Result<(), String> {
+                if record.meta.backup_mode == "differential" {
+                    let base_id = record.meta.base_backup_id.as_deref().ok_or_else(|| {
+                        "differential backup is missing base backup id".to_string()
+                    })?;
+                    let base_record = Self::find_backup_record(app, instance_id, base_id)
+                        .map_err(|_| format!("differential base backup is missing: {}", base_id))?;
+                    Self::verify_backup_record_payloads(
+                        &base_record,
+                        base_record.meta.has_configs,
+                    )?;
+                    if base_record.meta.has_configs {
+                        match &base_record.configs_payload {
+                            BackupPayload::Archive(path) => {
+                                Self::extract_archive_to(path, &temp_configs_root)?;
+                            }
+                            BackupPayload::Missing => {
+                                return Err(format!(
+                                    "differential base backup config payload is missing: {}",
+                                    base_id
+                                ));
+                            }
                         }
                     }
                 }
-            }
 
-            match &record.configs_payload {
-                BackupPayload::Archive(path) => {
-                    Self::extract_archive_to(path, &temp_configs_root)?;
+                match &record.configs_payload {
+                    BackupPayload::Archive(path) => {
+                        Self::extract_archive_to(path, &temp_configs_root)?;
+                    }
+                    BackupPayload::Missing => {
+                        return Err("backup config payload is missing".to_string());
+                    }
                 }
-                BackupPayload::Missing => {
-                    return Err("backup config payload is missing".to_string());
+                if record.meta.backup_mode == "differential" {
+                    let manifest = Self::load_manifest(&record.backup_dir).ok_or_else(|| {
+                        "differential backup manifest is missing; config restore is blocked"
+                            .to_string()
+                    })?;
+                    Self::remove_manifest_section_deleted_entries(
+                        &temp_configs_root,
+                        &manifest.configs,
+                    )?;
                 }
-            }
 
-            Self::restore_snapshot_dir(
-                &temp_configs_root.join("config"),
-                &game_dir.join("config"),
-            )?;
-            Self::restore_snapshot_dir(
-                &temp_configs_root.join("defaultconfigs"),
-                &game_dir.join("defaultconfigs"),
-            )?;
+                Self::restore_snapshot_dir_with_rollback(
+                    &temp_configs_root.join("config"),
+                    &game_dir.join("config"),
+                    &rollback_configs_root.join("config"),
+                )?;
+                Self::restore_snapshot_dir_with_rollback(
+                    &temp_configs_root.join("defaultconfigs"),
+                    &game_dir.join("defaultconfigs"),
+                    &rollback_configs_root.join("defaultconfigs"),
+                )?;
+                Ok(())
+            })();
+
             let _ = Self::remove_dir_if_exists(&temp_configs_root);
+            let _ = Self::remove_dir_if_exists(&rollback_configs_root);
+
+            match config_restore_result {
+                Ok(()) => restored_configs = true,
+                Err(error) => {
+                    partial = true;
+                    warnings.push(format!("config restore failed: {}", error));
+                }
+            }
         }
 
         let _ = Self::inspect_save_folder(instance_id, &target_folder_name, &target_save_dir);
@@ -1259,8 +2107,10 @@ impl SaveManagerService {
         Ok(SaveRestoreResult {
             backup_id: record.meta.backup_id,
             restored_folder_name: target_folder_name,
-            restored_configs: restore_configs && record.meta.has_configs,
+            restored_configs,
             guard_backup_id,
+            partial,
+            warnings,
         })
     }
 
