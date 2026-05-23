@@ -37,6 +37,7 @@ export const LibraryResourceList: React.FC<LibraryResourceListProps> = ({
   const { t } = useTranslation();
   const itemGapClass = density === 'compact' ? 'pb-3' : 'pb-5';
   const [draggedItemId, setDraggedItemId] = React.useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = React.useState<string | null>(null);
 
   return (
     <Virtuoso
@@ -63,19 +64,28 @@ export const LibraryResourceList: React.FC<LibraryResourceListProps> = ({
           onDragOver={(event) => {
             if (!sortMode || !draggedItemId || draggedItemId === item.id) return;
             event.preventDefault();
+            setDragOverItemId(item.id);
             event.dataTransfer.dropEffect = 'move';
           }}
+          onDragLeave={() => setDragOverItemId(null)}
           onDrop={(event) => {
             if (!sortMode) return;
             event.preventDefault();
+            setDragOverItemId(null);
             const sourceId = draggedItemId || event.dataTransfer.getData('text/plain');
             setDraggedItemId(null);
             if (!sourceId || sourceId === item.id) return;
             onPlaceItem?.(sourceId, item.id);
           }}
-          onDragEnd={() => setDraggedItemId(null)}
+          onDragEnd={() => {
+            setDraggedItemId(null);
+            setDragOverItemId(null);
+          }}
         >
           <div className={['relative', sortMode ? 'cursor-grab active:cursor-grabbing' : ''].join(' ')}>
+            {sortMode && dragOverItemId === item.id && (
+              <div className="absolute inset-x-0 -top-2.5 h-1 border-2 border-dashed border-[var(--ore-color-border-warning-subtle)] bg-[var(--ore-color-background-warning-subtle)]/30 z-30 pointer-events-none" />
+            )}
             {sortMode && (
               <div className="absolute right-3 top-3 z-30 flex h-9 items-center gap-1 border-2 border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-surface-panel)] px-1.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-2px_0_rgba(0,0,0,0.3),0_4px_10px_rgba(0,0,0,0.28)]">
                 <div className="flex h-7 min-w-8 items-center justify-center gap-1 px-1 font-minecraft text-xs text-[var(--ore-color-text-secondary-soft)]">

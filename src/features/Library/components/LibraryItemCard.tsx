@@ -118,47 +118,47 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
           onClick={() => onOpen?.(item)}
           onContextMenu={(event) => onContextMenu?.(event, item)}
         >
-      <div className="absolute inset-x-0 top-0 h-[0.25rem] bg-white/25" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-white/25" />
       {isTrackerItemReady && (
-        <div className="absolute right-[0.625rem] top-[0.625rem] z-20 inline-flex h-[1.625rem] items-center gap-1 border-[0.125rem] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-success-default)] px-[0.5rem] font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.14em] text-[var(--ore-color-text-onLight-soft)] shadow-[inset_0_0.0625rem_0_rgba(255,255,255,0.35),inset_0_-0.125rem_0_var(--ore-color-background-primary-default),0_0.25rem_0.5rem_rgba(0,0,0,0.28)]">
+        <div className="absolute right-2.5 top-2.5 z-20 inline-flex h-6 items-center gap-1 border-2 border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-success-default)] px-2 font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.14em] text-[var(--ore-color-text-onLight-soft)] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-2px_0_var(--ore-color-background-primary-default),0_4px_8px_rgba(0,0,0,0.28)]">
           <CheckCircle2 className="h-3 w-3" strokeWidth={3} />
           {t('libraryPage.item.ready')}
         </div>
       )}
 
-      <div className={['flex w-full items-stretch gap-[0.875rem]', compact ? 'p-[0.75rem]' : 'p-[0.875rem] pr-[1rem]'].join(' ')}>
-        <div className={['flex shrink-0 flex-col items-center justify-between', compact ? 'w-[4.25rem]' : 'w-[4.75rem]'].join(' ')}>
+      <div className={['flex w-full items-stretch gap-3', compact ? 'p-3' : 'p-3 pr-4'].join(' ')}>
+        <div className={['flex shrink-0 flex-col items-center justify-between', compact ? 'w-16' : 'w-20'].join(' ')}>
           <div
             className={[
-              'relative flex shrink-0 items-center justify-center overflow-hidden border-[0.125rem] border-[var(--ore-color-border-primary-default)]',
+              'relative flex shrink-0 items-center justify-center overflow-hidden border-2 border-[var(--ore-color-border-primary-default)]',
               'bg-[var(--ore-color-background-surface-default)] shadow-[inset_0_-0.25rem_0_var(--ore-color-background-surface-raised),inset_0.125rem_0.125rem_0_rgba(255,255,255,0.15)]',
-              compact ? 'h-[4.25rem] w-[4.25rem]' : 'h-[4.75rem] w-[4.75rem]',
+              compact ? 'h-16 w-16' : 'h-20 w-20',
             ].join(' ')}
           >
             {item.iconUrl ? (
               <img src={item.iconUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
             ) : (
-              <TypeIcon className={compact ? 'h-[2rem] w-[2rem] text-white/75' : 'h-[2.25rem] w-[2.25rem] text-white/75'} />
+              <TypeIcon className={compact ? 'h-8 w-8 text-white/75' : 'h-9 w-9 text-white/75'} />
             )}
           </div>
 
-          <div className="flex h-[1.375rem] w-full items-center justify-center gap-[0.25rem] overflow-hidden">
+          <div className="flex h-5 w-full items-center justify-center gap-1 overflow-hidden">
             {loaderIconItems.length > 0 ? (
               loaderIconItems.map((loader) => (
                 <div
                   key={loader.label}
-                  className="flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center overflow-hidden border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-loaderChipDepth)]"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden border-2 border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] shadow-[inset_0_-2px_0_var(--ore-library-resourceCard-loaderChipDepth)]"
                   title={loader.label}
                 >
-                  <img src={loader.icon} alt="" className="h-[0.75rem] w-[0.75rem] shrink-0 object-contain opacity-90" />
+                  <img src={loader.icon} alt="" className="h-3 w-3 shrink-0 object-contain opacity-90" />
                 </div>
               ))
             ) : (
               <div
-                className="flex h-[1.375rem] max-w-full items-center gap-[0.25rem] overflow-hidden border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] px-[0.25rem] text-[length:var(--ore-typography-size-micro)] font-minecraft uppercase tracking-[0.08em] text-black shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-loaderChipDepth)]"
+                className="flex h-5 max-w-full items-center gap-1 overflow-hidden border-2 border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] px-1 text-[length:var(--ore-typography-size-micro)] font-minecraft uppercase tracking-[0.08em] text-black shadow-[inset_0_-2px_0_var(--ore-library-resourceCard-loaderChipDepth)]"
                 title={typeLabel}
               >
-                <TypeIcon className="h-[0.6875rem] w-[0.6875rem] shrink-0" strokeWidth={2.5} />
+                <TypeIcon className="h-3 w-3 shrink-0" strokeWidth={2.5} />
                 <span className="truncate leading-none">{typeLabel}</span>
               </div>
             )}
@@ -166,8 +166,8 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-between">
-          <div className="flex min-w-0 items-center gap-[0.75rem]">
-            <div className="flex min-w-0 flex-1 items-center gap-[0.625rem]">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <div className="min-w-0 truncate font-minecraft text-[length:var(--ore-typography-size-xl)] font-bold leading-[var(--ore-typography-lineHeight-headingCompact)] text-black">
                 {item.title}
               </div>
@@ -176,21 +176,21 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
               </div>
             </div>
 
-            <div className="ml-auto flex shrink-0 items-center justify-end gap-[0.375rem]">
+            <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
               {item.hasUpdate && (
-                <div className="inline-flex h-[1.625rem] items-center gap-1 border-[0.125rem] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-library-resourceCard-warningBg)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.16em] text-black shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-warningDepth)]">
+                <div className="inline-flex h-6 items-center gap-1 border-2 border-[var(--ore-color-border-primary-default)] bg-[var(--ore-library-resourceCard-warningBg)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.16em] text-black shadow-[inset_0_-2px_0_var(--ore-library-resourceCard-warningDepth)]">
                   <BellDot className="h-3 w-3" />
                   {t('libraryPage.item.updated')}
                 </div>
               )}
               {item.pinned && (
-                <div className="inline-flex h-[1.625rem] items-center gap-1 border-[0.125rem] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-success-default)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.16em] text-black shadow-[inset_0_-0.125rem_0_var(--ore-color-background-primary-default)]">
+                <div className="inline-flex h-6 items-center gap-1 border-2 border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-success-default)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.16em] text-black shadow-[inset_0_-2px_0_var(--ore-color-background-primary-default)]">
                   <Pin className="h-3 w-3" />
                   {t('libraryPage.item.pinned')}
                 </div>
               )}
               {item.archived && (
-                <div className="inline-flex h-[1.625rem] items-center gap-1 border-[0.125rem] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-surface-raised)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.16em] text-white shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.12)]">
+                <div className="inline-flex h-6 items-center gap-1 border-2 border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-surface-raised)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.16em] text-white shadow-[inset_0_2px_0_rgba(255,255,255,0.12)]">
                   <Archive className="h-3 w-3" />
                   {t('libraryPage.item.archived')}
                 </div>
@@ -198,40 +198,40 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
             </div>
           </div>
 
-          <p className="my-auto truncate text-[length:var(--ore-typography-size-bodySm)] leading-[var(--ore-typography-lineHeight-bodyCompact)] text-[var(--ore-library-resourceCard-summaryText)]">
+          <p className="my-auto line-clamp-2 whitespace-normal text-[length:var(--ore-typography-size-bodySm)] leading-[var(--ore-typography-lineHeight-bodyCompact)] text-[var(--ore-library-resourceCard-summaryText)]">
             {summary}
           </p>
 
-          <div className="flex h-[1.375rem] min-w-0 items-center justify-between gap-[1rem]">
+          <div className="flex h-5 min-w-0 items-center justify-between gap-4">
             <div className="flex h-full min-w-0 flex-wrap items-center gap-[var(--ore-spacing-sm)] overflow-hidden">
-              <span className="inline-flex h-[1.375rem] items-center gap-[var(--ore-spacing-xs)] whitespace-nowrap border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-infoChipBg)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-caption)] uppercase tracking-[0.14em] text-black shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-infoChipDepth)]">
-                <Globe2 className="h-[0.6875rem] w-[0.6875rem]" strokeWidth={2.5} />
+              <span className="inline-flex h-5 items-center gap-[var(--ore-spacing-xs)] whitespace-nowrap border-2 border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-infoChipBg)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-caption)] uppercase tracking-[0.14em] text-black shadow-[inset_0_-2px_0_var(--ore-library-resourceCard-infoChipDepth)]">
+                <Globe2 className="h-3 w-3" strokeWidth={2.5} />
                 {getSourceLabel(item.source)}
               </span>
               {featureLabels.map((label) => (
                 <span
                   key={label}
-                  className="inline-flex h-[1.375rem] items-center gap-[var(--ore-spacing-xs)] whitespace-nowrap border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-infoChipBg)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-caption)] uppercase tracking-[0.14em] text-black shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-infoChipDepth)]"
+                  className="inline-flex h-5 items-center gap-[var(--ore-spacing-xs)] whitespace-nowrap border-2 border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-infoChipBg)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-caption)] uppercase tracking-[0.14em] text-black shadow-[inset_0_-2px_0_var(--ore-library-resourceCard-infoChipDepth)]"
                 >
-                  <Tags className="h-[0.6875rem] w-[0.6875rem]" strokeWidth={2.5} />
+                  <Tags className="h-3 w-3" strokeWidth={2.5} />
                   {label}
                 </span>
               ))}
             </div>
 
-            <div className="flex h-full shrink-0 items-center justify-end gap-x-[0.875rem] gap-y-[0.25rem] font-minecraft text-[length:var(--ore-typography-size-meta)] uppercase tracking-[0.08em] text-[var(--ore-library-resourceCard-metaText)]">
-              <span className="flex h-full items-center gap-[0.375rem]">
-                <Blocks className="h-[0.8125rem] w-[0.8125rem]" strokeWidth={2.5} />
+            <div className="flex h-full shrink-0 items-center justify-end gap-x-3 gap-y-1 font-minecraft text-[length:var(--ore-typography-size-meta)] uppercase tracking-[0.08em] text-[var(--ore-library-resourceCard-metaText)]">
+              <span className="flex h-full items-center gap-1.5">
+                <Blocks className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span className="leading-none">{typeLabel}</span>
               </span>
               {versionLabel && (
-                <span className="flex h-full items-center gap-[0.375rem]">
-                  <CheckCircle2 className="h-[0.8125rem] w-[0.8125rem]" strokeWidth={2.5} />
+                <span className="flex h-full items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.5} />
                   <span className="leading-none">{versionPrefix} {versionLabel}</span>
                 </span>
               )}
-              <span className="flex h-full items-center gap-[0.375rem] text-[var(--ore-library-resourceCard-timestampText)]">
-                <Clock3 className="h-[0.8125rem] w-[0.8125rem]" strokeWidth={2.5} />
+              <span className="flex h-full items-center gap-1.5 text-[var(--ore-library-resourceCard-timestampText)]">
+                <Clock3 className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span className="font-bold leading-none">{item.updatedLabel}</span>
               </span>
             </div>

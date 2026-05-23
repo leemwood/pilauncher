@@ -9,6 +9,7 @@ import { useModSetTrackerStore } from '../stores/useModSetTrackerStore';
 import { resolveCollectionItems, toLibraryResource } from '../logic/libraryItems';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { FocusItem } from '../../../ui/focus/FocusItem';
+import { OreMotionTokens } from '../../../style/tokens/motion';
 
 interface CollectionCardProps {
   collection: Collection;
@@ -16,6 +17,7 @@ interface CollectionCardProps {
   onEdit?: (collection: Collection) => void;
   focusKey?: string;
   onArrowPress?: (direction: string) => boolean | void;
+  onContextMenu?: (event: React.MouseEvent<HTMLElement>, collection: Collection) => void;
 }
 
 const TRACKER_META_ICON_COLOR = 'var(--ore-library-collectionCard-trackerAccent)';
@@ -138,6 +140,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
   onEdit,
   focusKey,
   onArrowPress,
+  onContextMenu,
 }) => {
   const { t } = useTranslation();
   const { items, collectionItems } = useLibraryStore();
@@ -202,9 +205,13 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
   return (
     <FocusItem focusKey={focusKey} onEnter={onClick} onArrowPress={onArrowPress}>
       {({ ref, focused }) => (
-        <div
+        <motion.div
           ref={ref as React.RefObject<HTMLDivElement>}
           data-library-collection-focus-key={focusKey}
+          variants={OreMotionTokens.bedrockCardHover as any}
+          initial="rest"
+          animate={focused ? "hover" : "rest"}
+          whileHover="hover"
           className={[
             'group relative flex cursor-pointer flex-col overflow-hidden rounded-[4px] border-2 bg-[var(--ore-color-background-surface-layer)]',
             'shadow-[inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-2px_0_rgba(0,0,0,0.3)] transition-colors',
@@ -212,6 +219,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
             focused ? 'z-20 border-white ring-2 ring-white/80' : 'border-[var(--ore-color-border-primary-default)]',
           ].join(' ')}
           onClick={onClick}
+          onContextMenu={(event) => onContextMenu?.(event, collection)}
           role="button"
           tabIndex={-1}
           onKeyDown={(e) => {
@@ -309,7 +317,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
     </FocusItem>
   );
