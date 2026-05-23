@@ -5,6 +5,7 @@ import type { SkinCardAsset, WardrobeSkinModel, WardrobeTab } from '../types';
 export function useWardrobeViewerControl() {
   const { containerRef, getEngine, playTransientAnimation } = useSkinViewer('wardrobe');
   const targetRotationRef = useRef<number>(0);
+  const currentRightStickXRef = useRef<number>(0);
 
   const loadViewerState = useCallback(
     async (
@@ -77,17 +78,23 @@ export function useWardrobeViewerControl() {
       if (engine) {
         if (engine.isUserRotating) {
           targetRotationRef.current = engine.raw.playerWrapper.rotation.y;
-        } else if (Math.abs(rightStickX) > 0.16) {
-          const delta = rightStickX * 0.04;
-          engine.raw.playerWrapper.rotation.y += delta;
-          engine.markInteractive();
-          targetRotationRef.current = engine.raw.playerWrapper.rotation.y;
+          currentRightStickXRef.current = 0;
         } else {
-          const diff = targetRotationRef.current - engine.raw.playerWrapper.rotation.y;
-          if (Math.abs(diff) > 0.01) {
-            engine.raw.playerWrapper.rotation.y += diff * 0.1;
+          const targetX = Math.abs(rightStickX) > 0.16 ? rightStickX : 0;
+          currentRightStickXRef.current += (targetX - currentRightStickXRef.current) * 0.15;
+
+          if (Math.abs(currentRightStickXRef.current) > 0.01) {
+            const delta = currentRightStickXRef.current * 0.04;
+            engine.raw.playerWrapper.rotation.y += delta;
+            engine.markInteractive();
+            targetRotationRef.current = engine.raw.playerWrapper.rotation.y;
           } else {
-            engine.raw.playerWrapper.rotation.y = targetRotationRef.current;
+            const diff = targetRotationRef.current - engine.raw.playerWrapper.rotation.y;
+            if (Math.abs(diff) > 0.01) {
+              engine.raw.playerWrapper.rotation.y += diff * 0.1;
+            } else {
+              engine.raw.playerWrapper.rotation.y = targetRotationRef.current;
+            }
           }
         }
       }

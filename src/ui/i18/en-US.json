@@ -1256,6 +1256,8 @@
     "capeTab": "Cape",
     "refresh": "Refresh",
     "emptyAccount": "Please add a game account in settings first.",
+    "microsoftRequired": "Cape switching requires logging in with a Microsoft account.",
+    "noCapes": "No capes available for the current account.",
     "activeBadge": "ACTIVE",
     "uploadCard": {
       "title": "Local Upload",

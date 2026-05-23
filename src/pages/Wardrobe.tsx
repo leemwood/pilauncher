@@ -198,6 +198,18 @@ const Wardrobe: React.FC = () => {
     syncViewerToCurrentState: restoreViewer,
   });
 
+  const hasBlockingOverlay = Boolean(skinMenuAsset || capeMenuAsset);
+  const lastFocusKeyBeforeOverlayRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (hasBlockingOverlay) {
+      const currentFocus = getCurrentFocusKey();
+      if (currentFocus && currentFocus !== 'SN:ROOT') {
+        lastFocusKeyBeforeOverlayRef.current = currentFocus;
+      }
+    }
+  }, [hasBlockingOverlay]);
+
   useEffect(() => {
     setError(null);
 
@@ -334,7 +346,13 @@ const Wardrobe: React.FC = () => {
         return;
       }
 
-      const targetKey = resolveWardrobeFocusKey();
+      const restoredTarget = lastFocusKeyBeforeOverlayRef.current;
+      const targetKey = (restoredTarget && doesFocusableExist(restoredTarget))
+        ? restoredTarget
+        : resolveWardrobeFocusKey();
+
+      lastFocusKeyBeforeOverlayRef.current = null;
+
       if (targetKey) {
         timer = window.setTimeout(() => {
           if (doesFocusableExist(targetKey)) {
@@ -380,16 +398,16 @@ const Wardrobe: React.FC = () => {
   });
 
   useInputAction('TAB_LEFT', () => {
-    if (!skinMenuAsset) setActiveSection('skin');
+    if (!skinMenuAsset && !capeMenuAsset) setActiveSection('skin');
   });
   useInputAction('PAGE_LEFT', () => {
-    if (!skinMenuAsset) setActiveSection('skin');
+    if (!skinMenuAsset && !capeMenuAsset) setActiveSection('skin');
   });
   useInputAction('TAB_RIGHT', () => {
-    if (!skinMenuAsset) setActiveSection('cape');
+    if (!skinMenuAsset && !capeMenuAsset) setActiveSection('cape');
   });
   useInputAction('PAGE_RIGHT', () => {
-    if (!skinMenuAsset) setActiveSection('cape');
+    if (!skinMenuAsset && !capeMenuAsset) setActiveSection('cape');
   });
   useInputAction('ACTION_X', () => {
     if (skinMenuAsset || capeMenuAsset) return;
@@ -403,7 +421,7 @@ const Wardrobe: React.FC = () => {
         <header className="flex items-center justify-between h-[clamp(2.5rem,6vh,4rem)] bg-[#E6E8EB] border-b-4 border-[#B1B2B5] z-10 relative px-[clamp(0.5rem,2vw,2rem)]">
           <div className="header_left flex items-center h-full">
             <div className="header_item header_item_left text-[#48494A] cursor-pointer aspect-square h-full flex items-center justify-center" onClick={handleBack}>
-              <ArrowLeft className="w-[clamp(1.125rem,3vh,1.75rem)] h-[clamp(1.125rem,3vh,1.75rem)]" />
+              <ArrowLeft className="w-4 h-4" />
             </div>
           </div>
           <div className="header_title text-[#48494A] flex flex-1 justify-center items-center font-minecraft text-[length:clamp(1.5rem,4vh,2.5rem)] leading-none h-full">
@@ -415,7 +433,7 @@ const Wardrobe: React.FC = () => {
                 className={`header_item header_item_right text-[#48494A] cursor-pointer aspect-square h-full flex items-center justify-center ${isApplying || isLoadingProfile ? 'opacity-50 pointer-events-none' : ''}`}
                 onClick={() => void handleRefresh()}
               >
-                <RefreshCw className="w-[clamp(1.125rem,3vh,1.75rem)] h-[clamp(1.125rem,3vh,1.75rem)]" />
+                <RefreshCw className="w-4 h-4" />
               </div>
             )}
             {!currentAccount && <div className="aspect-square h-full" />}
@@ -428,16 +446,9 @@ const Wardrobe: React.FC = () => {
 
             <div className="my-[clamp(0.75rem,2vh,2rem)] mx-[clamp(1rem,4vw,10%)] border-2 border-[#333334] border-t-[#5A5B5C] bg-[#1E1E1F]/50 flex flex-col md:flex-row flex-1 min-h-0">
               <div
-                className="w-full md:w-[clamp(22.5rem,30vw,35rem)] md:flex-none flex flex-col border-b-2 md:border-b-0 md:border-r-2 border-[#333334] relative min-h-[40vh] aspect-[4/5] md:aspect-auto"
-
+                className="w-full md:w-[clamp(22.5rem,30vw,35rem)] md:flex-none flex flex-col border-b-2 md:border-b-0 md:border-r-2 border-[#333334] relative min-h-[40vh] aspect-[4/5] md:aspect-auto wardrobe-viewer-surface"
               >
-                <div
-                  className="w-full h-full flex flex-col p-[clamp(1rem,2vw,2rem)] absolute inset-0 pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(132, 204, 22, 0.15) 0%, transparent 40%)',
-                  }}
-                />
-                <div className="w-full h-full flex flex-col relative">
+                <div className="w-full flex-1 min-h-0 flex flex-col relative">
                   <WardrobeViewer viewerContainerRef={containerRef} onBack={handleBack} />
                 </div>
                 <div className="wardrobe-viewer-hints pointer-events-none" aria-hidden="true">
@@ -479,8 +490,9 @@ const Wardrobe: React.FC = () => {
                     value={activeSection}
                     onChange={(value) => setActiveSection(value as WardrobeTab)}
                     size="lg"
+                    uiScale="adaptive"
                     focusKeyPrefix="wardrobe-section"
-                    className="w-full"
+                    className="ore-tab-nav-toggle w-full"
                   />
                 </div>
 
@@ -494,6 +506,7 @@ const Wardrobe: React.FC = () => {
                   {currentAccount && activeSection === 'skin' && (
                     <WardrobeSkinPanel
                       skinCards={skinCards}
+                      isLoadingProfile={isLoadingProfile}
                       onChooseSkin={() => void handleChooseSkin()}
                       onOpenSkinMenu={handleOpenSkinMenu}
                       onPreview={handlePreviewSkin}

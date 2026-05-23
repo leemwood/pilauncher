@@ -16,6 +16,9 @@ use crate::domain::library::{
     WebDavSaveBackupSyncResult, WebDavSkinSyncResult, WebDavSyncConfig,
 };
 use reqwest::Client;
+pub use save_backups::{
+    WebDavRemoteSaveBackup, WebDavSaveBackupDeleteResult, WebDavSaveBackupDownloadResult,
+};
 use sqlx::SqlitePool;
 use std::collections::HashSet;
 use tauri::{AppHandle, Runtime};
@@ -199,5 +202,39 @@ impl WebDavSyncService {
         config: &WebDavSyncConfig,
     ) -> Result<WebDavSaveBackupSyncResult, String> {
         save_backups::sync_save_backups(app, config).await
+    }
+
+    pub async fn list_remote_save_backups(
+        config: &WebDavSyncConfig,
+    ) -> Result<Vec<WebDavRemoteSaveBackup>, String> {
+        save_backups::list_remote_save_backups(config).await
+    }
+
+    pub async fn download_remote_save_backup<R: Runtime>(
+        app: &AppHandle<R>,
+        config: &WebDavSyncConfig,
+        backup_id: &str,
+        target_instance_id: &str,
+        restore_to_saves: bool,
+        restore_configs: bool,
+        auto_backup_current: bool,
+    ) -> Result<WebDavSaveBackupDownloadResult, String> {
+        save_backups::download_remote_save_backup(
+            app,
+            config,
+            backup_id,
+            target_instance_id,
+            restore_to_saves,
+            restore_configs,
+            auto_backup_current,
+        )
+        .await
+    }
+
+    pub async fn delete_remote_save_backup(
+        config: &WebDavSyncConfig,
+        backup_id: &str,
+    ) -> Result<WebDavSaveBackupDeleteResult, String> {
+        save_backups::delete_remote_save_backup(config, backup_id).await
     }
 }

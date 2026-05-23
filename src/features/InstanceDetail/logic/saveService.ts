@@ -1,4 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
+import type {
+  WebDavRemoteSaveBackup,
+  WebDavSaveBackupDeleteResult,
+  WebDavSaveBackupDownloadResult,
+} from '../../../types/webdav';
+import type { WebDavSettings } from '../../../types/settings';
 
 export interface SaveBackupWorld {
   name: string;
@@ -102,6 +108,25 @@ export interface SaveItem {
 
 export type SaveDetail = SaveItem;
 
+export interface WebDavCommandConfig {
+  baseUrl: string;
+  username: string;
+  password: string;
+  deviceId: string;
+  saveBackupMode: string;
+}
+
+export const createWebDavCommandConfig = (
+  webDav: WebDavSettings,
+  deviceId: string
+): WebDavCommandConfig => ({
+  baseUrl: webDav.address.trim(),
+  username: webDav.username.trim(),
+  password: webDav.password,
+  deviceId,
+  saveBackupMode: webDav.saveBackupMode || 'backup',
+});
+
 export const saveService = {
   getSaves: (id: string) => invoke<SaveItem[]>('get_saves', { id }),
 
@@ -136,4 +161,27 @@ export const saveService = {
   openSavesFolder: (id: string) => invoke('open_saves_folder', { id }),
 
   getBackups: (id: string) => invoke<SaveBackupMetadata[]>('get_save_backups', { id }),
+
+  listWebDavBackups: (config: WebDavCommandConfig) =>
+    invoke<WebDavRemoteSaveBackup[]>('list_webdav_save_backups', { config }),
+
+  downloadWebDavBackup: (
+    config: WebDavCommandConfig,
+    backupId: string,
+    targetInstanceId: string,
+    restoreToSaves: boolean,
+    restoreConfigs: boolean,
+    autoBackupCurrent = true
+  ) =>
+    invoke<WebDavSaveBackupDownloadResult>('download_webdav_save_backup', {
+      config,
+      backupId,
+      targetInstanceId,
+      restoreToSaves,
+      restoreConfigs,
+      autoBackupCurrent,
+    }),
+
+  deleteWebDavBackup: (config: WebDavCommandConfig, backupId: string) =>
+    invoke<WebDavSaveBackupDeleteResult>('delete_webdav_save_backup', { config, backupId }),
 };

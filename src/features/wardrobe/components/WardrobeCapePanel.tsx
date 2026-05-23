@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { FocusItem } from '../../../ui/focus/FocusItem';
 import { useInputAction } from '../../../ui/focus/InputDriver';
 import type { WardrobeProfile, WardrobeCape, WardrobeSkinModel } from '../types';
@@ -86,11 +87,14 @@ export const WardrobeCapePanel: React.FC<WardrobeCapePanelProps> = ({
   onOpenCapeMenu,
   onPreview,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="wardrobe-panel-body">
       {!isMicrosoft && (
         <div className="wardrobe-empty-state">
-          鎶鍒囨崲闇€瑕佷娇鐢ㄥ井杞鐗堣处鍙风櫥褰曘€?        </div>
+          {t('wardrobe.microsoftRequired')}
+        </div>
       )}
 
       {isMicrosoft && isLoadingProfile && (
@@ -103,7 +107,8 @@ export const WardrobeCapePanel: React.FC<WardrobeCapePanelProps> = ({
 
       {isMicrosoft && !isLoadingProfile && profile?.capes.length === 0 && (
         <div className="wardrobe-empty-state">
-          褰撳墠璐﹀彿娌℃湁鍙敤鎶銆?        </div>
+          {t('wardrobe.noCapes')}
+        </div>
       )}
 
       {isMicrosoft && !isLoadingProfile && !!profile?.capes.length && (

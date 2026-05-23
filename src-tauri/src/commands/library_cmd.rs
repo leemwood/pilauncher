@@ -5,7 +5,10 @@ use crate::domain::library::{
 };
 use crate::services::db_service::AppDatabase;
 use crate::services::library_service::LibraryService;
-use crate::services::webdav_sync_service::WebDavSyncService;
+use crate::services::webdav_sync_service::{
+    WebDavRemoteSaveBackup, WebDavSaveBackupDeleteResult, WebDavSaveBackupDownloadResult,
+    WebDavSyncService,
+};
 use tauri::{AppHandle, Runtime, State};
 
 #[tauri::command]
@@ -202,4 +205,41 @@ pub async fn sync_webdav_save_backups<R: Runtime>(
     config: WebDavSyncConfig,
 ) -> Result<WebDavSaveBackupSyncResult, String> {
     WebDavSyncService::sync_save_backups(&app, &config).await
+}
+
+#[tauri::command]
+pub async fn list_webdav_save_backups(
+    config: WebDavSyncConfig,
+) -> Result<Vec<WebDavRemoteSaveBackup>, String> {
+    WebDavSyncService::list_remote_save_backups(&config).await
+}
+
+#[tauri::command]
+pub async fn download_webdav_save_backup<R: Runtime>(
+    app: AppHandle<R>,
+    config: WebDavSyncConfig,
+    backup_id: String,
+    target_instance_id: String,
+    restore_to_saves: bool,
+    restore_configs: bool,
+    auto_backup_current: bool,
+) -> Result<WebDavSaveBackupDownloadResult, String> {
+    WebDavSyncService::download_remote_save_backup(
+        &app,
+        &config,
+        &backup_id,
+        &target_instance_id,
+        restore_to_saves,
+        restore_configs,
+        auto_backup_current,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn delete_webdav_save_backup(
+    config: WebDavSyncConfig,
+    backup_id: String,
+) -> Result<WebDavSaveBackupDeleteResult, String> {
+    WebDavSyncService::delete_remote_save_backup(&config, &backup_id).await
 }

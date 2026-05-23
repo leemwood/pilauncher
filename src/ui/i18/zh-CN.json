@@ -1256,6 +1256,8 @@
     "capeTab": "披风",
     "refresh": "刷新",
     "emptyAccount": "请先在设置中添加一个游戏账户。",
+    "microsoftRequired": "披风切换需要使用微软正版账号登录。",
+    "noCapes": "当前账号没有可用披风。",
     "activeBadge": "已激活",
     "uploadCard": {
       "title": "本地上传",

@@ -35,6 +35,31 @@ export interface WebDavSaveBackupSyncResult {
   verified: boolean;
 }
 
+export interface WebDavRemoteSaveBackup {
+  backupId: string;
+  remoteInstanceId: string;
+  remoteWorldKey: string;
+  remotePrefix: string;
+  fileCount: number;
+  totalSize: number;
+  metadata: import('../features/InstanceDetail/logic/saveService').SaveBackupMetadata;
+}
+
+export interface WebDavSaveBackupDownloadResult {
+  backupId: string;
+  targetInstanceId: string;
+  downloadedBackups: number;
+  downloadedFiles: number;
+  restored: boolean;
+  restoreResult?: import('../features/InstanceDetail/logic/saveService').SaveRestoreResult | null;
+}
+
+export interface WebDavSaveBackupDeleteResult {
+  backupId: string;
+  deletedFiles: number;
+  remainingBackups: number;
+}
+
 export interface WebDavSyncResult {
   favorites?: WebDavFavoriteSyncResult;
   skins?: WebDavSkinSyncResult;

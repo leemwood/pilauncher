@@ -1,12 +1,14 @@
 use crate::domain::library::{WebDavSaveBackupSyncResult, WebDavSyncConfig};
 use crate::services::config_service::ConfigService;
-use crate::services::instance::save_manager::SaveManagerService;
+use crate::services::instance::save_manager::{
+    SaveBackupMetadata, SaveManagerService, SaveRestoreResult,
+};
 use reqwest::{header, Client, Method, StatusCode};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Runtime};
 use uuid::Uuid;
@@ -55,6 +57,46 @@ struct FileFingerprint {
     content_hash: String,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebDavRemoteSaveBackup {
+    pub backup_id: String,
+    pub remote_instance_id: String,
+    pub remote_world_key: String,
+    pub remote_prefix: String,
+    pub file_count: usize,
+    pub total_size: u64,
+    pub metadata: SaveBackupMetadata,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebDavSaveBackupDownloadResult {
+    pub backup_id: String,
+    pub target_instance_id: String,
+    pub downloaded_backups: usize,
+    pub downloaded_files: usize,
+    pub restored: bool,
+    pub restore_result: Option<SaveRestoreResult>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebDavSaveBackupDeleteResult {
+    pub backup_id: String,
+    pub deleted_files: usize,
+    pub remaining_backups: usize,
+}
+
+#[derive(Clone)]
+struct RemoteBackupRecord {
+    meta: SaveBackupMetadata,
+    prefix: String,
+    instance_id: String,
+    world_key: String,
+    files: Vec<FileFingerprint>,
+}
+
 pub(crate) async fn sync_save_backups<R: Runtime>(
     app: &AppHandle<R>,
     config: &WebDavSyncConfig,
@@ -75,6 +117,135 @@ pub(crate) async fn sync_save_backups<R: Runtime>(
         (Err(error), Ok(())) => Err(error),
         (Ok(_), Err(unlock_error)) => Err(format!(
             "save backup sync completed, but failed to release WebDAV lock: {}",
+            unlock_error
+        )),
+        (Err(error), Err(unlock_error)) => Err(format!(
+            "{}; additionally failed to release WebDAV lock: {}",
+            error, unlock_error
+        )),
+    }
+}
+
+pub(crate) async fn list_remote_save_backups(
+    config: &WebDavSyncConfig,
+) -> Result<Vec<WebDavRemoteSaveBackup>, String> {
+    util::validate_base_url(&config.base_url)?;
+
+    let client = Client::builder()
+        .build()
+        .map_err(|error| format!("failed to build WebDAV client: {error}"))?;
+    ensure_save_backup_layout(&client, config).await?;
+
+    let Some(manifest) = download_manifest(&client, config).await? else {
+        return Ok(Vec::new());
+    };
+
+    let mut records = load_remote_backup_records(&client, config, &manifest).await?;
+    records.sort_by(|left, right| {
+        right
+            .meta
+            .created_at
+            .cmp(&left.meta.created_at)
+            .then_with(|| left.meta.backup_id.cmp(&right.meta.backup_id))
+    });
+
+    Ok(records
+        .into_iter()
+        .map(|record| WebDavRemoteSaveBackup {
+            backup_id: record.meta.backup_id.clone(),
+            remote_instance_id: record.instance_id,
+            remote_world_key: record.world_key,
+            remote_prefix: record.prefix,
+            file_count: record.files.len(),
+            total_size: record.files.iter().map(|file| file.size).sum(),
+            metadata: record.meta,
+        })
+        .collect())
+}
+
+pub(crate) async fn download_remote_save_backup<R: Runtime>(
+    app: &AppHandle<R>,
+    config: &WebDavSyncConfig,
+    backup_id: &str,
+    target_instance_id: &str,
+    restore_to_saves: bool,
+    restore_configs: bool,
+    auto_backup_current: bool,
+) -> Result<WebDavSaveBackupDownloadResult, String> {
+    util::validate_base_url(&config.base_url)?;
+
+    let client = Client::builder()
+        .build()
+        .map_err(|error| format!("failed to build WebDAV client: {error}"))?;
+    ensure_save_backup_layout(&client, config).await?;
+
+    let manifest = download_manifest(&client, config)
+        .await?
+        .ok_or_else(|| "WebDAV save backup manifest does not exist".to_string())?;
+    let records = load_remote_backup_records(&client, config, &manifest).await?;
+    let records_by_id = records
+        .into_iter()
+        .map(|record| (record.meta.backup_id.clone(), record))
+        .collect::<HashMap<_, _>>();
+
+    if !records_by_id.contains_key(backup_id) {
+        return Err(format!("WebDAV save backup not found: {backup_id}"));
+    }
+
+    let ordered_backup_ids = collect_required_backup_chain(backup_id, &records_by_id)?;
+    let downloaded_files = download_backup_chain_to_local(
+        app,
+        config,
+        &client,
+        target_instance_id,
+        &ordered_backup_ids,
+        &records_by_id,
+    )
+    .await?;
+
+    let restore_result = if restore_to_saves {
+        Some(SaveManagerService::restore_backup(
+            app,
+            target_instance_id,
+            backup_id,
+            restore_configs,
+            auto_backup_current,
+        )?)
+    } else {
+        None
+    };
+
+    Ok(WebDavSaveBackupDownloadResult {
+        backup_id: backup_id.to_string(),
+        target_instance_id: target_instance_id.to_string(),
+        downloaded_backups: ordered_backup_ids.len(),
+        downloaded_files,
+        restored: restore_result.is_some(),
+        restore_result,
+    })
+}
+
+pub(crate) async fn delete_remote_save_backup(
+    config: &WebDavSyncConfig,
+    backup_id: &str,
+) -> Result<WebDavSaveBackupDeleteResult, String> {
+    util::validate_base_url(&config.base_url)?;
+
+    let client = Client::builder()
+        .build()
+        .map_err(|error| format!("failed to build WebDAV client: {error}"))?;
+    ensure_save_backup_layout(&client, config).await?;
+
+    let lock_token = lock_save_backup_directory(&client, config).await?;
+    let delete_result =
+        delete_remote_save_backup_locked(config, &client, backup_id, &lock_token).await;
+    let unlock_result = unlock_save_backup_directory(&client, config, &lock_token).await;
+
+    match (delete_result, unlock_result) {
+        (Ok(result), Ok(())) => Ok(result),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(_), Err(unlock_error)) => Err(format!(
+            "save backup delete completed, but failed to release WebDAV lock: {}",
             unlock_error
         )),
         (Err(error), Err(unlock_error)) => Err(format!(
@@ -504,6 +675,386 @@ async fn restore_remote_tree(
 
     let _ = remove_dir_if_exists(&temp_dir);
     result
+}
+
+async fn load_remote_backup_records(
+    client: &Client,
+    config: &WebDavSyncConfig,
+    manifest: &SaveBackupsManifest,
+) -> Result<Vec<RemoteBackupRecord>, String> {
+    let mut prefixes = BTreeSet::new();
+    for file in &manifest.files {
+        validate_manifest_relative_path(&file.relative_path)?;
+        let parts = file.relative_path.split('/').collect::<Vec<_>>();
+        if parts.len() >= 4 && parts[3..].join("/") == "meta.json" {
+            prefixes.insert(parts[..3].join("/"));
+        }
+    }
+
+    let mut records = Vec::new();
+    for prefix in prefixes {
+        let meta_path = format!("{prefix}/meta.json");
+        let meta_bytes = download_remote_file(client, config, &meta_path).await?;
+        if md5_bytes(&meta_bytes)
+            != manifest_hash_for_path(manifest, &meta_path).unwrap_or_default()
+        {
+            return Err(format!(
+                "WebDAV save backup metadata hash mismatch: {meta_path}"
+            ));
+        }
+        let meta = serde_json::from_slice::<SaveBackupMetadata>(&meta_bytes)
+            .map_err(|error| format!("invalid WebDAV save backup metadata: {error}"))?;
+        let parts = prefix.split('/').collect::<Vec<_>>();
+        let instance_id = parts.get(0).copied().unwrap_or_default().to_string();
+        let world_key = parts.get(1).copied().unwrap_or_default().to_string();
+        let files = manifest
+            .files
+            .iter()
+            .filter(|file| path_has_prefix(&file.relative_path, &prefix))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        records.push(RemoteBackupRecord {
+            meta,
+            prefix,
+            instance_id,
+            world_key,
+            files,
+        });
+    }
+
+    Ok(records)
+}
+
+fn manifest_hash_for_path(manifest: &SaveBackupsManifest, relative_path: &str) -> Option<String> {
+    manifest
+        .files
+        .iter()
+        .find(|file| file.relative_path == relative_path)
+        .map(|file| file.content_hash.clone())
+}
+
+fn path_has_prefix(relative_path: &str, prefix: &str) -> bool {
+    relative_path == prefix
+        || relative_path
+            .strip_prefix(prefix)
+            .map(|rest| rest.starts_with('/'))
+            .unwrap_or(false)
+}
+
+fn validate_manifest_relative_path(relative_path: &str) -> Result<(), String> {
+    if relative_path.trim().is_empty() {
+        return Err("manifest contains an empty relative path".to_string());
+    }
+    let path = Path::new(relative_path);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
+    {
+        return Err(format!(
+            "manifest contains an unsafe relative path: {}",
+            relative_path
+        ));
+    }
+    Ok(())
+}
+
+fn collect_required_backup_chain(
+    backup_id: &str,
+    records_by_id: &HashMap<String, RemoteBackupRecord>,
+) -> Result<Vec<String>, String> {
+    fn visit(
+        backup_id: &str,
+        records_by_id: &HashMap<String, RemoteBackupRecord>,
+        visiting: &mut HashSet<String>,
+        visited: &mut HashSet<String>,
+        ordered: &mut Vec<String>,
+    ) -> Result<(), String> {
+        if visited.contains(backup_id) {
+            return Ok(());
+        }
+        if !visiting.insert(backup_id.to_string()) {
+            return Err(format!("WebDAV save backup dependency cycle: {backup_id}"));
+        }
+
+        let record = records_by_id
+            .get(backup_id)
+            .ok_or_else(|| format!("WebDAV save backup not found: {backup_id}"))?;
+        if record.meta.backup_mode == "differential" {
+            let base_id = record.meta.base_backup_id.as_deref().ok_or_else(|| {
+                format!("differential WebDAV save backup is missing base id: {backup_id}")
+            })?;
+            visit(base_id, records_by_id, visiting, visited, ordered)?;
+        }
+
+        visiting.remove(backup_id);
+        visited.insert(backup_id.to_string());
+        ordered.push(backup_id.to_string());
+        Ok(())
+    }
+
+    let mut visiting = HashSet::new();
+    let mut visited = HashSet::new();
+    let mut ordered = Vec::new();
+    visit(
+        backup_id,
+        records_by_id,
+        &mut visiting,
+        &mut visited,
+        &mut ordered,
+    )?;
+    Ok(ordered)
+}
+
+async fn download_backup_chain_to_local<R: Runtime>(
+    app: &AppHandle<R>,
+    config: &WebDavSyncConfig,
+    client: &Client,
+    target_instance_id: &str,
+    ordered_backup_ids: &[String],
+    records_by_id: &HashMap<String, RemoteBackupRecord>,
+) -> Result<usize, String> {
+    let backups_root = local_save_backups_root(app)?;
+    let parent = backups_root
+        .parent()
+        .ok_or_else(|| "invalid local save backups directory".to_string())?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+
+    let temp_dir = parent.join(format!(".save-backups-webdav-download-{}", Uuid::new_v4()));
+    remove_dir_if_exists(&temp_dir)?;
+    fs::create_dir_all(&temp_dir).map_err(|error| error.to_string())?;
+
+    let result = async {
+        let mut downloaded_files = 0usize;
+
+        for backup_id in ordered_backup_ids {
+            let record = records_by_id
+                .get(backup_id)
+                .ok_or_else(|| format!("WebDAV save backup not found: {backup_id}"))?;
+            for file in &record.files {
+                validate_manifest_relative_path(&file.relative_path)?;
+                let relative_suffix = file
+                    .relative_path
+                    .strip_prefix(&record.prefix)
+                    .ok_or_else(|| {
+                        format!(
+                            "manifest file is outside backup prefix: {}",
+                            file.relative_path
+                        )
+                    })?
+                    .trim_start_matches('/');
+                let target_relative_path = format!(
+                    "{}/{}/{}/{}",
+                    target_instance_id, record.world_key, backup_id, relative_suffix
+                );
+                validate_manifest_relative_path(&target_relative_path)?;
+
+                let bytes = download_remote_file(client, config, &file.relative_path).await?;
+                if bytes.len() as u64 != file.size || md5_bytes(&bytes) != file.content_hash {
+                    return Err(format!(
+                        "WebDAV save backup file hash mismatch: {}",
+                        file.relative_path
+                    ));
+                }
+
+                let target =
+                    temp_dir.join(target_relative_path.replace('/', std::path::MAIN_SEPARATOR_STR));
+                if let Some(parent) = target.parent() {
+                    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+                }
+                let mut output = File::create(&target).map_err(|error| error.to_string())?;
+                output
+                    .write_all(&bytes)
+                    .map_err(|error| error.to_string())?;
+                downloaded_files += 1;
+            }
+
+            let local_meta_path = temp_dir
+                .join(target_instance_id)
+                .join(&record.world_key)
+                .join(backup_id)
+                .join("meta.json");
+            let mut meta = serde_json::from_str::<SaveBackupMetadata>(
+                &fs::read_to_string(&local_meta_path).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| format!("invalid downloaded save backup metadata: {error}"))?;
+            meta.instance_id = target_instance_id.to_string();
+            fs::write(
+                &local_meta_path,
+                serde_json::to_string_pretty(&meta).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?;
+        }
+
+        fs::create_dir_all(&backups_root).map_err(|error| error.to_string())?;
+        for backup_id in ordered_backup_ids {
+            let record = records_by_id
+                .get(backup_id)
+                .ok_or_else(|| format!("WebDAV save backup not found: {backup_id}"))?;
+            let temp_backup = temp_dir
+                .join(target_instance_id)
+                .join(&record.world_key)
+                .join(backup_id);
+            let final_backup = backups_root
+                .join(target_instance_id)
+                .join(&record.world_key)
+                .join(backup_id);
+            if final_backup.exists() {
+                remove_dir_if_exists(&final_backup)?;
+            }
+            if let Some(parent) = final_backup.parent() {
+                fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+            }
+            move_dir_with_fallback(&temp_backup, &final_backup)?;
+        }
+
+        Ok(downloaded_files)
+    }
+    .await;
+
+    let _ = remove_dir_if_exists(&temp_dir);
+    result
+}
+
+async fn delete_remote_save_backup_locked(
+    config: &WebDavSyncConfig,
+    client: &Client,
+    backup_id: &str,
+    lock_token: &str,
+) -> Result<WebDavSaveBackupDeleteResult, String> {
+    let manifest = download_manifest(client, config)
+        .await?
+        .ok_or_else(|| "WebDAV save backup manifest does not exist".to_string())?;
+    let records = load_remote_backup_records(client, config, &manifest).await?;
+    let records_by_id = records
+        .into_iter()
+        .map(|record| (record.meta.backup_id.clone(), record))
+        .collect::<HashMap<_, _>>();
+    let record = records_by_id
+        .get(backup_id)
+        .ok_or_else(|| format!("WebDAV save backup not found: {backup_id}"))?;
+
+    let dependents = records_by_id
+        .values()
+        .filter(|candidate| {
+            candidate.meta.backup_mode == "differential"
+                && candidate.meta.base_backup_id.as_deref() == Some(backup_id)
+        })
+        .map(|candidate| candidate.meta.backup_id.clone())
+        .collect::<Vec<_>>();
+    if !dependents.is_empty() {
+        return Err(format!(
+            "cannot delete full WebDAV backup because differential backups depend on it: {}",
+            dependents.join(", ")
+        ));
+    }
+
+    let deleted_files = record.files.len();
+    let deleted_prefix = record.prefix.clone();
+    delete_remote_path(
+        client,
+        config,
+        &format!("{SAVE_BACKUPS_DATA_DIR}/{deleted_prefix}"),
+        Some(lock_token),
+    )
+    .await?;
+
+    let remaining_files = manifest
+        .files
+        .iter()
+        .filter(|file| !path_has_prefix(&file.relative_path, &deleted_prefix))
+        .cloned()
+        .collect::<Vec<_>>();
+    if remaining_files.is_empty() {
+        let _ =
+            delete_remote_path(client, config, SAVE_BACKUPS_MANIFEST_PATH, Some(lock_token)).await;
+        return Ok(WebDavSaveBackupDeleteResult {
+            backup_id: backup_id.to_string(),
+            deleted_files,
+            remaining_backups: 0,
+        });
+    }
+
+    let next_manifest = rebuild_manifest_with_files(&manifest, remaining_files);
+    let remaining_backups = next_manifest.backup_count;
+    upload_bytes(
+        client,
+        config,
+        SAVE_BACKUPS_MANIFEST_PATH,
+        "application/json",
+        serde_json::to_vec_pretty(&next_manifest).map_err(|error| error.to_string())?,
+        Some(lock_token),
+    )
+    .await?;
+
+    Ok(WebDavSaveBackupDeleteResult {
+        backup_id: backup_id.to_string(),
+        deleted_files,
+        remaining_backups,
+    })
+}
+
+fn rebuild_manifest_with_files(
+    current: &SaveBackupsManifest,
+    mut files: Vec<FileFingerprint>,
+) -> SaveBackupsManifest {
+    files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+
+    let mut backup_ids = BTreeSet::new();
+    let mut prefixes = HashSet::new();
+    let mut total_size = 0u64;
+    let mut updated_at = 0i64;
+    for file in &files {
+        total_size = total_size.saturating_add(file.size);
+        updated_at = updated_at.max(file.modified_at);
+        let parts = file.relative_path.split('/').collect::<Vec<_>>();
+        if parts.len() >= 2 {
+            prefixes.insert(format!("{}/{}", parts[0], parts[1]));
+        }
+        if parts.len() >= 4 && parts[3..].join("/") == "meta.json" {
+            backup_ids.insert(format!("{}/{}/{}", parts[0], parts[1], parts[2]));
+        }
+    }
+
+    let selected_worlds = current
+        .selected_worlds
+        .iter()
+        .filter(|world| prefixes.contains(*world))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    SaveBackupsManifest {
+        schema_version: SAVE_BACKUP_SYNC_SCHEMA_VERSION,
+        updated_at: updated_at.max(util::now_millis()),
+        file_count: files.len(),
+        backup_count: backup_ids.len(),
+        total_size,
+        content_hash: manifest_content_hash(&files),
+        selected_worlds,
+        files,
+    }
+}
+
+fn manifest_content_hash(files: &[FileFingerprint]) -> String {
+    if files.is_empty() {
+        return String::new();
+    }
+
+    let mut digest_material = String::new();
+    for file in files {
+        digest_material.push_str(&file.relative_path);
+        digest_material.push('\0');
+        digest_material.push_str(&file.size.to_string());
+        digest_material.push('\0');
+        digest_material.push_str(&file.content_hash);
+        digest_material.push('\n');
+    }
+    format!("{:x}", md5::compute(digest_material.as_bytes()))
+}
+
+fn md5_bytes(bytes: &[u8]) -> String {
+    format!("{:x}", md5::compute(bytes))
 }
 
 fn list_manifest_files(manifest: &SaveBackupsManifest) -> Vec<FileFingerprint> {

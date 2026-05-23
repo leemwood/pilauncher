@@ -46,6 +46,13 @@ export const WardrobeSkinMenuModal: React.FC<WardrobeSkinMenuModalProps> = ({
       isOpen={!!skinMenuAsset}
       onClose={onClose}
       title={modalTitle}
+      defaultFocusKey={
+        skinMenuAsset
+          ? (skinMenuAsset.isActive || skinMenuAsset.kind === 'profile')
+            ? 'wardrobe-skin-menu-close'
+            : 'wardrobe-skin-menu-apply'
+          : undefined
+      }
       className="w-full max-w-4xl"
       contentClassName="p-0 overflow-hidden"
     >
@@ -127,6 +134,17 @@ export const WardrobeSkinMenuModal: React.FC<WardrobeSkinMenuModalProps> = ({
                     className="wardrobe-skin-menu__action-icon"
                   />
                   {t('wardrobe.skinMenu.deleteAction')}
+                </OreButton>
+              )}
+
+              {(skinMenuAsset.isActive || skinMenuAsset.kind === 'profile') && (
+                <OreButton
+                  focusKey="wardrobe-skin-menu-close"
+                  variant="secondary"
+                  onClick={onClose}
+                  className="w-full"
+                >
+                  {t('wardrobe.capeMenu.cancelAction')}
                 </OreButton>
               )}
             </div>
