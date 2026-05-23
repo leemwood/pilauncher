@@ -242,7 +242,7 @@ export const VersionFilters: React.FC<VersionFiltersProps> = ({
               options={loaderOptions}
               value={activeLoader}
               onChange={setActiveLoader}
-              focusable={false}
+              focusable={true}
               className="!m-0 h-full w-full [&>.ore-toggle-btn-group]:!h-full [&>.ore-toggle-btn-group]:!w-full"
               buttonClassName="text-[0.8125rem]"
             />

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { ModrinthProject, OreProjectDetail } from '../../../InstanceDetail/logic/modrinthApi';
 import { useInputAction } from '../../../../ui/focus/InputDriver';
+import { FocusItem } from '../../../../ui/focus/FocusItem';
 import { ControlHint } from '../../../../ui/components/ControlHint';
 import { OreButton } from '../../../../ui/primitives/OreButton';
 import { OreMotionTokens } from '../../../../style/tokens/motion';
@@ -111,13 +112,24 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({
             >
               <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
                 {galleryUrls.map((url, index) => (
-                  <img
+                  <FocusItem
                     key={index}
-                    src={url}
-                    alt={`preview-${index}`}
-                    className="h-20 w-auto shrink-0 border-[2px] border-[var(--ore-downloadDetail-divider)] object-cover lg:h-24"
-                    style={{ boxShadow: 'var(--ore-downloadDetail-imageShadow)' }}
-                  />
+                    focusKey={`download-gallery-image-${index}`}
+                  >
+                    {({ ref, focused }) => (
+                      <img
+                        ref={ref}
+                        src={url}
+                        alt={`preview-${index}`}
+                        className={`h-20 w-auto shrink-0 border-[2px] object-cover lg:h-24 transition-all duration-150 ${
+                          focused
+                            ? 'border-white scale-[1.03] shadow-[0_0_1rem_rgba(255,255,255,0.25)] z-10'
+                            : 'border-[var(--ore-downloadDetail-divider)]'
+                        }`}
+                        style={{ boxShadow: 'var(--ore-downloadDetail-imageShadow)' }}
+                      />
+                    )}
+                  </FocusItem>
                 ))}
               </div>
             </motion.div>

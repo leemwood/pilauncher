@@ -136,7 +136,8 @@
       "installed": "Installed",
       "loadingEnv": "Loading environment...",
       "loadingVersions": "Syncing version list...",
-      "alreadyInInstance": "Already in instance"
+      "alreadyInInstance": "Already in instance",
+      "selected": "Selected"
     },
     "progress": {
       "connecting": "Connecting...",
@@ -169,6 +170,30 @@
     },
     "curseforge": {
       "apiKeyMissing": "CurseForge requires `VITE_CURSEFORGE_API_KEY`."
+    },
+    "instanceSelect": {
+      "unknownDependency": "Unknown Dependency ({{id}})",
+      "checkingDeps": "Analyzing dependencies...",
+      "missingDepsPrefix": "Selected instance is missing ",
+      "missingDepsSuffix": " required dependencies:",
+      "autoDownloadDeps": "Automatically download and install dependencies",
+      "depCheckStatusEmpty": "Dependency check results for the selected instance will be shown here",
+      "depCheckStatusIdle": "Select an instance to analyze dependency environment",
+      "title": "Select Installation Target",
+      "headerTitle": "Target Instance Confirmation",
+      "headerSubtitle": "Preparing to deploy:",
+      "envRequirement": "Environment Requirements:",
+      "matchingInstances": "Matching compatible instances...",
+      "noMatchingInstancesTitle": "No Compatible Instances Found",
+      "noMatchingInstancesDesc": "The environment required for this Mod is incompatible with your existing instances. Please create a compatible instance first.",
+      "unknownVersion": "Unknown version",
+      "unknownLoader": "Unknown Loader",
+      "selectedStatus": "Selected",
+      "alreadyInstalled": "Installed",
+      "selectedCount": "Selected {{count}} instance(s)",
+      "pleaseSelectInstance": "Please select at least one instance",
+      "scanningMods": "Scanning instance MOD cache...",
+      "confirmAndDeploy": "Confirm & Deploy"
     },
     "tags": {
       "clientSide": "Client-side",

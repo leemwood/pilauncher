@@ -11,6 +11,8 @@ import { OreModal } from '../../../ui/primitives/OreModal';
 import { OreOverlayScrollArea } from '../../../ui/primitives/OreOverlayScrollArea';
 import { OreSwitch } from '../../../ui/primitives/OreSwitch';
 import { useModSetTrackerStore, toModSetTrackerProject } from '../../Library/stores/useModSetTrackerStore';
+import { FocusBoundary } from '../../../ui/focus/FocusBoundary';
+import { FocusItem } from '../../../ui/focus/FocusItem';
 import type { ModrinthProject } from '../../InstanceDetail/logic/modrinthApi';
 import type { TabType } from '../hooks/useResourceDownload';
 
@@ -367,7 +369,7 @@ export const FavoritePlaceholderModal: React.FC<FavoritePlaceholderModalProps> =
               首次检查会在保存后自动开始
             </div>
           )}
-          <OreButton variant="secondary" onClick={onClose}>
+          <OreButton focusKey="favorite-cancel" variant="secondary" onClick={onClose}>
             取消
           </OreButton>
           <OreButton
@@ -470,54 +472,69 @@ export const FavoritePlaceholderModal: React.FC<FavoritePlaceholderModalProps> =
                 />
 
                 {isCollectionListOpen && typeof document !== 'undefined' && createPortal(
-                  <div
-                    ref={collectionListboxRef}
-                    id="favorite-modset-listbox"
-                    role="listbox"
-                    className="border-2 border-[#1E1E1F] bg-[#111214] shadow-[0_0.75rem_0_rgba(0,0,0,0.26)]"
-                    style={collectionListboxStyle || { position: 'fixed', top: 0, left: 0, width: 1, height: 1, visibility: 'hidden' }}
-                  >
-                    <OreOverlayScrollArea
-                      className="h-full"
-                      contentClassName="grid gap-1 p-1"
-                      safeInsetTop={6}
-                      safeInsetBottom={6}
-                      safeInsetRight={4}
-                      contentSafePaddingRight={18}
+                  <FocusBoundary id="favorite-modset-listbox-boundary">
+                    <div
+                      ref={collectionListboxRef}
+                      id="favorite-modset-listbox"
+                      role="listbox"
+                      className="border-2 border-[#1E1E1F] bg-[#111214] shadow-[0_0.75rem_0_rgba(0,0,0,0.26)]"
+                      style={collectionListboxStyle || { position: 'fixed', top: 0, left: 0, width: 1, height: 1, visibility: 'hidden' }}
                     >
-                      {filteredModSetCollections.length > 0 ? (
-                        filteredModSetCollections.map((collection) => {
-                          const active = collection.id === matchedCollection?.id;
-                          return (
-                            <button
-                              key={collection.id}
-                              type="button"
-                              role="option"
-                              aria-selected={active}
-                              onMouseDown={(event) => event.preventDefault()}
-                              onClick={() => {
-                                setCollectionName(collection.name);
-                                setIsCollectionListOpen(false);
-                              }}
-                              className={[
-                                'flex h-10 w-full items-center justify-between gap-2 border-2 px-3 text-left font-minecraft text-sm',
-                                active
-                                  ? 'border-[#6CC349] bg-[#6CC349] text-[#111214]'
-                                  : 'border-transparent bg-[#242526] text-white hover:border-[#6CC349] hover:bg-[#313233]',
-                              ].join(' ')}
-                            >
-                              <span className="truncate">{collection.name}</span>
-                              {active && <Check size={15} />}
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="border-2 border-dashed border-[#3C8527] bg-[#1C2A1B] px-3 py-2 font-minecraft text-sm text-[#A7F08A]">
-                          保存时自动创建“{normalizedCollectionName || copy.autoCreateLabel}”
-                        </div>
-                      )}
-                    </OreOverlayScrollArea>
-                  </div>,
+                      <OreOverlayScrollArea
+                        className="h-full"
+                        contentClassName="grid gap-1 p-1"
+                        safeInsetTop={6}
+                        safeInsetBottom={6}
+                        safeInsetRight={4}
+                        contentSafePaddingRight={18}
+                      >
+                        {filteredModSetCollections.length > 0 ? (
+                          filteredModSetCollections.map((collection) => {
+                            const active = collection.id === matchedCollection?.id;
+                            return (
+                              <FocusItem
+                                key={collection.id}
+                                focusKey={`modset-item-${collection.id}`}
+                                onEnter={() => {
+                                  setCollectionName(collection.name);
+                                  setIsCollectionListOpen(false);
+                                }}
+                              >
+                                {({ ref, focused }) => (
+                                  <button
+                                    ref={ref}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={active}
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onClick={() => {
+                                      setCollectionName(collection.name);
+                                      setIsCollectionListOpen(false);
+                                    }}
+                                    className={[
+                                      'flex h-10 w-full items-center justify-between gap-2 border-2 px-3 text-left font-minecraft text-sm transition-all duration-150',
+                                      focused
+                                        ? 'border-white bg-[#48494A] text-white shadow-[0_0_1rem_rgba(255,255,255,0.2)]'
+                                        : active
+                                          ? 'border-[#6CC349] bg-[#6CC349] text-[#111214]'
+                                          : 'border-transparent bg-[#242526] text-white hover:border-[#6CC349] hover:bg-[#313233]',
+                                    ].join(' ')}
+                                  >
+                                    <span className="truncate">{collection.name}</span>
+                                    {active && <Check size={15} />}
+                                  </button>
+                                )}
+                              </FocusItem>
+                            );
+                          })
+                        ) : (
+                          <div className="border-2 border-dashed border-[#3C8527] bg-[#1C2A1B] px-3 py-2 font-minecraft text-sm text-[#A7F08A]">
+                            保存时自动创建“{normalizedCollectionName || copy.autoCreateLabel}”
+                          </div>
+                        )}
+                      </OreOverlayScrollArea>
+                    </div>
+                  </FocusBoundary>,
                   document.body,
                 )}
 

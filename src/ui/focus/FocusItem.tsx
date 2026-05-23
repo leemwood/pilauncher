@@ -1,6 +1,6 @@
 // src/ui/focus/FocusItem.tsx
 import React, { useEffect, useRef, useContext } from 'react';
-import { useFocusable, setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { useFocusable, setFocus, getCurrentFocusKey, doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
 import { useInputMode } from './FocusProvider'; 
 import { BoundaryContext } from './FocusBoundary'; 
 import { focusManager } from './FocusManager';     
@@ -82,6 +82,24 @@ export const FocusItem: React.FC<FocusItemProps> = ({
       return () => clearTimeout(timer);
     }
   }, [defaultFocused, resolvedFocusKey, isBoundaryActive]);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || !resolvedFocusKey || disabled || !focusable || !isBoundaryActive) return;
+
+    const handleMouseEnter = () => {
+      if (inputMode === 'mouse' && document.body.classList.contains('intent-mouse')) {
+        if (getCurrentFocusKey() !== resolvedFocusKey && doesFocusableExist(resolvedFocusKey)) {
+          setFocus(resolvedFocusKey);
+        }
+      }
+    };
+
+    element.addEventListener('mouseenter', handleMouseEnter);
+    return () => {
+      element.removeEventListener('mouseenter', handleMouseEnter);
+    };
+  }, [ref, resolvedFocusKey, disabled, focusable, isBoundaryActive, inputMode]);
 
   // ✅ 传给 OreButton / OreList 等 UI 组件的将是严格过滤过的视觉状态
   return children({ ref: ref as React.RefObject<any>, focused: isVisualFocused, hasFocusedChild });

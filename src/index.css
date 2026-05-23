@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body.intent-keyboard,
+body.intent-controller {
+  cursor: none !important;
+}
+
+body.intent-keyboard *,
+body.intent-controller * {
+  cursor: none !important;
+}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { motion } from 'framer-motion';
-import { doesFocusableExist, setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import {
   AlertTriangle,
   Box,
@@ -172,7 +172,15 @@ export const TaskItem = ({
   const latestLog = task.logs.length > 0 ? task.logs[task.logs.length - 1] : null;
 
   useInputAction('ACTION_Y', () => {
-    setShowLogs((prev) => !prev);
+    const focusKey = getCurrentFocusKey();
+    if (focusKey && (
+      focusKey === `btn-log-${task.id}` ||
+      focusKey === `btn-cancel-${task.id}` ||
+      focusKey === `btn-retry-${task.id}` ||
+      focusKey === `btn-complete-${task.id}`
+    )) {
+      setShowLogs((prev) => !prev);
+    }
   });
 
   const handoffFocusInsidePanel = () => {
@@ -282,7 +290,6 @@ export const TaskItem = ({
             focusKey={`btn-log-${task.id}`}
             variant="ghost"
             size="auto"
-            autoScroll={false}
             onClick={() => setShowLogs(!showLogs)}
             className="!min-w-0 !h-[clamp(2.25rem,3vw,2.5rem)] !px-[0.625rem]"
           >
@@ -304,7 +311,6 @@ export const TaskItem = ({
               focusKey={`btn-cancel-${task.id}`}
               variant="danger"
               size="auto"
-              autoScroll={false}
               onClick={() => {
                 handoffFocusInsidePanel();
                 invoke('cancel_instance_deployment', { instanceId: task.id }).catch(console.error);
@@ -321,7 +327,6 @@ export const TaskItem = ({
                   focusKey={`btn-retry-${task.id}`}
                   variant="primary"
                   size="auto"
-                  autoScroll={false}
                   onClick={handleRetry}
                   className="!min-w-0 !h-[clamp(2.25rem,3vw,2.5rem)] !px-[0.75rem] border-[#4CAF50] bg-ore-green text-[0.8125rem] text-black hover:bg-ore-green-hover"
                 >
@@ -336,7 +341,6 @@ export const TaskItem = ({
                 focusKey={`btn-complete-${task.id}`}
                 variant={isError ? 'danger' : 'primary'}
                 size="auto"
-                autoScroll={false}
                 onClick={() => {
                   handoffFocusInsidePanel();
                   removeTask(task.id);

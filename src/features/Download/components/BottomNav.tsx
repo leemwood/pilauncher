@@ -97,15 +97,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, tabs, onTabChan
                       type="button"
                       tabIndex={0}
                       onClick={() => onTabChange(tab.id)}
-                      onFocus={() => setFocus(getFocusKey(tab.id))}
                       onKeyDown={(event) => {
-                        if (event.key === 'ArrowLeft') {
-                          event.preventDefault();
-                          switchTabBy(-1);
-                        } else if (event.key === 'ArrowRight') {
-                          event.preventDefault();
-                          switchTabBy(1);
-                        } else if (event.key === 'Home') {
+                        if (event.key === 'Home') {
                           event.preventDefault();
                           onTabChange(tabs[0].id);
                           setTimeout(() => setFocus(getFocusKey(tabs[0].id)), 0);
@@ -114,9 +107,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, tabs, onTabChan
                           const lastTab = tabs[tabs.length - 1];
                           onTabChange(lastTab.id);
                           setTimeout(() => setFocus(getFocusKey(lastTab.id)), 0);
-                        } else if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          onTabChange(tab.id);
                         }
                       }}
                       className={`
@@ -135,7 +125,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, tabs, onTabChan
                     >
                       <Icon size={18} className={isActive ? 'text-white' : 'text-black'} />
                       <span className="truncate">{tab.label}</span>
-                      {isActive && <span className="absolute inset-x-3 bottom-1 h-[2px] bg-white/90" />}
+                      <span className={`absolute inset-x-3 bottom-1 h-[2px] bg-white/90 transition-all duration-200 origin-center ${isActive ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0'}`} />
                     </button>
                   );
                 }}

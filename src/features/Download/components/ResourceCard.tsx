@@ -139,6 +139,13 @@ export const ResourceCard = React.memo(({
               }
               onSelectProject(project);
             }}
+            onKeyDown={(event) => {
+              if (event.key === ' ' || event.key === 'Spacebar') {
+                event.preventDefault();
+                event.stopPropagation();
+                onToggleSelection?.(project);
+              }
+            }}
             onMouseDown={(event) => {
               if (event.button === 2) {
                 event.preventDefault();
@@ -300,7 +307,7 @@ export const ResourceCard = React.memo(({
                 <span className="pointer-events-none absolute inset-0 z-20 bg-[#1D4D13]/32" />
                 <span className="pointer-events-none absolute right-3 top-3 z-40 inline-flex h-8 items-center gap-1.5 border-2 border-[#1D4D13] bg-[#6CC349] px-2 font-minecraft text-[0.6875rem] uppercase tracking-[0.12em] text-[#111214] shadow-[inset_0_-0.1875rem_0_#3C8527,inset_0.125rem_0.125rem_0_rgba(255,255,255,0.24)]">
                   <Check size={13} strokeWidth={3} />
-                  命中
+                  {t('download.status.selected', { defaultValue: '已选' })}
                 </span>
               </>
             )}

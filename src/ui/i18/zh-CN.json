@@ -136,7 +136,8 @@
       "installed": "已安装",
       "loadingEnv": "正在加载环境...",
       "loadingVersions": "正在同步版本列表...",
-      "alreadyInInstance": "实例内已存在"
+      "alreadyInInstance": "实例内已存在",
+      "selected": "已选"
     },
     "progress": {
       "connecting": "正在建立连接...",
@@ -169,6 +170,30 @@
     },
     "curseforge": {
       "apiKeyMissing": "未配置 `VITE_CURSEFORGE_API_KEY`，CurseForge 接口不可用。"
+    },
+    "instanceSelect": {
+      "unknownDependency": "未知前置 ({{id}})",
+      "checkingDeps": "正在分析前置依赖环境...",
+      "missingDepsPrefix": "已选实例缺少 ",
+      "missingDepsSuffix": " 个必需的前置：",
+      "autoDownloadDeps": "自动下载并补全前置模组",
+      "depCheckStatusEmpty": "已选实例的前置检查结果会显示在这里",
+      "depCheckStatusIdle": "选择实例后将在这里分析前置依赖",
+      "title": "选择安装目标",
+      "headerTitle": "目标实例确认",
+      "headerSubtitle": "准备部署：",
+      "envRequirement": "环境需求：",
+      "matchingInstances": "正在匹配兼容的实例...",
+      "noMatchingInstancesTitle": "未找到匹配实例",
+      "noMatchingInstancesDesc": "该 Mod 的运行环境与您现有的实例不兼容，请先创建一个匹配的实例。",
+      "unknownVersion": "未知版本",
+      "unknownLoader": "未知 Loader",
+      "selectedStatus": "已选择",
+      "alreadyInstalled": "已存在",
+      "selectedCount": "已选择 {{count}} 个实例",
+      "pleaseSelectInstance": "请至少选择一个实例",
+      "scanningMods": "正在读取实例 MOD 缓存...",
+      "confirmAndDeploy": "确认并部署"
     },
     "tags": {
       "clientSide": "客户端",

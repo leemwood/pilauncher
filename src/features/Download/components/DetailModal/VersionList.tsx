@@ -1,7 +1,8 @@
 import React from 'react';
-import { doesFocusableExist, setFocus } from '@noriginmedia/norigin-spatial-navigation';
+import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { CheckCircle2, Clock3, Download, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useInputAction } from '../../../../ui/focus/InputDriver';
 
 import type { OreProjectVersion } from '../../../InstanceDetail/logic/modrinthApi';
 import { FocusBoundary } from '../../../../ui/focus/FocusBoundary';
@@ -49,15 +50,22 @@ export const VersionList: React.FC<VersionListProps> = ({
       return false;
     }
 
-    if (direction === 'left' || direction === 'right') {
-      if (doesFocusableExist('download-modal-mc-dropdown-0')) {
-        setFocus('download-modal-mc-dropdown-0');
-      }
-      return false;
-    }
-
     return true;
   };
+
+  useInputAction('ACTION_Y', () => {
+    const focusKey = getCurrentFocusKey();
+    if (focusKey) {
+      const match = focusKey.match(/^download-modal-version-row-(\d+)$/);
+      if (match) {
+        const idx = parseInt(match[1], 10);
+        const version = displayVersions[idx];
+        if (version && !isVersionInstalled(version)) {
+          onDownload(version);
+        }
+      }
+    }
+  });
 
   const handleVersionEnter = (version: OreProjectVersion) => {
     setSelectedVersion(version);

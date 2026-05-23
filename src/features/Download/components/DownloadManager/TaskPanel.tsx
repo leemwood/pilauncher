@@ -118,7 +118,6 @@ export const TaskPanel = ({
                   focusKey="btn-taskpanel-clear-completed"
                   variant="secondary"
                   size="auto"
-                  autoScroll={false}
                   disabled={completedTasksCount === 0}
                   onClick={clearCompletedTasks}
                   className="!h-[clamp(2.25rem,3vw,2.5rem)] !min-w-[7rem] !px-[0.75rem] text-[clamp(0.8125rem,1vw,0.875rem)]"
@@ -131,7 +130,6 @@ export const TaskPanel = ({
                 focusKey="btn-taskpanel-hide"
                 variant="primary"
                 size="auto"
-                autoScroll={false}
                 onClick={onClose}
                 className="!h-[clamp(2.25rem,3vw,2.5rem)] !min-w-[6rem] !px-[0.75rem] text-[clamp(0.8125rem,1vw,0.875rem)]"
               >

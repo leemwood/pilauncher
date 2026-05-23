@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core';
 import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { AlertTriangle, BoxSelect, CheckCircle2, CheckSquare, Loader2, Monitor, Square } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { useInputAction } from '../../../../ui/focus/InputDriver';
 import { FocusItem } from '../../../../ui/focus/FocusItem';
@@ -45,6 +46,7 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
   ignoreLoader = false,
   projectId
 }) => {
+  const { t } = useTranslation();
   const [instances, setInstances] = useState<CompatibleInstance[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -298,7 +300,7 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
               const detail = await getProjectDetails(dependencyId);
               return { id: dependencyId, name: detail.title };
             } catch {
-              return { id: dependencyId, name: `\u672a\u77e5\u524d\u7f6e (${dependencyId})` };
+              return { id: dependencyId, name: t('download.instanceSelect.unknownDependency', { id: dependencyId, defaultValue: `未知前置 (${dependencyId})` }) };
             }
           })
         );
@@ -342,18 +344,18 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
   const dependencyStatusContent = isCheckingDeps ? (
     <div className="flex h-full items-center border-[0.125rem] border-[#3C8527] bg-[#1E1E1F] px-[0.75rem] font-minecraft text-[0.75rem] text-[#6CC349] shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.08)]">
       <Loader2 size={14} className="mr-[0.5rem] animate-spin" />
-      {'\u6b63\u5728\u5206\u6790\u524d\u7f6e\u4f9d\u8d56\u73af\u5883...'}
+      {t('download.instanceSelect.checkingDeps', { defaultValue: '正在分析前置依赖环境...' })}
     </div>
   ) : missingDeps.length > 0 ? (
     <div className="h-full border-[0.125rem] border-[#D6A02A] bg-[#3A300F] p-[0.75rem] shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.12)]">
       <div className="mb-[0.5rem] flex items-start text-[#F5C542]">
         <AlertTriangle size={16} className="mr-[0.5rem] mt-[0.125rem] flex-shrink-0" />
         <div className="font-minecraft text-[0.75rem] leading-[1.55]">
-          {'\u5df2\u9009\u5b9e\u4f8b\u7f3a\u5c11 '}
+          {t('download.instanceSelect.missingDepsPrefix', { defaultValue: '已选实例缺少 ' })}
           <span className="font-bold">{missingDeps.length}</span>
-          {' \u4e2a\u5fc5\u9700\u7684\u524d\u7f6e\uff1a'}
+          {t('download.instanceSelect.missingDepsSuffix', { defaultValue: ' 个必需的前置：' })}
           <br />
-          <span className="break-words font-bold text-[#FFE08A]">{missingDeps.map((dependency) => dependency.name).join('\u3001')}</span>
+          <span className="break-words font-bold text-[#FFE08A]">{missingDeps.map((dependency) => dependency.name).join(t('download.instanceSelect.commaSeparator', { defaultValue: '、' }))}</span>
         </div>
       </div>
 
@@ -377,7 +379,7 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
                 {autoInstallDeps && <CheckCircle2 size={10} />}
               </div>
               <span className="font-minecraft text-[0.75rem] uppercase tracking-[0.08em] text-[#E6E8EB]">
-                {'\u81ea\u52a8\u4e0b\u8f7d\u5e76\u8865\u5168\u524d\u7f6e\u6a21\u7ec4'}
+                {t('download.instanceSelect.autoDownloadDeps', { defaultValue: '自动下载并补全前置模组' })}
               </span>
             </div>
           </div>
@@ -387,8 +389,8 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
   ) : (
     <div className="flex h-full items-center border-[0.125rem] border-[#1E1E1F] bg-[#242425] px-[0.75rem] font-minecraft text-[0.75rem] text-[#B1B2B5] shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.06)]">
       {selectedIds.length > 0
-        ? '\u5df2\u9009\u5b9e\u4f8b\u7684\u524d\u7f6e\u68c0\u67e5\u7ed3\u679c\u4f1a\u663e\u793a\u5728\u8fd9\u91cc'
-        : '\u9009\u62e9\u5b9e\u4f8b\u540e\u5c06\u5728\u8fd9\u91cc\u5206\u6790\u524d\u7f6e\u4f9d\u8d56'}
+        ? t('download.instanceSelect.depCheckStatusEmpty', { defaultValue: '已选实例的前置检查结果会显示在这里' })
+        : t('download.instanceSelect.depCheckStatusIdle', { defaultValue: '选择实例后将在这里分析前置依赖' })}
     </div>
   );
 
@@ -396,22 +398,22 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
     <OreModal
       isOpen={isOpen}
       onClose={handleClose}
-      title={'\u9009\u62e9\u5b89\u88c5\u76ee\u6807'}
+      title={t('download.instanceSelect.title', { defaultValue: '选择安装目标' })}
       hideCloseButton
       defaultFocusKey={initialFocusKey}
       className="h-[min(42rem,85vh)] w-[44rem] max-w-[calc(100vw-2rem)] border-[0.1875rem] border-[#1E1E1F] bg-[var(--ore-modal-bg)] sm:max-w-[calc(100vw-3rem)]"
       contentClassName="flex flex-col overflow-hidden p-0"
     >
       <div className="flex-shrink-0 border-b-[0.1875rem] border-[#1E1E1F] bg-[#48494A] p-[1.25rem] font-minecraft text-[0.875rem] text-[#D0D1D4] shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.16)]">
-        <div className="mb-[0.25rem] text-[1.125rem] font-bold leading-[1.35] text-white">{'\u76ee\u6807\u5b9e\u4f8b\u786e\u8ba4'}</div>
+        <div className="mb-[0.25rem] text-[1.125rem] font-bold leading-[1.35] text-white">{t('download.instanceSelect.headerTitle', { defaultValue: '目标实例确认' })}</div>
         <div className="truncate leading-[1.5]">
-          {'\u51c6\u5907\u90e8\u7f72\uff1a'}
+          {t('download.instanceSelect.headerSubtitle', { defaultValue: '准备部署：' })}
           <span className="ml-[0.25rem] inline-block max-w-full truncate align-bottom font-bold text-[#6CC349]">
             {version.file_name}
           </span>
         </div>
         <div className="mt-[0.25rem] text-[0.625rem] uppercase tracking-[0.08em] text-[#B1B2B5]">
-          {'\u73af\u5883\u9700\u6c42\uff1a'} MC {version.game_versions[0]} {ignoreLoader ? '' : `| ${version.loaders.join(', ')}`}
+          {t('download.instanceSelect.envRequirement', { defaultValue: '环境需求：' })} MC {version.game_versions[0]} {ignoreLoader ? '' : `| ${version.loaders.join(', ')}`}
         </div>
       </div>
 
@@ -419,14 +421,14 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
         {isLoading ? (
           <div className="flex h-full flex-col items-center justify-center py-[3rem] text-[#6CC349]">
             <Loader2 className="mb-[0.75rem] animate-spin" size={32} />
-            <span className="font-minecraft text-[0.875rem]">{'\u6b63\u5728\u5339\u914d\u517c\u5bb9\u7684\u5b9e\u4f8b...'}</span>
+            <span className="font-minecraft text-[0.875rem]">{t('download.instanceSelect.matchingInstances', { defaultValue: '正在匹配兼容的实例...' })}</span>
           </div>
         ) : instances.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-[3rem] text-[#B1B2B5]">
             <BoxSelect size={48} className="mb-[1rem] opacity-70" />
-            <div className="mb-[0.25rem] text-center font-minecraft text-[1.125rem] text-white">{'\u672a\u627e\u5230\u5339\u914d\u5b9e\u4f8b'}</div>
+            <div className="mb-[0.25rem] text-center font-minecraft text-[1.125rem] text-white">{t('download.instanceSelect.noMatchingInstancesTitle', { defaultValue: '未找到匹配实例' })}</div>
             <div className="px-[2rem] text-center font-minecraft text-[0.75rem] leading-[1.55]">
-              {'\u8be5 Mod \u7684\u8fd0\u884c\u73af\u5883\u4e0e\u60a8\u73b0\u6709\u7684\u5b9e\u4f8b\u4e0d\u517c\u5bb9\uff0c\u8bf7\u5148\u521b\u5efa\u4e00\u4e2a\u5339\u914d\u7684\u5b9e\u4f8b\u3002'}
+              {t('download.instanceSelect.noMatchingInstancesDesc', { defaultValue: '该 Mod 的运行环境与您现有的实例不兼容，请先创建一个匹配的实例。' })}
             </div>
           </div>
         ) : (
@@ -477,7 +479,7 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
                         {instance.name}
                       </div>
                       <div className={`mt-[0.125rem] font-mono text-[0.625rem] ${isSelected ? 'text-[#1D4D13]' : alreadyInstalledInstanceIds.has(instance.id) ? 'text-[#F5C542]' : 'text-[#313233]'}`}>
-                        {instance.version || '\u672a\u77e5\u7248\u672c'} | {instance.loader || '\u672a\u77e5 Loader'}
+                        {instance.version || t('download.instanceSelect.unknownVersion', { defaultValue: '未知版本' })} | {instance.loader || t('download.instanceSelect.unknownLoader', { defaultValue: '未知 Loader' })}
                       </div>
                     </div>
 
@@ -485,14 +487,14 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
                       <div className="ml-[0.75rem] flex-shrink-0 text-right">
                         <CheckCircle2 className="ml-auto text-[#1D4D13]" size={20} />
                         <div className="mt-[0.25rem] font-minecraft text-[0.625rem] uppercase tracking-[0.12em] text-[#1D4D13]">
-                          {'\u5df2\u9009\u62e9'}
+                          {t('download.instanceSelect.selectedStatus', { defaultValue: '已选择' })}
                         </div>
                       </div>
                     ) : alreadyInstalledInstanceIds.has(instance.id) ? (
                       <div className="ml-[0.75rem] flex-shrink-0 text-right">
                         <CheckCircle2 className="ml-auto text-[#F5C542]" size={20} />
                         <div className="mt-[0.25rem] font-minecraft text-[0.625rem] uppercase tracking-[0.12em] text-[#F5C542]">
-                          {'\u5df2\u5b58\u5728'}
+                          {t('download.instanceSelect.alreadyInstalled', { defaultValue: '已存在' })}
                         </div>
                       </div>
                     ) : null}
@@ -513,13 +515,13 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
           <div className="flex min-w-0 items-center gap-[0.75rem]">
             <div className="min-h-[1rem] font-minecraft text-[0.625rem] uppercase tracking-[0.14em] text-[#D0D1D4]">
               {selectedIds.length > 0
-                ? `\u5df2\u9009\u62e9 ${selectedIds.length} \u4e2a\u5b9e\u4f8b`
-                : '\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u5b9e\u4f8b'}
+                ? t('download.instanceSelect.selectedCount', { count: selectedIds.length, defaultValue: `已选择 ${selectedIds.length} 个实例` })
+                : t('download.instanceSelect.pleaseSelectInstance', { defaultValue: '请至少选择一个实例' })}
             </div>
             {isScanningMods && (
               <div className="flex items-center font-minecraft text-[0.625rem] uppercase tracking-[0.08em] text-[#6CC349]">
                 <Loader2 className="mr-[0.375rem] animate-spin" size={12} />
-                {'\u6b63\u5728\u8bfb\u53d6\u5b9e\u4f8b MOD \u7f13\u5b58...'}
+                {t('download.instanceSelect.scanningMods', { defaultValue: '正在读取实例 MOD 缓存...' })}
               </div>
             )}
           </div>
@@ -531,17 +533,17 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
               onClick={handleClose}
               onArrowPress={handleCancelArrow}
             >
-              {'\u53d6\u6d88'}
+              {t('common.cancel', { defaultValue: '取消' })}
             </OreButton>
             <OreButton
               focusKey={CONFIRM_BUTTON_FOCUS_KEY}
               variant="primary"
-              disabled={selectedIds.length === 0 || isLoading || isCheckingDeps}
+              disabled={selectedIds.length === 0 || isLoading || isCheckingDeps || isScanningMods}
               onClick={() => { void handleConfirm(); }}
               onArrowPress={handleConfirmArrow}
               className="font-bold tracking-[0.12em]"
             >
-              {'\u786e\u8ba4\u5e76\u90e8\u7f72'}
+              {t('download.instanceSelect.confirmAndDeploy', { defaultValue: '确认并部署' })}
             </OreButton>
           </div>
         </div>

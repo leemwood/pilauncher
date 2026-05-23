@@ -40,14 +40,19 @@ export const FloatingButton = ({ isOpen, onClick, activeCount, hasTasks, progres
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onClick}
-              className={`group relative flex h-[clamp(3.5rem,4vw,4.5rem)] w-[clamp(3.5rem,4vw,4.5rem)] items-center justify-center rounded-full border-[0.125rem] border-ore-gray-border bg-[#1E1E1F] shadow-lg outline-none transition-all hover:border-ore-green
-                ${focused ? 'z-50 scale-105 ring-4 ring-ore-green shadow-[0_0_20px_rgba(34,197,94,0.5)]' : ''}
+              className={`group relative flex h-[clamp(3.5rem,4vw,4.5rem)] w-[clamp(3.5rem,4vw,4.5rem)] items-center justify-center rounded-none border-[0.1875rem] border-[#1E1E1F] bg-[#313233] outline-none transition-all
+                ${focused ? 'z-50 scale-105 outline outline-[0.125rem] outline-white outline-offset-[0.125rem]' : 'hover:border-[#6CC349]'}
               `}
+              style={{
+                boxShadow: focused
+                  ? 'inset -0.25rem -0.25rem 0 rgba(0,0,0,0.45), inset 0.125rem 0.125rem 0 rgba(255,255,255,0.25), 0 0 1.25rem rgba(108,195,73,0.6)'
+                  : 'inset -0.25rem -0.25rem 0 rgba(0,0,0,0.35), inset 0.125rem 0.125rem 0 rgba(255,255,255,0.15)'
+              }}
             >
               <Download className="h-[1.5rem] w-[1.5rem] text-white sm:h-[1.625rem] sm:w-[1.625rem]" />
 
               {activeCount > 0 && (
-                <span className="absolute -right-[0.25rem] -top-[0.25rem] flex min-h-[1.375rem] min-w-[1.375rem] items-center justify-center rounded-full bg-ore-green px-[0.25rem] text-[0.75rem] font-bold text-[#1E1E1F]">
+                <span className="absolute -right-[0.25rem] -top-[0.25rem] flex min-h-[1.375rem] min-w-[1.375rem] items-center justify-center rounded-none border-[0.125rem] border-[#111214] bg-[#6CC349] px-[0.25rem] text-[0.75rem] font-bold text-[#111214] shadow-[inset_-0.125rem_-0.125rem_0_#3C8527]">
                   {activeCount}
                 </span>
               )}

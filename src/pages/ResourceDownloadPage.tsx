@@ -182,6 +182,20 @@ const ResourceDownloadPage: React.FC = () => {
     clearDownloadSelection();
     setIsFavoriteModalOpen(false);
     setIsBatchInstanceModalOpen(false);
+
+    // 核心修复：当取消选择时，如果当前聚焦在操作栏或丢失焦点，自动将焦点引回之前在列表里最后聚焦的那张卡片上
+    setTimeout(() => {
+      const currentFocus = getCurrentFocusKey();
+      const isInsideActionBar = currentFocus?.startsWith(DOWNLOAD_ACTION_BAR_FOCUS_PREFIX);
+      if (!currentFocus || currentFocus === 'SN:ROOT' || isInsideActionBar) {
+        const fallback = lastListFocusBeforeActionBarRef.current;
+        if (fallback && doesFocusableExist(fallback)) {
+          setFocus(fallback);
+        } else if (doesFocusableExist('download-grid-item-0')) {
+          setFocus('download-grid-item-0');
+        }
+      }
+    }, 50);
   }, [clearDownloadSelection]);
 
   useEffect(() => {
@@ -393,7 +407,7 @@ const ResourceDownloadPage: React.FC = () => {
   }
 
   return (
-    <FocusBoundary id="resource-download-page" className="relative flex h-full w-full flex-col bg-transparent text-white">
+    <FocusBoundary id="resource-download-page" trapFocus={true} className="relative flex h-full w-full flex-col bg-transparent text-white">
       <FilterBar
         activeTab={activeTab}
         tabs={tabs}

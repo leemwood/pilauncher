@@ -168,8 +168,8 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
           data={resourceItems}
           context={{ hasMore, isLoadingMore }}
           scrollerRef={handleScrollerRef}
-          computeItemKey={(index, item) => `${getProjectKey(item.project)}-${index}`}
-          listClassName="grid grid-cols-1 gap-[0.75rem] px-[0.875rem] pb-[1.5rem] pt-[1.375rem] sm:px-[1rem] sm:pt-[1.5rem]"
+          computeItemKey={(_, item) => getProjectKey(item.project)}
+          listClassName="grid grid-cols-1 gap-[0.75rem] px-[1rem] pb-[1.5rem] pt-[1.5rem]"
           components={RESOURCE_GRID_COMPONENTS}
           increaseViewportBy={{ top: 240, bottom: 520 }}
           endReached={triggerLoadMore}

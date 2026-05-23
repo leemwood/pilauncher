@@ -63,25 +63,25 @@ export const ModpackCreateModal: React.FC<ModpackCreateModalProps> = ({
     <OreModal
       isOpen={isOpen}
       onClose={handleClose}
-      hideTitleBar={false}
+      hideTitleBar={true}
       defaultFocusKey={NAME_INPUT_FOCUS_KEY}
-      className="w-full max-w-lg bg-[#18181B] p-0"
+      className="w-[44rem] max-w-[calc(100vw-2rem)] border-[0.1875rem] border-[#1E1E1F] bg-[var(--ore-modal-bg)] sm:max-w-[calc(100vw-3rem)]"
       contentClassName="flex flex-col overflow-hidden p-0"
     >
-      <div className="p-5 border-b border-white/5 bg-black/40 text-sm text-gray-300">
-        <div className="mb-1 flex items-center font-minecraft text-lg text-white">
-          <PackagePlus size={20} className="mr-2 text-ore-green" />
+      <div className="flex-shrink-0 border-b-[0.1875rem] border-[#1E1E1F] bg-[#48494A] p-[1.25rem] font-minecraft text-[0.875rem] text-[#D0D1D4] shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.16)]">
+        <div className="mb-[0.25rem] flex items-center font-minecraft text-[1.125rem] font-bold leading-[1.35] text-white">
+          <PackagePlus size={20} className="mr-2 text-[#6CC349]" />
           创建整合包实例
         </div>
-        <div className="mt-2 text-xs text-gray-400">
-          准备下载：<span className="font-bold text-ore-green">{version.file_name}</span>
+        <div className="mt-2 text-xs text-[#D0D1D4]">
+          准备下载：<span className="font-bold text-[#6CC349]">{version.file_name}</span>
         </div>
-        <div className="mt-1 text-xs text-gray-500">
+        <div className="mt-1 text-xs text-[#B1B2B5]">
           依赖环境：Minecraft {version.game_versions.join(', ')} | {version.loaders.join(', ')}
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="flex-1 bg-[#313233] p-[1.25rem]">
         <div className="flex flex-col space-y-2">
           <label className="text-sm font-bold tracking-wider text-ore-text-muted">
             实例名称（支持自定义）
@@ -93,7 +93,7 @@ export const ModpackCreateModal: React.FC<ModpackCreateModalProps> = ({
             placeholder="输入实例名称"
             className="bg-black/50 border-[#2A2A2C] text-white font-minecraft focus:border-ore-green/50"
             onArrowPress={(direction) => {
-              if (direction === 'DOWN') {
+              if (direction === 'down') {
                 setFocus(CONFIRM_BUTTON_FOCUS_KEY);
                 return false;
               }
@@ -103,17 +103,17 @@ export const ModpackCreateModal: React.FC<ModpackCreateModalProps> = ({
         </div>
       </div>
 
-      <div className="mt-2 flex justify-end gap-3 border-t border-white/5 bg-black/60 p-4">
+      <div className="flex flex-shrink-0 justify-end gap-[1rem] border-t-[0.1875rem] border-[#1E1E1F] bg-[#48494A] p-[1rem] shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.14)]">
         <OreButton
           focusKey={CANCEL_BUTTON_FOCUS_KEY}
           variant="secondary"
           onClick={handleClose}
           onArrowPress={(direction) => {
-            if (direction === 'UP') {
+            if (direction === 'up') {
               setFocus(NAME_INPUT_FOCUS_KEY);
               return false;
             }
-            if (direction === 'RIGHT') {
+            if (direction === 'right') {
               setFocus(CONFIRM_BUTTON_FOCUS_KEY);
               return false;
             }
@@ -128,11 +128,11 @@ export const ModpackCreateModal: React.FC<ModpackCreateModalProps> = ({
           disabled={!instanceName.trim()}
           onClick={handleConfirm}
           onArrowPress={(direction) => {
-            if (direction === 'UP') {
+            if (direction === 'up') {
               setFocus(NAME_INPUT_FOCUS_KEY);
               return false;
             }
-            if (direction === 'LEFT') {
+            if (direction === 'left') {
               setFocus(CANCEL_BUTTON_FOCUS_KEY);
               return false;
             }

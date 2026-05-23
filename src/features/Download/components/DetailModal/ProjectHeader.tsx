@@ -1,6 +1,7 @@
 import React from 'react';
 import { Blocks, Clock3, Download, ExternalLink, Heart, Monitor, Server } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { FocusItem } from '../../../../ui/focus/FocusItem';
 
 import type { ModrinthProject, OreProjectDetail } from '../../../InstanceDetail/logic/modrinthApi';
 import { formatDate, formatNumber } from '../../../../utils/formatters';
@@ -100,24 +101,31 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, details }
       </div>
 
       <div className="flex shrink-0 flex-col items-end justify-center ml-2">
-        <button
-          onClick={handleOpenWeb}
-          className="flex h-8 items-center gap-1.5 border-[2px] border-[var(--ore-downloadDetail-divider)] bg-[var(--ore-downloadDetail-base)] px-2.5 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)] transition-colors hover:bg-[var(--ore-downloadDetail-rowBg)] active:translate-y-[1px] active:shadow-none"
-          title={t('download.openInBrowser', { defaultValue: 'Open in Browser' })}
-        >
-          {project.source === 'curseforge' ? (
-            <>
-              <CurseforgeIcon className="text-[14px] text-[#F16436]" />
-              <span className="font-minecraft text-[10px] uppercase tracking-[0.1em] text-white">CurseForge</span>
-            </>
-          ) : (
-            <>
-              <ModrinthIcon className="text-[14px] text-[#1BD96A]" />
-              <span className="font-minecraft text-[10px] uppercase tracking-[0.1em] text-white">Modrinth</span>
-            </>
+        <FocusItem focusKey="download-modal-header-open-web">
+          {({ ref, focused }) => (
+            <button
+              ref={ref}
+              onClick={handleOpenWeb}
+              className={`flex h-8 items-center gap-1.5 border-[2px] bg-[var(--ore-downloadDetail-base)] px-2.5 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)] transition-colors hover:bg-[var(--ore-downloadDetail-rowBg)] active:translate-y-[1px] active:shadow-none ${
+                focused ? 'border-white shadow-[0_0_1rem_rgba(255,255,255,0.2)]' : 'border-[var(--ore-downloadDetail-divider)]'
+              }`}
+              title={t('download.openInBrowser', { defaultValue: 'Open in Browser' })}
+            >
+              {project.source === 'curseforge' ? (
+                <>
+                  <CurseforgeIcon className="text-[14px] text-[#F16436]" />
+                  <span className="font-minecraft text-[10px] uppercase tracking-[0.1em] text-white">CurseForge</span>
+                </>
+              ) : (
+                <>
+                  <ModrinthIcon className="text-[14px] text-[#1BD96A]" />
+                  <span className="font-minecraft text-[10px] uppercase tracking-[0.1em] text-white">Modrinth</span>
+                </>
+              )}
+              <ExternalLink size={12} className="ml-0.5 text-[var(--ore-downloadDetail-hintText)]" />
+            </button>
           )}
-          <ExternalLink size={12} className="ml-0.5 text-[var(--ore-downloadDetail-hintText)]" />
-        </button>
+        </FocusItem>
       </div>
     </div>
   );
