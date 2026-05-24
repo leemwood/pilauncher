@@ -31,7 +31,11 @@ export const TaskPanel = ({
           initial="hidden"
           animate="visible"
           exit="exit"
-          onAnimationComplete={() => setFocus('btn-taskpanel-hide')}
+          onAnimationComplete={(definition) => {
+            if (definition === 'visible') {
+              setFocus('btn-taskpanel-hide');
+            }
+          }}
           className="z-[1000] mb-[1.25rem] flex w-[clamp(22rem,85vw,40rem)] flex-col overflow-hidden border-[0.125rem] border-[var(--ore-border-color)] bg-[var(--ore-modal-bg)] text-[var(--ore-modal-content-text)]"
           style={{ boxShadow: 'var(--ore-modal-shadow)' }}
         >

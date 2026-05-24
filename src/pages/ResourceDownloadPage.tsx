@@ -30,7 +30,6 @@ const ResourceDownloadPage: React.FC = () => {
   const { t } = useTranslation();
   const instanceId = useLauncherStore((state) => state.selectedInstanceId);
   const currentGlobalTab = useLauncherStore((state) => state.activeTab);
-  const setActiveTabGlobal = useLauncherStore((state) => state.setActiveTab);
 
   const tabs: { id: TabType; label: string; icon: LucideIcon }[] = [
     { id: 'mod', label: t('download.tabs.mod', { defaultValue: 'Mods' }), icon: Blocks },
@@ -215,10 +214,6 @@ const ResourceDownloadPage: React.FC = () => {
         clearSelection();
         return;
       }
-
-      if (!selectedProject && !isFavoriteModalOpen && !isBatchInstanceModalOpen) {
-        setActiveTabGlobal('instances');
-      }
     };
 
     window.addEventListener('keydown', handleEscape);
@@ -229,8 +224,7 @@ const ResourceDownloadPage: React.FC = () => {
     isBatchInstanceModalOpen,
     isFavoriteModalOpen,
     isSelectionMode,
-    selectedProject,
-    setActiveTabGlobal
+    selectedProject
   ]);
 
   useEffect(() => {

@@ -138,6 +138,7 @@ export const TitleBar: React.FC = () => {
             tabs={navTabs}
             activeTab={visibleActiveTab}
             onChange={(id) => setActiveTab(id as any)}
+            focusable={false}
           />
 
           <div

@@ -50,7 +50,11 @@ const globalSafeFallbackKeys = [
 const isTaskManagerFocusKey = (focusKey: string) =>
   focusKey === 'btn-floating-download' ||
   focusKey.startsWith('task-') ||
-  focusKey.startsWith('btn-taskpanel');
+  focusKey.startsWith('btn-taskpanel') ||
+  focusKey.startsWith('btn-log-') ||
+  focusKey.startsWith('btn-cancel-') ||
+  focusKey.startsWith('btn-retry-') ||
+  focusKey.startsWith('btn-complete-');
 
 export const DownloadManager: React.FC = () => {
   const {
