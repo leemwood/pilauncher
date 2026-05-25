@@ -525,10 +525,10 @@ impl LaunchCommandBuilder {
             }
         }
 
-        if let Some(core_jar) = self.resolve_core_jar(launch_jar_id, allow_minecraft_fallback) {
-            Self::push_unique_entry(&mut cp, &mut seen, core_jar.to_string_lossy().to_string());
-        } else if allow_minecraft_fallback {
-            if let Some(path) = self
+        if allow_minecraft_fallback {
+            if let Some(core_jar) = self.resolve_core_jar(launch_jar_id, allow_minecraft_fallback) {
+                Self::push_unique_entry(&mut cp, &mut seen, core_jar.to_string_lossy().to_string());
+            } else if let Some(path) = self
                 .core_jar_candidates(launch_jar_id, allow_minecraft_fallback)
                 .first()
             {
@@ -1129,6 +1129,104 @@ mod tests {
         assert!(normalize_for_assert(&classpath).contains(
             "org/lwjgl/lwjgl/lwjgl/2.9.4-nightly-20150209/lwjgl-2.9.4-nightly-20150209.jar"
         ));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn build_args_does_not_add_vanilla_jar_to_module_bootstrap_classpath() {
+        let root = unique_test_root("module-bootstrap-no-vanilla-cp");
+        let runtime_root = root.join("runtime");
+        let game_dir = root.join("game");
+        let bootstrap_path = runtime_root
+            .join("libraries")
+            .join("cpw/mods/bootstraplauncher/2.0.2/bootstraplauncher-2.0.2.jar");
+
+        fs::create_dir_all(&game_dir).unwrap();
+        fs::create_dir_all(bootstrap_path.parent().unwrap()).unwrap();
+        fs::write(&bootstrap_path, b"").unwrap();
+        write_version_manifest(
+            &runtime_root,
+            "1.21.1",
+            &serde_json::json!({
+                "id": "1.21.1",
+                "mainClass": "net.minecraft.client.main.Main",
+                "arguments": {
+                    "jvm": ["-Djava.library.path=${natives_directory}", "-cp", "${classpath}"],
+                    "game": ["--username", "${auth_player_name}"]
+                },
+                "libraries": []
+            }),
+        );
+        write_version_manifest(
+            &runtime_root,
+            "neoforge-21.1.224",
+            &serde_json::json!({
+                "id": "neoforge-21.1.224",
+                "inheritsFrom": "1.21.1",
+                "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+                "arguments": {
+                    "jvm": [
+                        "-cp", "${classpath}",
+                        "-p", "${library_directory}/cpw/mods/bootstraplauncher/2.0.2/bootstraplauncher-2.0.2.jar",
+                        "--add-modules", "ALL-MODULE-PATH"
+                    ],
+                    "game": ["--launchTarget", "neoforgeclient"]
+                },
+                "libraries": [
+                    {
+                        "name": "cpw.mods:bootstraplauncher:2.0.2",
+                        "downloads": {
+                            "artifact": {
+                                "path": "cpw/mods/bootstraplauncher/2.0.2/bootstraplauncher-2.0.2.jar"
+                            }
+                        }
+                    }
+                ]
+            }),
+        );
+
+        let builder = LaunchCommandBuilder::new(
+            ResolvedLaunchConfig {
+                java_path: "auto".to_string(),
+                min_memory: 1024,
+                max_memory: 2048,
+                resolution_width: 1280,
+                resolution_height: 720,
+                fullscreen: false,
+                custom_jvm_args: Vec::new(),
+                server_binding: None,
+            },
+            AuthSession {
+                player_name: "tester".to_string(),
+                uuid: "uuid".to_string(),
+                access_token: "token".to_string(),
+                user_type: "msa".to_string(),
+                authlib_api_root: None,
+                authlib_injector_jar: None,
+            },
+            "1.21.1",
+            "neoforge-21.1.224",
+            game_dir,
+            runtime_root,
+            None,
+        );
+
+        let args = builder
+            .build_args()
+            .expect("module bootstrap args should build");
+        let classpath = args
+            .windows(2)
+            .find_map(|pair| (pair[0] == "-cp").then(|| pair[1].clone()))
+            .expect("classpath should exist");
+        let module_path = args
+            .windows(2)
+            .find_map(|pair| (pair[0] == "-p").then(|| pair[1].clone()))
+            .expect("module path should exist");
+
+        assert!(!normalize_for_assert(&classpath).contains("versions/1.21.1/1.21.1.jar"));
+        assert!(!normalize_for_assert(&classpath).contains("bootstraplauncher-2.0.2.jar"));
+        assert!(normalize_for_assert(&module_path).contains("bootstraplauncher-2.0.2.jar"));
 
         let _ = fs::remove_dir_all(root);
     }

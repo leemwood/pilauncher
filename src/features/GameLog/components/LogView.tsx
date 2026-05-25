@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Copy, Check } from 'lucide-react';
 import { FocusItem } from '../../../ui/focus/FocusItem';
+import { VirtuosoScroller } from '../../../ui/primitives/OreOverlayScrollArea';
 import {
   renderHighlightedLog,
   defaultHighlightRules,
@@ -128,8 +129,10 @@ export const LogView: React.FC<LogViewProps> = ({ logs, isOpen }) => {
             ) : (
               <Virtuoso
                 ref={virtuosoRef}
-                style={{ flex: 1 }}
+                className="custom-scrollbar"
+                style={{ flex: 1, overscrollBehaviorY: 'contain' }}
                 data={logSegments}
+                components={{ Scroller: VirtuosoScroller }}
                 followOutput={true}
                 atBottomThreshold={200}
                 scrollerRef={(node) => {
