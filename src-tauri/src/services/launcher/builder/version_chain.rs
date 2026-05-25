@@ -192,17 +192,31 @@ impl LaunchCommandBuilder {
     }
 
     pub(super) fn launch_jar_id(version_chain: &[VersionManifest], fallback: &str) -> String {
+        if let Some(jar_id) = version_chain.iter().rev().find_map(|manifest| {
+            manifest
+                .json
+                .get("jar")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| value.to_string())
+        }) {
+            return jar_id;
+        }
+
         version_chain
-            .last()
-            .and_then(|manifest| {
+            .iter()
+            .rev()
+            .find(|manifest| {
                 manifest
                     .json
-                    .get("jar")
+                    .get("inheritsFrom")
                     .and_then(|value| value.as_str())
                     .map(str::trim)
                     .filter(|value| !value.is_empty())
-                    .map(|value| value.to_string())
+                    .is_none()
             })
+            .map(|manifest| manifest.id.clone())
             .unwrap_or_else(|| fallback.to_string())
     }
 

@@ -13,6 +13,7 @@ use tokio::process::Command;
 use crate::domain::instance::InstanceConfig;
 use crate::domain::launcher::{Account, AccountType, LoaderType};
 use crate::error::{AppError, AppResult};
+use crate::services::minecraft_service::{parse_third_party_json, resolve_loader_folder};
 use crate::services::playtime::PlaytimeService;
 
 use auth::AuthService;
@@ -192,6 +193,98 @@ fn patch_options_txt(game_dir: &Path, fullscreen: bool) {
     }
 }
 
+fn read_version_json_from_dir(version_dir: &Path) -> Option<(String, serde_json::Value)> {
+    let version_id = version_dir.file_name()?.to_str()?.to_string();
+    let json_path = version_dir.join(format!("{}.json", version_id));
+    let content = std::fs::read_to_string(json_path).ok()?;
+    let json = serde_json::from_str(&content).ok()?;
+    Some((version_id, json))
+}
+
+fn collect_version_dirs_from_root(root: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    if read_version_json_from_dir(root).is_some() {
+        dirs.push(root.to_path_buf());
+    }
+
+    let versions_dir = if root.file_name().and_then(|name| name.to_str()) == Some("versions") {
+        root.to_path_buf()
+    } else {
+        root.join("versions")
+    };
+
+    if let Ok(entries) = std::fs::read_dir(&versions_dir) {
+        dirs.extend(
+            entries
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
+                .filter(|path| path.is_dir()),
+        );
+    }
+
+    dirs.sort();
+    dirs.dedup();
+    dirs
+}
+
+fn loader_metadata_matches(
+    requested_mc: &str,
+    requested_loader_type: &str,
+    requested_loader_version: &str,
+    discovered_mc: &str,
+    discovered_loader_type: &str,
+    discovered_loader_version: &str,
+) -> bool {
+    discovered_mc == requested_mc
+        && discovered_loader_type.eq_ignore_ascii_case(requested_loader_type)
+        && discovered_loader_version == requested_loader_version
+}
+
+fn discover_launch_version_from_metadata(
+    runtime_dir: &Path,
+    third_party_root: Option<&Path>,
+    config: &InstanceConfig,
+) -> Option<String> {
+    let requested_loader_type = config.loader.r#type.trim();
+    let requested_loader_version = config.loader.version.trim();
+    if requested_loader_type.is_empty()
+        || requested_loader_type.eq_ignore_ascii_case("vanilla")
+        || requested_loader_version.is_empty()
+    {
+        return Some(config.mc_version.clone());
+    }
+
+    for root in third_party_root
+        .into_iter()
+        .chain(std::iter::once(runtime_dir))
+    {
+        for version_dir in collect_version_dirs_from_root(root) {
+            let Some((version_id, json)) = read_version_json_from_dir(&version_dir) else {
+                continue;
+            };
+            let (mc_version, loader_type, loader_version) =
+                parse_third_party_json(&version_id, &json);
+            if loader_metadata_matches(
+                &config.mc_version,
+                requested_loader_type,
+                requested_loader_version,
+                &mc_version,
+                &loader_type,
+                &loader_version,
+            ) {
+                return Some(version_id);
+            }
+        }
+    }
+
+    resolve_loader_folder(
+        requested_loader_type,
+        &config.mc_version,
+        requested_loader_version,
+    )
+}
+
 impl LauncherService {
     pub async fn launch_instance<R: Runtime>(
         app: &AppHandle<R>,
@@ -263,7 +356,20 @@ impl LauncherService {
             _ => LoaderType::Vanilla,
         };
 
-        let target_version_id = match loader_type {
+        let mut third_party_root = None;
+        if let Some(tp_path) = &instance_cfg.third_party_path {
+            let tp_pathbuf = PathBuf::from(tp_path);
+            if tp_pathbuf.exists() {
+                third_party_root = Some(tp_pathbuf);
+            }
+        }
+
+        let target_version_id = discover_launch_version_from_metadata(
+            &runtime_dir,
+            third_party_root.as_deref(),
+            &instance_cfg,
+        )
+        .unwrap_or_else(|| match loader_type {
             LoaderType::Vanilla => instance_cfg.mc_version.clone(),
             LoaderType::Fabric => format!(
                 "fabric-loader-{}-{}",
@@ -278,15 +384,7 @@ impl LauncherService {
                 "quilt-loader-{}-{}",
                 instance_cfg.loader.version, instance_cfg.mc_version
             ),
-        };
-
-        let mut third_party_root = None;
-        if let Some(tp_path) = &instance_cfg.third_party_path {
-            let tp_pathbuf = PathBuf::from(tp_path);
-            if tp_pathbuf.exists() {
-                third_party_root = Some(tp_pathbuf);
-            }
-        }
+        });
 
         let builder = LaunchCommandBuilder::new(
             resolved_config.clone(),
@@ -574,5 +672,105 @@ Module Path Entries: {}\n\
         });
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::instance::{JavaConfig, LoaderConfig, MemoryConfig, ResolutionConfig};
+
+    fn test_instance_config(loader_type: &str, loader_version: &str) -> InstanceConfig {
+        InstanceConfig {
+            id: "test".to_string(),
+            name: "Test".to_string(),
+            mc_version: "1.20.1".to_string(),
+            loader: LoaderConfig {
+                r#type: loader_type.to_string(),
+                version: loader_version.to_string(),
+            },
+            java: JavaConfig {
+                path: "auto".to_string(),
+                version: String::new(),
+            },
+            memory: MemoryConfig {
+                min: 1024,
+                max: 2048,
+            },
+            resolution: ResolutionConfig {
+                width: 1280,
+                height: 720,
+            },
+            play_time: 0.0,
+            last_played: String::new(),
+            created_at: String::new(),
+            cover_image: None,
+            hero_logo: None,
+            gamepad: None,
+            custom_buttons: None,
+            third_party_path: None,
+            server_binding: None,
+            auto_join_server: None,
+            tags: None,
+            jvm_args: None,
+            window_width: None,
+            window_height: None,
+            is_favorite: None,
+        }
+    }
+
+    fn unique_test_root(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "pilauncher-launcher-service-{}-{}",
+            label,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn discover_launch_version_prefers_installed_metadata_over_folder_formula() {
+        let root = unique_test_root("metadata-profile");
+        let runtime_dir = root.join("runtime");
+        let profile_id = "fabric-custom-profile";
+        let profile_dir = runtime_dir.join("versions").join(profile_id);
+        std::fs::create_dir_all(&profile_dir).unwrap();
+        std::fs::write(
+            profile_dir.join(format!("{}.json", profile_id)),
+            serde_json::to_string(&serde_json::json!({
+                "id": profile_id,
+                "inheritsFrom": "1.20.1",
+                "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient",
+                "libraries": [
+                    { "name": "net.fabricmc:fabric-loader:0.16.10" },
+                    { "name": "net.fabricmc:intermediary:1.20.1" }
+                ]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let config = test_instance_config("fabric", "0.16.10");
+        assert_eq!(
+            discover_launch_version_from_metadata(&runtime_dir, None, &config),
+            Some(profile_id.to_string())
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn discover_launch_version_falls_back_to_known_loader_folder() {
+        let root = unique_test_root("metadata-fallback");
+        let config = test_instance_config("forge", "47.4.18");
+
+        assert_eq!(
+            discover_launch_version_from_metadata(&root.join("runtime"), None, &config),
+            Some("1.20.1-forge-47.4.18".to_string())
+        );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 }

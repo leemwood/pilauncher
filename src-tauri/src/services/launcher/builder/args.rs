@@ -837,6 +837,55 @@ mod tests {
     }
 
     #[test]
+    fn launch_jar_id_uses_metadata_jar_field_from_child_profile() {
+        let chain = vec![
+            VersionManifest {
+                id: "1.20.1".to_string(),
+                json: serde_json::json!({
+                    "id": "1.20.1"
+                }),
+            },
+            VersionManifest {
+                id: "custom-loader".to_string(),
+                json: serde_json::json!({
+                    "id": "custom-loader",
+                    "inheritsFrom": "1.20.1",
+                    "jar": "patched-client"
+                }),
+            },
+        ];
+
+        assert_eq!(
+            LaunchCommandBuilder::launch_jar_id(&chain, "fallback"),
+            "patched-client"
+        );
+    }
+
+    #[test]
+    fn launch_jar_id_falls_back_to_inherited_root_metadata() {
+        let chain = vec![
+            VersionManifest {
+                id: "1.20.1".to_string(),
+                json: serde_json::json!({
+                    "id": "1.20.1"
+                }),
+            },
+            VersionManifest {
+                id: "fabric-loader-0.16.10-1.20.1".to_string(),
+                json: serde_json::json!({
+                    "id": "fabric-loader-0.16.10-1.20.1",
+                    "inheritsFrom": "1.20.1"
+                }),
+            },
+        ];
+
+        assert_eq!(
+            LaunchCommandBuilder::launch_jar_id(&chain, "fallback"),
+            "1.20.1"
+        );
+    }
+
+    #[test]
     fn library_download_paths_excludes_native_classifiers_from_classpath() {
         let lib = serde_json::json!({
             "name": "org.lwjgl:lwjgl:3.3.3",
