@@ -6,6 +6,7 @@ import {
   matchCurseForgeFingerprints
 } from '../../../Download/logic/curseforgeApi';
 import {
+  getModPreferredPlatform,
   getModPlatformReference,
   modService,
   type ModMeta,
@@ -15,6 +16,9 @@ import { getProjectDetails, type ModrinthProject, matchModrinthVersionsByHashes 
 
 type MatchPlatform = 'modrinth' | 'curseforge';
 type MatchedPlatforms = Record<MatchPlatform, ModPlatformMatch>;
+interface SyncCloudMetadataOptions {
+  force?: boolean;
+}
 
 const PLATFORM_PRIORITY: MatchPlatform[] = ['modrinth', 'curseforge'];
 
@@ -99,7 +103,10 @@ const persistPlatformMatches = async (
 };
 
 export const useModCloudSync = (instanceId: string) => {
-  const syncCloudMetadata = useCallback(async (modsToSync: ModMeta[]) => {
+  const syncCloudMetadata = useCallback(async (
+    modsToSync: ModMeta[],
+    options: SyncCloudMetadataOptions = {}
+  ) => {
     const matchedByFileName = new Map<string, Partial<ModMeta>>();
     const platformMatchesByFileName = new Map<string, Partial<MatchedPlatforms>>();
     const modrinthDetailCache = new Map<string, Promise<ModrinthProject>>();
@@ -113,16 +120,26 @@ export const useModCloudSync = (instanceId: string) => {
     ) => {
       const nextMatches = mergePlatformMatch(platformMatchesByFileName.get(mod.fileName), platform, match);
       platformMatchesByFileName.set(mod.fileName, nextMatches);
-      matchedByFileName.set(mod.fileName, {
-        ...(matchedByFileName.get(mod.fileName) || {}),
-        ...(meta || {})
-      });
+
+      if (meta) {
+        const preferredPlatform = getModPreferredPlatform(mod, 'metadata');
+        const currentMeta = matchedByFileName.get(mod.fileName);
+        const shouldUseMeta = !currentMeta || preferredPlatform === platform || (!preferredPlatform && platform === 'modrinth');
+        if (shouldUseMeta) {
+          matchedByFileName.set(mod.fileName, {
+            ...(currentMeta || {}),
+            ...meta
+          });
+        }
+      } else if (!matchedByFileName.has(mod.fileName)) {
+        matchedByFileName.set(mod.fileName, {});
+      }
     };
 
     const sha1Mods = modsToSync.filter((mod) => (
       mod.manifestEntry?.hash.algorithm?.toLowerCase() === 'sha1'
       && !!mod.manifestEntry.hash.value
-      && !hasCompletePlatformReference(mod, 'modrinth')
+      && (options.force || !hasCompletePlatformReference(mod, 'modrinth'))
     ));
 
     try {
@@ -171,7 +188,7 @@ export const useModCloudSync = (instanceId: string) => {
     if (hasCurseForgeApiKey()) {
       const curseForgeMods = modsToSync.filter((mod) => (
         typeof mod.curseforgeFingerprint === 'number'
-        && !hasCompletePlatformReference(mod, 'curseforge')
+        && (options.force || !hasCompletePlatformReference(mod, 'curseforge'))
       ));
 
       try {

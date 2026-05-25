@@ -1,7 +1,8 @@
 use crate::domain::mod_manifest::{
     build_file_state, build_manifest_entry, build_manifest_source, compute_file_hash,
     mod_manifest_key, normalize_manifest_entry, read_raw_mod_manifest, upsert_mod_manifest_entry,
-    write_mod_manifest, ModManifest, ModManifestEntry, ModPlatformMatch, ModSourceKind,
+    write_mod_manifest, ModManifest, ModManifestEntry, ModMetadataSettings, ModPlatformMatch,
+    ModSourceKind,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -128,6 +129,47 @@ impl ModManifestService {
             }
         }
 
+        write_mod_manifest(manifest_path, &manifest)
+    }
+
+    pub fn update_metadata_settings(
+        manifest_path: &Path,
+        file_name: &str,
+        settings: ModMetadataSettings,
+    ) -> Result<(), String> {
+        let mut manifest = if manifest_path.exists() {
+            let content = std::fs::read_to_string(manifest_path).unwrap_or_default();
+            serde_json::from_str::<ModManifest>(&content).unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+
+        let key = mod_manifest_key(file_name);
+        let entry = manifest
+            .get_mut(&key)
+            .ok_or_else(|| format!("Mod manifest entry not found: {}", file_name))?;
+
+        entry.metadata_settings = Some(settings);
+        write_mod_manifest(manifest_path, &manifest)
+    }
+
+    pub fn reset_platform_metadata(manifest_path: &Path, file_name: &str) -> Result<(), String> {
+        let mut manifest = if manifest_path.exists() {
+            let content = std::fs::read_to_string(manifest_path).unwrap_or_default();
+            serde_json::from_str::<ModManifest>(&content).unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+
+        let key = mod_manifest_key(file_name);
+        let entry = manifest
+            .get_mut(&key)
+            .ok_or_else(|| format!("Mod manifest entry not found: {}", file_name))?;
+
+        entry.source.platform = None;
+        entry.source.project_id = None;
+        entry.source.file_id = None;
+        entry.matched_platforms.clear();
         write_mod_manifest(manifest_path, &manifest)
     }
 
@@ -279,6 +321,128 @@ mod tests {
             .expect("curseforge");
         assert_eq!(curseforge.project_id.as_deref(), Some("cf-project-2"));
         assert_eq!(curseforge.file_id.as_deref(), Some("cf-file"));
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn update_metadata_settings_preserves_matched_platforms() {
+        let dir = create_temp_dir("mod-metadata-settings");
+        let manifest_path = dir.join("mod_manifest.json");
+
+        let mut entry = build_manifest_entry(
+            build_manifest_source(
+                ModSourceKind::LauncherDownload,
+                Some("modrinth".to_string()),
+                Some("mr-project".to_string()),
+                Some("mr-file".to_string()),
+            ),
+            crate::domain::mod_manifest::ModFileHash::sha1("hash".to_string()),
+            crate::domain::mod_manifest::ModFileState::default(),
+        );
+        entry.matched_platforms.insert(
+            "modrinth".to_string(),
+            ModPlatformMatch {
+                project_id: Some("mr-project".to_string()),
+                file_id: Some("mr-file".to_string()),
+            },
+        );
+
+        let mut manifest = ModManifest::new();
+        manifest.insert("demo.jar".to_string(), entry);
+        write_mod_manifest(&manifest_path, &manifest).expect("write manifest");
+
+        ModManifestService::update_metadata_settings(
+            &manifest_path,
+            "demo.jar",
+            ModMetadataSettings {
+                metadata_platform: Some("curseforge".to_string()),
+                update_platform: Some("curseforge".to_string()),
+                metadata_locked: true,
+                update_locked: true,
+            },
+        )
+        .expect("update settings");
+
+        let content = fs::read_to_string(&manifest_path).expect("read manifest");
+        let parsed = serde_json::from_str::<ModManifest>(&content).expect("parse manifest");
+        let entry = parsed.get("demo.jar").expect("entry");
+
+        assert_eq!(
+            entry
+                .matched_platforms
+                .get("modrinth")
+                .and_then(|matched| matched.file_id.as_deref()),
+            Some("mr-file")
+        );
+        assert_eq!(
+            entry
+                .metadata_settings
+                .as_ref()
+                .and_then(|settings| settings.metadata_platform.as_deref()),
+            Some("curseforge")
+        );
+        assert_eq!(
+            entry
+                .metadata_settings
+                .as_ref()
+                .map(|settings| settings.update_locked),
+            Some(true)
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn reset_platform_metadata_clears_source_and_matches_but_keeps_settings() {
+        let dir = create_temp_dir("mod-reset-platform-metadata");
+        let manifest_path = dir.join("mod_manifest.json");
+
+        let mut entry = build_manifest_entry(
+            build_manifest_source(
+                ModSourceKind::LauncherDownload,
+                Some("modrinth".to_string()),
+                Some("mr-project".to_string()),
+                Some("mr-file".to_string()),
+            ),
+            crate::domain::mod_manifest::ModFileHash::sha1("hash".to_string()),
+            crate::domain::mod_manifest::ModFileState::default(),
+        );
+        entry.matched_platforms.insert(
+            "modrinth".to_string(),
+            ModPlatformMatch {
+                project_id: Some("mr-project".to_string()),
+                file_id: Some("mr-file".to_string()),
+            },
+        );
+        entry.metadata_settings = Some(ModMetadataSettings {
+            metadata_platform: Some("modrinth".to_string()),
+            update_platform: Some("modrinth".to_string()),
+            metadata_locked: false,
+            update_locked: false,
+        });
+
+        let mut manifest = ModManifest::new();
+        manifest.insert("demo.jar".to_string(), entry);
+        write_mod_manifest(&manifest_path, &manifest).expect("write manifest");
+
+        ModManifestService::reset_platform_metadata(&manifest_path, "demo.jar")
+            .expect("reset metadata");
+
+        let content = fs::read_to_string(&manifest_path).expect("read manifest");
+        let parsed = serde_json::from_str::<ModManifest>(&content).expect("parse manifest");
+        let entry = parsed.get("demo.jar").expect("entry");
+
+        assert_eq!(entry.source.platform, None);
+        assert_eq!(entry.source.project_id, None);
+        assert!(entry.matched_platforms.is_empty());
+        assert_eq!(
+            entry
+                .metadata_settings
+                .as_ref()
+                .and_then(|settings| settings.metadata_platform.as_deref()),
+            Some("modrinth")
+        );
 
         let _ = fs::remove_dir_all(dir);
     }

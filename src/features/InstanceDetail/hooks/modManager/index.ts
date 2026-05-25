@@ -3,7 +3,9 @@ import { useCallback, useEffect } from 'react';
 import {
   modService,
   resolveInstanceGameVersion,
-  resolveInstanceLoader
+  resolveInstanceLoader,
+  type ModMeta,
+  type ModMetadataSettings
 } from '../../logic/modService';
 import { useModCloudSync } from './useModCloudSync';
 import { useModListState } from './useModListState';
@@ -174,6 +176,52 @@ export const useModManager = (instanceId: string) => {
     syncCloudMetadata,
   ]);
 
+  const saveModMetadataSettings = useCallback(async (
+    mod: ModMeta,
+    settings: ModMetadataSettings
+  ) => {
+    await modService.updateModMetadataSettings(instanceId, mod.fileName, settings);
+    const updatedMod: ModMeta = {
+      ...mod,
+      manifestEntry: mod.manifestEntry
+        ? {
+            ...mod.manifestEntry,
+            metadataSettings: settings
+          }
+        : mod.manifestEntry
+    };
+
+    setMods((current) => current.map((item) => (
+      item.fileName === mod.fileName ? updatedMod : item
+    )));
+
+    return updatedMod;
+  }, [instanceId, setMods]);
+
+  const reidentifyMod = useCallback(async (mod: ModMeta) => {
+    await modService.resetModPlatformMetadata(instanceId, mod.fileName);
+    const clearedMod: ModMeta = {
+      ...mod,
+      manifestEntry: mod.manifestEntry
+        ? {
+            ...mod.manifestEntry,
+            source: {
+              ...mod.manifestEntry.source,
+              platform: undefined,
+              projectId: undefined,
+              fileId: undefined
+            },
+            matchedPlatforms: {}
+          }
+        : mod.manifestEntry
+    };
+    const syncedMods = await syncCloudMetadata([clearedMod], { force: true });
+    const syncedMod = syncedMods[0] || mod;
+
+    setMods((current) => mergeModBatch(current, [syncedMod]));
+    return syncedMod;
+  }, [instanceId, setMods, syncCloudMetadata]);
+
   const sorting = useModSorting(mods, isLoading);
   const operations = useModOperations({
     instanceId,
@@ -205,6 +253,8 @@ export const useModManager = (instanceId: string) => {
     executeModFileCleanup: operations.executeModFileCleanup,
     loadMods,
     checkModUpdates,
+    saveModMetadataSettings,
+    reidentifyMod,
     upgradeMod: operations.upgradeMod,
     installModVersion: operations.installModVersion
   };

@@ -200,3 +200,22 @@ pub async fn update_mod_platform_matches<R: Runtime>(
 ) -> Result<(), String> {
     ResourceManager::update_mod_platform_matches(&app, &instance_id, &file_name, matches)
 }
+
+#[tauri::command]
+pub async fn update_mod_metadata_settings<R: Runtime>(
+    app: AppHandle<R>,
+    instance_id: String,
+    file_name: String,
+    settings: crate::domain::mod_manifest::ModMetadataSettings,
+) -> Result<(), String> {
+    ResourceManager::update_mod_metadata_settings(&app, &instance_id, &file_name, settings)
+}
+
+#[tauri::command]
+pub async fn reset_mod_platform_metadata<R: Runtime>(
+    app: AppHandle<R>,
+    instance_id: String,
+    file_name: String,
+) -> Result<(), String> {
+    ResourceManager::reset_mod_platform_metadata(&app, &instance_id, &file_name)
+}

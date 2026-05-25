@@ -7,6 +7,16 @@ export interface ModPlatformMatch {
   fileId?: string;
 }
 
+export type ModPlatformId = 'modrinth' | 'curseforge';
+export type ModPlatformPreference = 'auto' | ModPlatformId;
+
+export interface ModMetadataSettings {
+  metadataPlatform?: ModPlatformPreference;
+  updatePlatform?: ModPlatformPreference;
+  metadataLocked?: boolean;
+  updateLocked?: boolean;
+}
+
 export interface ModManifestEntry {
   source: {
     kind: 'externalImport' | 'launcherDownload' | 'modpackDeployment' | 'unknown';
@@ -24,6 +34,7 @@ export interface ModManifestEntry {
   };
   curseforgeFingerprint?: number;
   matchedPlatforms?: Record<string, ModPlatformMatch>;
+  metadataSettings?: ModMetadataSettings;
 }
 
 export interface ModMeta {
@@ -53,6 +64,7 @@ export interface ModMeta {
 }
 
 export type ModVersionInstallAction = 'install' | 'upgrade' | 'downgrade' | 'reinstall';
+export type ModMetadataPurpose = 'metadata' | 'update';
 
 export const resolveInstanceGameVersion = (config: any): string => {
   return config?.game_version || config?.gameVersion || config?.mcVersion || '';
@@ -71,7 +83,7 @@ const normalizeInstalledKey = (value?: string | null) => String(value || '').tri
 
 export const getModPlatformReference = (
   mod: ModMeta,
-  platform: 'modrinth' | 'curseforge'
+  platform: ModPlatformId
 ): ModPlatformMatch | undefined => {
   const source = mod.manifestEntry?.source;
   const matched = mod.manifestEntry?.matchedPlatforms?.[platform];
@@ -85,6 +97,79 @@ export const getModPlatformReference = (
 
   return matched;
 };
+
+export const isCompleteModPlatformReference = (
+  mod: ModMeta,
+  platform: ModPlatformId
+) => {
+  const reference = getModPlatformReference(mod, platform);
+  return !!reference?.projectId && !!reference.fileId;
+};
+
+export const getModPreferredPlatform = (
+  mod: ModMeta,
+  purpose: ModMetadataPurpose,
+  requireCompleteReference = false
+): ModPlatformId | undefined => {
+  const settings = mod.manifestEntry?.metadataSettings;
+  const preference = purpose === 'metadata'
+    ? settings?.metadataPlatform
+    : settings?.updatePlatform;
+  const locked = purpose === 'metadata'
+    ? !!settings?.metadataLocked
+    : !!settings?.updateLocked;
+
+  const hasReference = (platform: ModPlatformId) => (
+    requireCompleteReference ? isCompleteModPlatformReference(mod, platform) : true
+  );
+
+  if ((preference === 'modrinth' || preference === 'curseforge')) {
+    if (hasReference(preference)) return preference;
+    if (locked) return undefined;
+  }
+
+  const sourcePlatform = mod.manifestEntry?.source.platform;
+  if (
+    (sourcePlatform === 'modrinth' || sourcePlatform === 'curseforge')
+    && hasReference(sourcePlatform)
+  ) {
+    return sourcePlatform;
+  }
+
+  if (hasReference('modrinth') && getModPlatformReference(mod, 'modrinth')?.projectId) {
+    return 'modrinth';
+  }
+
+  if (hasReference('curseforge') && getModPlatformReference(mod, 'curseforge')?.projectId) {
+    return 'curseforge';
+  }
+
+  return undefined;
+};
+
+export const getModPreferredPlatformReference = (
+  mod: ModMeta,
+  purpose: ModMetadataPurpose
+): { platform: ModPlatformId; reference: ModPlatformMatch } | null => {
+  const platform = getModPreferredPlatform(mod, purpose, true);
+  if (!platform) return null;
+
+  const reference = getModPlatformReference(mod, platform);
+  if (!reference?.projectId || !reference.fileId) return null;
+
+  return { platform, reference };
+};
+
+export const buildLockedModMetadataSettings = (
+  platform: ModPlatformId,
+  previous?: ModMetadataSettings
+): ModMetadataSettings => ({
+  ...(previous || {}),
+  metadataPlatform: platform,
+  updatePlatform: platform,
+  metadataLocked: true,
+  updateLocked: true
+});
 
 export const getInstalledProjectIds = (mods: ModMeta[]): string[] => {
   const ids = new Set<string>();
@@ -281,6 +366,26 @@ export const modService = {
   ) => {
     modManifestCache.delete(instanceId);
     return invoke('update_mod_platform_matches', { instanceId, fileName, matches })
+      .finally(() => {
+        modManifestCache.delete(instanceId);
+      });
+  },
+
+  updateModMetadataSettings: (
+    instanceId: string,
+    fileName: string,
+    settings: ModMetadataSettings
+  ) => {
+    modManifestCache.delete(instanceId);
+    return invoke('update_mod_metadata_settings', { instanceId, fileName, settings })
+      .finally(() => {
+        modManifestCache.delete(instanceId);
+      });
+  },
+
+  resetModPlatformMetadata: (instanceId: string, fileName: string) => {
+    modManifestCache.delete(instanceId);
+    return invoke('reset_mod_platform_metadata', { instanceId, fileName })
       .finally(() => {
         modManifestCache.delete(instanceId);
       });

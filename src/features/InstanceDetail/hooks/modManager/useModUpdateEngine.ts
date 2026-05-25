@@ -5,6 +5,7 @@ import {
   buildUpdateCacheEntry,
   canCheckManagedUpdate,
   fetchManagedVersions,
+  getManagedUpdateReference,
   getModUpdateCacheKey,
   getOrCreateUpdateCache,
   isFreshUpdateCacheEntry,
@@ -45,9 +46,9 @@ export const useModUpdateEngine = ({ setMods }: UseModUpdateEngineOptions) => {
     const targetsByCacheKey = new Map<string, ModMeta>();
 
     for (const mod of modsToCheck) {
-      const source = mod.manifestEntry?.source;
+      const updateReference = getManagedUpdateReference(mod);
 
-      if (!canCheckManagedUpdate(mod) || !source?.projectId || !source.fileId) {
+      if (!canCheckManagedUpdate(mod) || !updateReference) {
         continue;
       }
 
@@ -114,10 +115,11 @@ export const useModUpdateEngine = ({ setMods }: UseModUpdateEngineOptions) => {
         }
 
         const [cacheKey, mod] = target;
-        const source = mod.manifestEntry?.source;
-        if (!source?.projectId || !source.fileId) {
+        const updateReference = getManagedUpdateReference(mod);
+        if (!updateReference) {
           continue;
         }
+        const { platform, reference } = updateReference;
 
         let cacheEntry: ModUpdateCacheEntry = {
           hasUpdate: false,
@@ -125,11 +127,11 @@ export const useModUpdateEngine = ({ setMods }: UseModUpdateEngineOptions) => {
         };
 
         try {
-          const versions = await fetchManagedVersions(source.platform, source.projectId, targetMc, targetLoader);
+          const versions = await fetchManagedVersions(platform, reference.projectId!, targetMc, targetLoader);
           const versionList = versions || [];
           const latest = versionList[0];
-          const currentIndex = versionList.findIndex((version) => version.id === source.fileId);
-          cacheEntry = buildUpdateCacheEntry(latest, source.fileId);
+          const currentIndex = versionList.findIndex((version) => version.id === reference.fileId);
+          cacheEntry = buildUpdateCacheEntry(latest, reference.fileId!);
 
           if (currentIndex === 0) {
             cacheEntry = {

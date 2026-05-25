@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 
 import { OreConfirmDialog } from '../../../../../../../ui/primitives/OreConfirmDialog';
 
-import type { ModMeta, ModVersionInstallAction } from '../../../../../logic/modService';
+import type { ModMeta, ModMetadataSettings, ModVersionInstallAction } from '../../../../../logic/modService';
 import type { OreProjectVersion } from '../../../../../logic/modrinthApi';
 import { ModSnapshotModal } from '../../../ModSnapshotModal';
 import { ModDetailModal } from './ModDetailModal';
@@ -16,6 +16,8 @@ interface ModPanelDialogsProps {
   state: ModPanelDialogState;
   actions: ModPanelDialogActions;
   onInstallVersion: (mod: ModMeta, version: OreProjectVersion, action: ModVersionInstallAction) => void;
+  onSaveMetadataSettings: (mod: ModMeta, settings: ModMetadataSettings) => Promise<ModMeta>;
+  onReidentifyMod: (mod: ModMeta) => Promise<ModMeta>;
 }
 
 export const ModPanelDialogs: React.FC<ModPanelDialogsProps> = ({
@@ -24,7 +26,9 @@ export const ModPanelDialogs: React.FC<ModPanelDialogsProps> = ({
   snapshotState,
   state,
   actions,
-  onInstallVersion
+  onInstallVersion,
+  onSaveMetadataSettings,
+  onReidentifyMod
 }) => {
   return (
     <>
@@ -35,6 +39,8 @@ export const ModPanelDialogs: React.FC<ModPanelDialogsProps> = ({
         onToggle={actions.toggleSelectedMod}
         onDelete={actions.deleteModFromDetail}
         onInstallVersion={onInstallVersion}
+        onSaveMetadataSettings={onSaveMetadataSettings}
+        onReidentifyMod={onReidentifyMod}
       />
 
       <ModSnapshotModal

@@ -44,6 +44,8 @@ export const ModPanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
         state={controller.dialogs.state}
         actions={controller.dialogs.actions}
         onInstallVersion={controller.modActions.onInstallVersion}
+        onSaveMetadataSettings={controller.modActions.onSaveMetadataSettings}
+        onReidentifyMod={controller.modActions.onReidentifyMod}
       />
 
       <OreConfirmDialog

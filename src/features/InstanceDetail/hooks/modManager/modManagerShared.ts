@@ -1,5 +1,10 @@
 import { fetchCurseForgeVersions, hasCurseForgeApiKey } from '../../../Download/logic/curseforgeApi';
-import { getModPlatformReference, type ModMeta } from '../../logic/modService';
+import {
+  getModPlatformReference,
+  isCompleteModPlatformReference,
+  type ModMeta,
+  type ModPlatformId
+} from '../../logic/modService';
 import { fetchModrinthVersions, type OreProjectVersion } from '../../logic/modrinthApi';
 
 export type ModSortType = 'time' | 'name' | 'fileName' | 'version' | 'update';
@@ -44,14 +49,49 @@ export const getUpdateScopeKey = (instanceId: string, gameVersion: string, loade
   return `${instanceId}|${gameVersion || 'unknown'}|${loader || 'unknown'}`;
 };
 
-export const getModUpdateCacheKey = (mod: ModMeta) => {
-  const modrinthReference = getModPlatformReference(mod, 'modrinth');
-  const curseForgeReference = getModPlatformReference(mod, 'curseforge');
+export const getManagedUpdateReference = (mod: ModMeta) => {
+  const settings = mod.manifestEntry?.metadataSettings;
+  const preferred = settings?.updatePlatform;
+  const locked = !!settings?.updateLocked;
+  const candidates: ModPlatformId[] = [];
+  const addCandidate = (platform?: string) => {
+    if ((platform === 'modrinth' || platform === 'curseforge') && !candidates.includes(platform)) {
+      candidates.push(platform);
+    }
+  };
 
+  addCandidate(preferred);
+  if (!locked) {
+    addCandidate(mod.manifestEntry?.source.platform);
+    addCandidate('modrinth');
+    addCandidate('curseforge');
+  }
+
+  for (const platform of candidates) {
+    if (!isCompleteModPlatformReference(mod, platform)) continue;
+    if (platform === 'curseforge' && !hasCurseForgeApiKey()) continue;
+
+    const reference = getModPlatformReference(mod, platform);
+    if (reference?.projectId && reference.fileId) {
+      return { platform, reference };
+    }
+  }
+
+  return null;
+};
+
+export const getModUpdateCacheKey = (mod: ModMeta) => {
+  const updateReference = getManagedUpdateReference(mod);
+  if (updateReference) {
+    return `${updateReference.platform}:${updateReference.reference.projectId}:${updateReference.reference.fileId}`;
+  }
+
+  const modrinthReference = getModPlatformReference(mod, 'modrinth');
   if (modrinthReference?.projectId && modrinthReference.fileId) {
     return `modrinth:${modrinthReference.projectId}:${modrinthReference.fileId}`;
   }
 
+  const curseForgeReference = getModPlatformReference(mod, 'curseforge');
   if (curseForgeReference?.projectId && curseForgeReference.fileId) {
     return `curseforge:${curseForgeReference.projectId}:${curseForgeReference.fileId}`;
   }
@@ -60,22 +100,7 @@ export const getModUpdateCacheKey = (mod: ModMeta) => {
 };
 
 export const canCheckManagedUpdate = (mod: ModMeta) => {
-  const source = mod.manifestEntry?.source;
-  const modrinthReference = getModPlatformReference(mod, 'modrinth');
-  const curseForgeReference = getModPlatformReference(mod, 'curseforge');
-
-  if (source?.platform === 'curseforge') {
-    return !!curseForgeReference?.projectId && !!curseForgeReference.fileId && hasCurseForgeApiKey();
-  }
-
-  if (source?.platform === 'modrinth') {
-    return !!modrinthReference?.projectId && !!modrinthReference.fileId;
-  }
-
-  if (modrinthReference?.projectId && modrinthReference.fileId) return true;
-  if (curseForgeReference?.projectId && curseForgeReference.fileId) return hasCurseForgeApiKey();
-
-  return false;
+  return !!getManagedUpdateReference(mod);
 };
 
 export const fetchManagedVersions = (

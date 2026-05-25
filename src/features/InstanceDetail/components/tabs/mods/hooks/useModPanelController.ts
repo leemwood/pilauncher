@@ -17,7 +17,7 @@ import {
   toggleSelectedModFile,
   type ModFileCleanupItem
 } from '../../../../logic/modPanelService';
-import type { ModMeta, ModVersionInstallAction } from '../../../../logic/modService';
+import type { ModMeta, ModMetadataSettings, ModVersionInstallAction } from '../../../../logic/modService';
 import type { OreProjectVersion } from '../../../../logic/modrinthApi';
 import { useModPanelDialogs } from './useModPanelDialogs';
 
@@ -73,6 +73,8 @@ export const useModPanelController = (instanceId: string) => {
     executeModFileCleanup,
     loadMods,
     checkModUpdates,
+    saveModMetadataSettings,
+    reidentifyMod,
     upgradeMod,
     installModVersion
   } = useModManager(instanceId);
@@ -471,7 +473,9 @@ export const useModPanelController = (instanceId: string) => {
       actions: dialogActions
     },
     modActions: {
-      onInstallVersion: handleUpgradeMod
+      onInstallVersion: handleUpgradeMod,
+      onSaveMetadataSettings: saveModMetadataSettings,
+      onReidentifyMod: reidentifyMod
     },
     topBar: {
       snapshotState,

@@ -8,7 +8,7 @@ import { FocusBoundary } from '../../../../../../../ui/focus/FocusBoundary';
 import { FocusItem } from '../../../../../../../ui/focus/FocusItem';
 import { OreSegmentedControl } from '../../../../../../../ui/primitives/OreSegmentedControl';
 import { setFocus, getCurrentFocusKey, doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
-import { Blocks, Loader2, Trash2, Power, Download, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Blocks, Download, Loader2, Power, RefreshCw, Settings2, Trash2 } from 'lucide-react';
 import {
   fetchModrinthVersions,
   fetchModrinthInfo,
@@ -21,10 +21,14 @@ import {
 import { fetchCurseForgeVersions, getCurseForgeProjectDetails, searchCurseForge } from '../../../../../../Download/logic/curseforgeApi';
 import {
   getModPlatformReference,
+  getModPreferredPlatform,
   modService,
   resolveInstanceGameVersion,
   resolveInstanceLoader,
   type ModMeta,
+  type ModMetadataSettings,
+  type ModPlatformId,
+  type ModPlatformPreference,
   type ModVersionInstallAction
 } from '../../../../../logic/modService';
 
@@ -35,7 +39,42 @@ interface ModDetailModalProps {
   onToggle: (fileName: string, currentEnabled: boolean) => void;
   onDelete: (fileName: string) => void;
   onInstallVersion: (mod: ModMeta, version: OreProjectVersion, action: ModVersionInstallAction) => void;
+  onSaveMetadataSettings: (mod: ModMeta, settings: ModMetadataSettings) => Promise<ModMeta>;
+  onReidentifyMod: (mod: ModMeta) => Promise<ModMeta>;
 }
+
+const PLATFORM_TABS = [
+  { id: 'auto', label: '自动' },
+  { id: 'modrinth', label: 'Modrinth' },
+  { id: 'curseforge', label: 'CurseForge' }
+];
+
+const HISTORY_PLATFORM_TABS = [
+  { id: 'modrinth', label: 'Modrinth' },
+  { id: 'curseforge', label: 'CurseForge' }
+];
+
+const PLATFORM_LABELS: Record<ModPlatformId, string> = {
+  modrinth: 'Modrinth',
+  curseforge: 'CurseForge'
+};
+
+const normalizePreference = (value?: string): ModPlatformPreference => (
+  value === 'modrinth' || value === 'curseforge' ? value : 'auto'
+);
+
+const getPlatformProjectId = (mod: ModMeta | null, platform: ModPlatformId) => {
+  if (!mod) return undefined;
+  return (mod.networkInfo?.source === platform ? mod.networkInfo.id : undefined)
+    || getModPlatformReference(mod, platform)?.projectId
+    || (mod.manifestEntry?.source.platform === platform ? mod.manifestEntry.source.projectId : undefined);
+};
+
+const getPlatformFileId = (mod: ModMeta | null, platform: ModPlatformId) => {
+  if (!mod) return undefined;
+  return getModPlatformReference(mod, platform)?.fileId
+    || (mod.manifestEntry?.source.platform === platform ? mod.manifestEntry.source.fileId : undefined);
+};
 
 const toNetworkInfo = (detail: OreProjectDetail, source: 'modrinth' | 'curseforge'): ModrinthProject => ({
   id: detail.id,
@@ -63,12 +102,19 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
   onClose,
   onToggle,
   onDelete,
-  onInstallVersion
+  onInstallVersion,
+  onSaveMetadataSettings,
+  onReidentifyMod
 }) => {
   const [modVersions, setModVersions] = useState<any[]>([]);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [displayMod, setDisplayMod] = useState<ModMeta | null>(null);
-  const [activePlatform, setActivePlatform] = useState<'modrinth' | 'curseforge'>('modrinth');
+  const [activePlatform, setActivePlatform] = useState<ModPlatformId>('modrinth');
+  const [showMetadataSettings, setShowMetadataSettings] = useState(false);
+  const [metadataPlatformDraft, setMetadataPlatformDraft] = useState<ModPlatformPreference>('auto');
+  const [updatePlatformDraft, setUpdatePlatformDraft] = useState<ModPlatformPreference>('auto');
+  const [isSavingMetadataSettings, setIsSavingMetadataSettings] = useState(false);
+  const [isReidentifying, setIsReidentifying] = useState(false);
   const lastFocusBeforeModalRef = useRef<string | null>(null);
 
   // 删除确认弹窗状态
@@ -78,17 +124,16 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
   useEffect(() => {
     if (mod) {
       setDisplayMod(mod);
-      const sourcePlatform = mod.manifestEntry?.source.platform;
-      setActivePlatform(sourcePlatform === 'curseforge' ? 'curseforge' : 'modrinth');
+      const sourcePlatform = getModPreferredPlatform(mod, 'metadata') || mod.manifestEntry?.source.platform;
+      const initialPlatform = sourcePlatform === 'curseforge' ? 'curseforge' : 'modrinth';
+      setActivePlatform(initialPlatform);
 
-      const projectId = sourcePlatform === 'modrinth' || sourcePlatform === 'curseforge'
-        ? mod.manifestEntry?.source.projectId
-        : undefined;
+      const projectId = getPlatformProjectId(mod, initialPlatform);
       const query =
         mod.modId ||
         mod.fileName.replace('.jar', '').replace('.disabled', '').replace(/[-_v0-9\.]+$/, '');
       const metadataRequest = projectId
-        ? sourcePlatform === 'curseforge'
+        ? initialPlatform === 'curseforge'
           ? getCurseForgeProjectDetails(projectId).then((detail) => toNetworkInfo(detail, 'curseforge'))
           : fetchModrinthProjectById(projectId)
         : fetchModrinthInfo(query);
@@ -138,14 +183,8 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
       setIsLoadingVersions(true);
 
       let projectId: string | undefined = undefined;
-      if (activePlatform === 'curseforge') {
-        projectId = (displayMod.networkInfo?.source === 'curseforge' ? displayMod.networkInfo.id : undefined)
-          || getModPlatformReference(displayMod, 'curseforge')?.projectId;
-      } else {
-        projectId = (displayMod.networkInfo?.source === 'modrinth' ? displayMod.networkInfo.id : undefined)
-          || getModPlatformReference(displayMod, 'modrinth')?.projectId
-          || displayMod.modId;
-      }
+      projectId = getPlatformProjectId(displayMod, activePlatform)
+        || (activePlatform === 'modrinth' ? displayMod.modId : undefined);
 
       const fetchPlatformVersions = async () => {
         let currentProjectId = projectId;
@@ -215,16 +254,74 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
     handleClose();
   };
 
+  const openMetadataSettings = () => {
+    const settings = displayMod?.manifestEntry?.metadataSettings;
+    setMetadataPlatformDraft(normalizePreference(settings?.metadataPlatform));
+    setUpdatePlatformDraft(normalizePreference(settings?.updatePlatform));
+    setShowMetadataSettings(true);
+    setTimeout(() => setFocus('metadata-platform-0'), 100);
+  };
+
+  const closeMetadataSettings = () => {
+    if (isSavingMetadataSettings || isReidentifying) return;
+    setShowMetadataSettings(false);
+    setTimeout(() => setFocus('btn-mod-metadata-settings'), 50);
+  };
+
+  const handleSaveMetadataSettings = async () => {
+    if (!displayMod) return;
+
+    const previousSettings = displayMod.manifestEntry?.metadataSettings;
+    const settings: ModMetadataSettings = {
+      ...(previousSettings || {}),
+      metadataPlatform: metadataPlatformDraft,
+      updatePlatform: updatePlatformDraft,
+      metadataLocked: metadataPlatformDraft === 'auto' ? false : !!previousSettings?.metadataLocked,
+      updateLocked: updatePlatformDraft === 'auto' ? false : !!previousSettings?.updateLocked
+    };
+
+    setIsSavingMetadataSettings(true);
+    try {
+      const updated = await onSaveMetadataSettings(displayMod, settings);
+      setDisplayMod(updated);
+      setActivePlatform(getModPreferredPlatform(updated, 'metadata') || activePlatform);
+      setShowMetadataSettings(false);
+      setTimeout(() => setFocus('btn-mod-metadata-settings'), 50);
+    } catch (error) {
+      console.error('保存 MOD 元数据设置失败:', error);
+    } finally {
+      setIsSavingMetadataSettings(false);
+    }
+  };
+
+  const handleReidentify = async () => {
+    if (!displayMod) return;
+
+    setIsReidentifying(true);
+    try {
+      const updated = await onReidentifyMod(displayMod);
+      setDisplayMod(updated);
+      setActivePlatform(getModPreferredPlatform(updated, 'metadata') || activePlatform);
+    } catch (error) {
+      console.error('重新识别 MOD 失败:', error);
+    } finally {
+      setIsReidentifying(false);
+    }
+  };
+
   if (!mod) return null;
 
-  const sourceLabel = displayMod?.networkInfo?.source === 'curseforge'
-    ? 'CurseForge'
-    : displayMod?.networkInfo?.source === 'modrinth' || displayMod?.manifestEntry?.source.platform === 'modrinth'
+  const preferredMetadataPlatform = displayMod ? getModPreferredPlatform(displayMod, 'metadata') : undefined;
+  const sourceLabel = preferredMetadataPlatform
+    ? PLATFORM_LABELS[preferredMetadataPlatform]
+    : displayMod?.networkInfo?.source === 'curseforge'
+      ? 'CurseForge'
+      : displayMod?.networkInfo?.source === 'modrinth' || displayMod?.manifestEntry?.source.platform === 'modrinth'
       ? 'Modrinth'
       : displayMod?.manifestEntry?.source.platform || '本地';
 
   const cacheKey = displayMod?.modifiedAt || displayMod?.fileSize || displayMod?.fileName || 'cache';
-  const currentFileId = displayMod?.manifestEntry?.source.fileId || mod.manifestEntry?.source.fileId;
+  const currentFileId = getPlatformFileId(displayMod, activePlatform) || getPlatformFileId(mod, activePlatform);
   const currentVersionIndex = currentFileId
     ? modVersions.findIndex((version) => version.id === currentFileId)
     : -1;
@@ -247,6 +344,9 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
       </OreButton>
       <OreButton focusKey="btn-mod-delete" variant="danger" size="sm" onClick={() => setShowDeleteConfirm(true)}>
         <Trash2 size={14} className="mr-1.5" /> 删除
+      </OreButton>
+      <OreButton focusKey="btn-mod-metadata-settings" variant="secondary" size="sm" onClick={openMetadataSettings}>
+        <Settings2 size={14} className="mr-1.5" /> 元数据
       </OreButton>
       <OreButton focusKey="btn-mod-cancel" variant="secondary" size="sm" onClick={handleClose}>
         取消
@@ -296,11 +396,10 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
               <h3 className="font-minecraft text-white text-sm sm:text-base tracking-wide">版本历史 (当前实例)</h3>
               <OreSegmentedControl
                 tabs={[
-                  { id: 'modrinth', label: 'Modrinth' },
-                  { id: 'curseforge', label: 'CurseForge' }
+                  ...HISTORY_PLATFORM_TABS
                 ]}
                 activeTab={activePlatform}
-                onChange={(id) => setActivePlatform(id as 'modrinth' | 'curseforge')}
+                onChange={(id) => setActivePlatform(id as ModPlatformId)}
                 className="scale-90 sm:scale-100 origin-center sm:origin-right"
               />
             </div>
@@ -314,7 +413,31 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
                   itemContent={(index, v) => {
                     const action = getVersionInstallAction(v, index);
                     const actionLabel = versionInstallLabels[action];
-                    const actionTarget = displayMod || mod;
+                    const baseTarget = displayMod || mod;
+                    const platformProjectId = getPlatformProjectId(baseTarget, activePlatform) || v.project_id;
+                    const platformFileId = getPlatformFileId(baseTarget, activePlatform);
+                    const actionTarget: ModMeta = baseTarget.manifestEntry && platformProjectId
+                      ? {
+                          ...baseTarget,
+                          manifestEntry: {
+                            ...baseTarget.manifestEntry,
+                            source: {
+                              ...baseTarget.manifestEntry.source,
+                              platform: activePlatform,
+                              projectId: platformProjectId,
+                              fileId: platformFileId || baseTarget.manifestEntry.source.fileId
+                            },
+                            matchedPlatforms: {
+                              ...(baseTarget.manifestEntry.matchedPlatforms || {}),
+                              [activePlatform]: {
+                                ...(baseTarget.manifestEntry.matchedPlatforms?.[activePlatform] || {}),
+                                projectId: platformProjectId,
+                                fileId: platformFileId
+                              }
+                            }
+                          }
+                        }
+                      : baseTarget;
 
                     return (
                       <FocusItem key={v.id || index} focusKey={`mod-version-${index}`}>
@@ -357,6 +480,79 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
                 暂无在 {activePlatform} 上的版本记录
               </div>
             )}
+          </div>
+        </FocusBoundary>
+      </OreModal>
+
+      <OreModal
+        isOpen={showMetadataSettings}
+        onClose={closeMetadataSettings}
+        title="MOD 元数据"
+        className="w-[95vw] max-w-xl"
+        defaultFocusKey="metadata-platform-0"
+        actions={(
+          <>
+            <OreButton
+              focusKey="metadata-reidentify"
+              variant="secondary"
+              onClick={handleReidentify}
+              disabled={isReidentifying || isSavingMetadataSettings}
+            >
+              <RefreshCw size={14} className={`mr-1.5 ${isReidentifying ? 'animate-spin' : ''}`} />
+              重新识别
+            </OreButton>
+            <OreButton
+              focusKey="metadata-save"
+              variant="primary"
+              onClick={handleSaveMetadataSettings}
+              disabled={isReidentifying || isSavingMetadataSettings}
+            >
+              {isSavingMetadataSettings ? '保存中...' : '保存'}
+            </OreButton>
+            <OreButton
+              focusKey="metadata-cancel"
+              variant="secondary"
+              onClick={closeMetadataSettings}
+              disabled={isReidentifying || isSavingMetadataSettings}
+            >
+              取消
+            </OreButton>
+          </>
+        )}
+      >
+        <FocusBoundary id="mod-metadata-settings-boundary" trapFocus onEscape={closeMetadataSettings} className="space-y-5 bg-[#141415]">
+          <div className="rounded-sm border border-[#2A2A2C] bg-[#1A1A1C] p-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="text-sm text-white">元数据平台</h3>
+              {displayMod?.manifestEntry?.metadataSettings?.metadataLocked && (
+                <span className="rounded-sm border border-[#7AA2FF]/40 bg-[#7AA2FF]/10 px-2 py-1 text-xs text-[#AFC4FF]">
+                  已锁定
+                </span>
+              )}
+            </div>
+            <OreSegmentedControl
+              tabs={PLATFORM_TABS}
+              activeTab={metadataPlatformDraft}
+              onChange={(id) => setMetadataPlatformDraft(id as ModPlatformPreference)}
+              focusKeyPrefix="metadata-platform"
+            />
+          </div>
+
+          <div className="rounded-sm border border-[#2A2A2C] bg-[#1A1A1C] p-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="text-sm text-white">更新来源</h3>
+              {displayMod?.manifestEntry?.metadataSettings?.updateLocked && (
+                <span className="rounded-sm border border-[#7AA2FF]/40 bg-[#7AA2FF]/10 px-2 py-1 text-xs text-[#AFC4FF]">
+                  已锁定
+                </span>
+              )}
+            </div>
+            <OreSegmentedControl
+              tabs={PLATFORM_TABS}
+              activeTab={updatePlatformDraft}
+              onChange={(id) => setUpdatePlatformDraft(id as ModPlatformPreference)}
+              focusKeyPrefix="update-platform"
+            />
           </div>
         </FocusBoundary>
       </OreModal>

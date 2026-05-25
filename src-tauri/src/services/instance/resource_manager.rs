@@ -276,4 +276,27 @@ impl ResourceManager {
 
         ModManifestService::update_platform_matches(&manifest_path, file_name, matches)
     }
+
+    pub fn update_mod_metadata_settings<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+        file_name: &str,
+        settings: crate::domain::mod_manifest::ModMetadataSettings,
+    ) -> Result<(), String> {
+        let instance_root = Self::get_instance_root(app, instance_id)?;
+        let manifest_path = instance_root.join("mod_manifest.json");
+
+        ModManifestService::update_metadata_settings(&manifest_path, file_name, settings)
+    }
+
+    pub fn reset_mod_platform_metadata<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+        file_name: &str,
+    ) -> Result<(), String> {
+        let instance_root = Self::get_instance_root(app, instance_id)?;
+        let manifest_path = instance_root.join("mod_manifest.json");
+
+        ModManifestService::reset_platform_metadata(&manifest_path, file_name)
+    }
 }

@@ -51,6 +51,19 @@ pub struct ModPlatformMatch {
     pub file_id: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModMetadataSettings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata_platform: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update_platform: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub metadata_locked: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub update_locked: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ModFileHash {
@@ -97,6 +110,8 @@ pub struct ModManifestEntry {
     pub curseforge_fingerprint: Option<u32>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub matched_platforms: HashMap<String, ModPlatformMatch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata_settings: Option<ModMetadataSettings>,
 }
 
 pub type ModManifest = HashMap<String, ModManifestEntry>;
@@ -130,6 +145,8 @@ pub struct RawModManifestEntry {
     pub curseforge_fingerprint: Option<u32>,
     #[serde(default)]
     pub matched_platforms: HashMap<String, ModPlatformMatch>,
+    #[serde(default)]
+    pub metadata_settings: Option<ModMetadataSettings>,
 }
 
 pub type RawModManifest = HashMap<String, RawModManifestEntry>;
@@ -203,6 +220,7 @@ pub fn build_manifest_entry(
         icon_rel_path: None,
         curseforge_fingerprint: None,
         matched_platforms: HashMap::new(),
+        metadata_settings: None,
     }
 }
 
@@ -318,6 +336,7 @@ fn copy_cached_metadata_from_raw(raw: Option<&RawModManifestEntry>, entry: &mut 
     entry.icon_rel_path = raw.icon_rel_path.clone();
     entry.curseforge_fingerprint = raw.curseforge_fingerprint;
     entry.matched_platforms = raw.matched_platforms.clone();
+    entry.metadata_settings = raw.metadata_settings.clone();
 }
 
 fn merge_cached_metadata(target: &mut ModManifestEntry, source: &ModManifestEntry) {
@@ -348,6 +367,9 @@ fn merge_cached_metadata(target: &mut ModManifestEntry, source: &ModManifestEntr
                 .entry(platform.clone())
                 .or_insert_with(|| matched.clone());
         }
+    }
+    if target.metadata_settings.is_none() {
+        target.metadata_settings = source.metadata_settings.clone();
     }
 }
 
@@ -422,6 +444,12 @@ mod tests {
             description: Some("Cached description".to_string()),
             icon_rel_path: Some("icons/demo.png".to_string()),
             matched_platforms,
+            metadata_settings: Some(ModMetadataSettings {
+                metadata_platform: Some("modrinth".to_string()),
+                update_platform: Some("curseforge".to_string()),
+                metadata_locked: true,
+                update_locked: false,
+            }),
             ..Default::default()
         };
 
@@ -447,6 +475,13 @@ mod tests {
                 .get("modrinth")
                 .and_then(|matched| matched.project_id.as_deref()),
             Some("project-1")
+        );
+        assert_eq!(
+            normalized
+                .metadata_settings
+                .as_ref()
+                .and_then(|settings| settings.metadata_platform.as_deref()),
+            Some("modrinth")
         );
 
         let _ = fs::remove_dir_all(dir);
@@ -480,6 +515,12 @@ mod tests {
                 file_id: Some("456".to_string()),
             },
         );
+        existing_entry.metadata_settings = Some(ModMetadataSettings {
+            metadata_platform: Some("curseforge".to_string()),
+            update_platform: Some("curseforge".to_string()),
+            metadata_locked: true,
+            update_locked: true,
+        });
         existing_manifest.insert("demo.jar".to_string(), existing_entry);
         write_mod_manifest(&manifest_path, &existing_manifest).expect("write manifest");
 
@@ -511,6 +552,13 @@ mod tests {
                 .get("curseforge")
                 .and_then(|matched| matched.file_id.as_deref()),
             Some("456")
+        );
+        assert_eq!(
+            entry
+                .metadata_settings
+                .as_ref()
+                .and_then(|settings| settings.update_platform.as_deref()),
+            Some("curseforge")
         );
 
         let _ = fs::remove_dir_all(dir);

@@ -1,7 +1,13 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 
 import { useDownloadStore } from '../../../../store/useDownloadStore';
-import { modService, type ModMeta, type ModVersionInstallAction } from '../../logic/modService';
+import {
+  buildLockedModMetadataSettings,
+  modService,
+  type ModMeta,
+  type ModPlatformId,
+  type ModVersionInstallAction
+} from '../../logic/modService';
 import type { OreProjectVersion } from '../../logic/modrinthApi';
 
 interface UseModOperationsOptions {
@@ -85,8 +91,10 @@ export const useModOperations = ({
     action: ModVersionInstallAction = 'upgrade'
   ) => {
     const source = mod.manifestEntry?.source;
-    const platform = source?.platform || '';
-    const projectId = source?.projectId || '';
+    const platform = (source?.platform === 'modrinth' || source?.platform === 'curseforge'
+      ? source.platform
+      : '') as ModPlatformId | '';
+    const projectId = version?.project_id || source?.projectId || '';
     const targetVersionId = version?.id || mod.updateFileId || '';
     const targetDownloadUrl = version?.download_url || mod.updateDownloadUrl || '';
     const remoteFileName = version?.file_name || mod.updateFileName || '';
@@ -132,6 +140,22 @@ export const useModOperations = ({
         projectId,
         targetVersionId
       );
+      if (platform) {
+        const matchedPlatforms = {
+          ...(mod.manifestEntry?.matchedPlatforms || {}),
+          [platform]: {
+            ...(mod.manifestEntry?.matchedPlatforms?.[platform] || {}),
+            projectId,
+            fileId: targetVersionId
+          }
+        };
+        const metadataSettings = buildLockedModMetadataSettings(
+          platform,
+          mod.manifestEntry?.metadataSettings
+        );
+        await modService.updateModPlatformMatches(instanceId, targetFileName, matchedPlatforms);
+        await modService.updateModMetadataSettings(instanceId, targetFileName, metadataSettings);
+      }
 
       if (targetFileName !== oldFileName) {
         await modService.deleteMod(instanceId, oldFileName);
@@ -153,7 +177,20 @@ export const useModOperations = ({
                 platform,
                 projectId,
                 fileId: targetVersionId
-              }
+              },
+              matchedPlatforms: platform
+                ? {
+                    ...(mod.manifestEntry.matchedPlatforms || {}),
+                    [platform]: {
+                      ...(mod.manifestEntry.matchedPlatforms?.[platform] || {}),
+                      projectId,
+                      fileId: targetVersionId
+                    }
+                  }
+                : mod.manifestEntry.matchedPlatforms,
+              metadataSettings: platform
+                ? buildLockedModMetadataSettings(platform, mod.manifestEntry.metadataSettings)
+                : mod.manifestEntry.metadataSettings
             }
           : mod.manifestEntry,
         hasUpdate: false,
