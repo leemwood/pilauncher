@@ -298,6 +298,21 @@ fn check_java<R: Runtime>(
     }
 }
 
+fn should_self_heal(
+    needs_repair: bool,
+    missing_file_count: usize,
+    total_missing_size: u64,
+    core_jar_missing: bool,
+    core_json_missing: bool,
+) -> bool {
+    needs_repair
+        && missing_file_count > 0
+        && missing_file_count <= 5
+        && total_missing_size <= 20_000_000
+        && !core_jar_missing
+        && !core_json_missing
+}
+
 impl PreLaunchCheckService {
     pub async fn run<R: Runtime>(
         app: &AppHandle<R>,
@@ -319,9 +334,64 @@ impl PreLaunchCheckService {
         let mut checks = Vec::new();
 
         emit_check_log(app, "[INFO] 启动前检查：正在校验游戏运行库完整性...");
-        let runtime_check = verify_service::verify_instance_runtime(app, instance_id)
+        let mut runtime_check = verify_service::verify_instance_runtime(app, instance_id)
             .await
             .map_err(AppError::Generic)?;
+
+        if runtime_check.needs_repair {
+            let core_jar_path = runtime_dir
+                .join("versions")
+                .join(&config.mc_version)
+                .join(format!("{}.jar", config.mc_version));
+            let core_json_path = runtime_dir
+                .join("versions")
+                .join(&config.mc_version)
+                .join(format!("{}.json", config.mc_version));
+            let core_jar_missing = !core_jar_path.exists();
+            let core_json_missing = !core_json_path.exists();
+
+            let can_self_heal = should_self_heal(
+                runtime_check.needs_repair,
+                runtime_check.missing_file_count,
+                runtime_check.total_missing_size,
+                core_jar_missing,
+                core_json_missing,
+            );
+
+            if can_self_heal {
+                if let Some(repair) = &runtime_check.repair {
+                    emit_check_log(
+                        app,
+                        format!(
+                            "[WARN] 检测到轻微文件缺失（数量: {}，总大小: {} 字节），启动后台自动修复...",
+                            runtime_check.missing_file_count, runtime_check.total_missing_size
+                        ),
+                    );
+                    match verify_service::download_missing_runtimes(app, vec![repair.clone()]).await {
+                        Ok(_) => {
+                            emit_check_log(app, "[INFO] 自动修复完成，正在进行二次校验...");
+                            match verify_service::verify_instance_runtime(app, instance_id).await {
+                                Ok(new_check) => {
+                                    runtime_check = new_check;
+                                    if !runtime_check.needs_repair {
+                                        emit_check_log(app, "[INFO] 二次校验通过！游戏运行库已恢复完整。");
+                                    } else {
+                                        emit_check_log(app, "[WARN] 二次校验仍未通过，无法完全修复。");
+                                    }
+                                }
+                                Err(e) => {
+                                    emit_check_log(app, format!("[ERROR] 二次校验失败: {}", e));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            emit_check_log(app, format!("[ERROR] 自动修复失败: {}", e));
+                        }
+                    }
+                }
+            }
+        }
+
         let runtime_repair = runtime_check.repair.clone();
         if runtime_check.needs_repair {
             checks.push(PreLaunchCheckItem {
@@ -399,7 +469,7 @@ impl PreLaunchCheckService {
 
 #[cfg(test)]
 mod tests {
-    use super::{host_platform_issue, parse_java_major};
+    use super::{host_platform_issue, parse_java_major, should_self_heal};
 
     #[test]
     fn parses_legacy_java_major() {
@@ -421,5 +491,25 @@ mod tests {
     #[test]
     fn current_test_host_maps_to_supported_minecraft_platform() {
         assert!(host_platform_issue().is_none());
+    }
+
+    #[test]
+    fn tests_self_heal_conditions() {
+        // Normal positive case
+        assert!(should_self_heal(true, 3, 5_000_000, false, false));
+
+        // Negative cases
+        assert!(!should_self_heal(false, 3, 5_000_000, false, false)); // No repair needed
+        assert!(!should_self_heal(true, 0, 5_000_000, false, false)); // No missing files but needs repair? invalid state
+        assert!(!should_self_heal(true, 6, 5_000_000, false, false)); // Too many files missing (>5)
+        assert!(!should_self_heal(true, 3, 25_000_000, false, false)); // Too large (>20MB)
+        assert!(!should_self_heal(true, 3, 5_000_000, true, false)); // Core jar is missing
+        assert!(!should_self_heal(true, 3, 5_000_000, false, true)); // Core json is missing
+
+        // Boundary cases
+        assert!(should_self_heal(true, 1, 1, false, false));
+        assert!(should_self_heal(true, 5, 20_000_000, false, false)); // Exactly 5 files, exactly 20MB
+        assert!(!should_self_heal(true, 6, 20_000_000, false, false)); // 6 files is above boundary
+        assert!(!should_self_heal(true, 5, 20_000_001, false, false)); // 20MB + 1 byte is above boundary
     }
 }

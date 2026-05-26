@@ -1,4 +1,3 @@
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
 
 import type { ModMeta } from './modService';
@@ -47,19 +46,8 @@ const PRIORITY_WEIGHT: Record<ModIconPriority, number> = {
   low: 2
 };
 
-const buildLocalIconSrc = (mod: ModMeta) => {
-  if (!mod.iconAbsolutePath) return null;
-  const cacheBuster = mod.modifiedAt || mod.fileSize || mod.fileName;
-  return `${convertFileSrc(mod.iconAbsolutePath)}?t=${cacheBuster}`;
-};
-
 const buildRemoteIconSrc = (mod: ModMeta) => {
   return mod.networkIconUrl || mod.networkInfo?.icon_url || null;
-};
-
-const buildLocalCacheId = (mod: ModMeta) => {
-  const fingerprint = mod.modifiedAt || mod.fileSize || mod.fileName;
-  return `local:${mod.cacheKey || mod.fileName}:${fingerprint}`;
 };
 
 const sha1Hex = async (value: string) => {
@@ -115,16 +103,7 @@ class ModIconService {
   }
 
   private async resolveDescriptor(mod: ModMeta): Promise<ModIconDescriptor | null> {
-    const localSrc = buildLocalIconSrc(mod);
     const remoteSrc = buildRemoteIconSrc(mod);
-
-    if (localSrc) {
-      const candidates = remoteSrc && remoteSrc !== localSrc ? [localSrc, remoteSrc] : [localSrc];
-      return {
-        cacheId: buildLocalCacheId(mod),
-        candidates
-      };
-    }
 
     if (!remoteSrc) {
       return null;
@@ -360,7 +339,6 @@ export const useModIcon = (mod: ModMeta, priority: ModIconPriority) => {
     mod.cacheKey,
     mod.fileName,
     mod.fileSize,
-    mod.iconAbsolutePath,
     mod.modifiedAt,
     priority,
     remoteIconSrc

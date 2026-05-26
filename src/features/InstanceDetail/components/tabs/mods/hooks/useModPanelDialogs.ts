@@ -24,16 +24,21 @@ interface UseModPanelDialogsOptions {
   onDeleteComplete?: (fileNames: string[]) => void;
 }
 
+
 export interface ModPanelDialogState {
   selectedMod: ModMeta | null;
+  openMetadataSettingsOnDetailOpen: boolean;
   pendingDelete: PendingDeleteState | null;
   isHistoryModalOpen: boolean;
   history: InstanceSnapshot[];
   diffs: Record<string, SnapshotDiff>;
+  isGlobalMetadataOpen: boolean;
 }
 
 export interface ModPanelDialogActions {
   openModDetail: (mod: ModMeta) => void;
+  openModMetadataSettings: (mod: ModMeta) => void;
+  markMetadataSettingsOpened: () => void;
   closeModDetail: () => void;
   toggleSelectedMod: (fileName: string, currentEnabled: boolean) => void;
   deleteModFromDetail: (fileName: string) => void;
@@ -45,6 +50,8 @@ export interface ModPanelDialogActions {
   openDeleteConfirm: (fileNames: string[]) => void;
   closeDeleteConfirm: () => void;
   confirmDelete: () => void;
+  openGlobalMetadata: () => void;
+  closeGlobalMetadata: () => void;
 }
 
 export const useModPanelDialogs = ({
@@ -64,14 +71,35 @@ export const useModPanelDialogs = ({
   const addToast = useToastStore((state) => state.addToast);
 
   const [selectedMod, setSelectedMod] = useState<ModMeta | null>(null);
+  const [openMetadataSettingsOnDetailOpen, setOpenMetadataSettingsOnDetailOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDeleteState | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [history, setHistory] = useState<InstanceSnapshot[]>([]);
   const [diffs, setDiffs] = useState<Record<string, SnapshotDiff>>({});
   const [lastDeleteFocusKey, setLastDeleteFocusKey] = useState<string | null>(null);
+  const [isGlobalMetadataOpen, setIsGlobalMetadataOpen] = useState(false);
 
   const openModDetail = useCallback((mod: ModMeta) => {
+    setOpenMetadataSettingsOnDetailOpen(false);
     setSelectedMod(mod);
+  }, []);
+
+  const openModMetadataSettings = useCallback((mod: ModMeta) => {
+    setOpenMetadataSettingsOnDetailOpen(true);
+    setSelectedMod(mod);
+  }, []);
+
+  const markMetadataSettingsOpened = useCallback(() => {
+    setOpenMetadataSettingsOnDetailOpen(false);
+  }, []);
+
+  const openGlobalMetadata = useCallback(() => {
+    setIsGlobalMetadataOpen(true);
+  }, []);
+
+  const closeGlobalMetadata = useCallback(() => {
+    setIsGlobalMetadataOpen(false);
+    window.setTimeout(() => focusManager.restoreFocus('tab-boundary-mods', 'mod-btn-metadata-settings'), 50);
   }, []);
 
   useEffect(() => {
@@ -107,6 +135,7 @@ export const useModPanelDialogs = ({
   }, [mods]);
 
   const closeModDetail = useCallback(() => {
+    setOpenMetadataSettingsOnDetailOpen(false);
     setSelectedMod(null);
     window.setTimeout(() => focusManager.restoreFocus('tab-boundary-mods'), 50);
   }, []);
@@ -237,13 +266,17 @@ export const useModPanelDialogs = ({
   return {
     state: {
       selectedMod,
+      openMetadataSettingsOnDetailOpen,
       pendingDelete,
       isHistoryModalOpen,
       history,
-      diffs
+      diffs,
+      isGlobalMetadataOpen
     },
     actions: {
       openModDetail,
+      openModMetadataSettings,
+      markMetadataSettingsOpened,
       closeModDetail,
       toggleSelectedMod,
       deleteModFromDetail,
@@ -254,7 +287,9 @@ export const useModPanelDialogs = ({
       rollbackSnapshot,
       openDeleteConfirm,
       closeDeleteConfirm,
-      confirmDelete
+      confirmDelete,
+      openGlobalMetadata,
+      closeGlobalMetadata
     }
   };
 };

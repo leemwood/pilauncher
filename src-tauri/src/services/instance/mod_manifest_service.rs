@@ -2,7 +2,7 @@ use crate::domain::mod_manifest::{
     build_file_state, build_manifest_entry, build_manifest_source, compute_file_hash,
     mod_manifest_key, normalize_manifest_entry, read_raw_mod_manifest, upsert_mod_manifest_entry,
     write_mod_manifest, ModManifest, ModManifestEntry, ModMetadataSettings, ModPlatformMatch,
-    ModSourceKind,
+    ModSourceKind, ModFileHash,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,6 +10,51 @@ use std::path::Path;
 pub struct ModManifestService;
 
 impl ModManifestService {
+    pub fn read_manifest_robust(manifest_path: &Path) -> ModManifest {
+        let raw_manifest = read_raw_mod_manifest(manifest_path);
+        let mut manifest = HashMap::new();
+
+        for (file_name, raw) in raw_manifest {
+            let source = raw.source.clone().unwrap_or_else(|| {
+                let inferred_kind = if raw.platform.is_some()
+                    || raw.project_id.is_some()
+                    || raw.file_id.is_some()
+                {
+                    ModSourceKind::Unknown
+                } else {
+                    ModSourceKind::ExternalImport
+                };
+
+                build_manifest_source(
+                    inferred_kind,
+                    raw.platform.clone(),
+                    raw.project_id.clone(),
+                    raw.file_id.clone(),
+                )
+            });
+            let file_state = raw.file_state.clone().unwrap_or_default();
+            let mut entry = build_manifest_entry(
+                source,
+                raw.hash.clone().unwrap_or_else(|| ModFileHash {
+                    algorithm: "none".to_string(),
+                    value: "none".to_string(),
+                }),
+                file_state,
+            );
+            entry.mod_id = raw.mod_id;
+            entry.name = raw.name;
+            entry.version = raw.version;
+            entry.description = raw.description;
+            entry.icon_rel_path = raw.icon_rel_path;
+            entry.curseforge_fingerprint = raw.curseforge_fingerprint;
+            entry.matched_platforms = raw.matched_platforms;
+            entry.metadata_settings = raw.metadata_settings;
+            manifest.insert(file_name, entry);
+        }
+
+        manifest
+    }
+
     fn collect_from_mods_dir(
         mods_dir: &Path,
         manifest_path: &Path,
@@ -74,14 +119,18 @@ impl ModManifestService {
         platform: Option<String>,
         project_id: Option<String>,
         file_id: Option<String>,
+        version: Option<String>,
     ) -> Result<(), String> {
         let file_state = build_file_state(target_path)?;
         let hash = compute_file_hash(target_path)?;
-        let entry = build_manifest_entry(
+        let mut entry = build_manifest_entry(
             build_manifest_source(source_kind, platform, project_id, file_id),
             hash,
             file_state,
         );
+        if version.is_some() {
+            entry.version = version;
+        }
 
         let file_name = target_path
             .file_name()
@@ -89,6 +138,32 @@ impl ModManifestService {
             .ok_or_else(|| "Unable to resolve mod file name".to_string())?;
 
         upsert_mod_manifest_entry(manifest_path, file_name, &entry)
+    }
+
+    pub fn update_all_metadata_settings(
+        manifest_path: &Path,
+        settings: ModMetadataSettings,
+    ) -> Result<(), String> {
+        let mut manifest = Self::read_manifest_robust(manifest_path);
+
+        for entry in manifest.values_mut() {
+            entry.metadata_settings = Some(settings.clone());
+        }
+
+        write_mod_manifest(manifest_path, &manifest)
+    }
+
+    pub fn reset_all_platform_metadata(manifest_path: &Path) -> Result<(), String> {
+        let mut manifest = Self::read_manifest_robust(manifest_path);
+
+        for entry in manifest.values_mut() {
+            entry.source.platform = None;
+            entry.source.project_id = None;
+            entry.source.file_id = None;
+            entry.matched_platforms.clear();
+        }
+
+        write_mod_manifest(manifest_path, &manifest)
     }
 
     pub fn update_platform_matches(
@@ -100,12 +175,7 @@ impl ModManifestService {
             return Ok(());
         }
 
-        let mut manifest = if manifest_path.exists() {
-            let content = std::fs::read_to_string(manifest_path).unwrap_or_default();
-            serde_json::from_str::<ModManifest>(&content).unwrap_or_default()
-        } else {
-            HashMap::new()
-        };
+        let mut manifest = Self::read_manifest_robust(manifest_path);
 
         let key = mod_manifest_key(file_name);
         let entry = manifest
@@ -137,12 +207,7 @@ impl ModManifestService {
         file_name: &str,
         settings: ModMetadataSettings,
     ) -> Result<(), String> {
-        let mut manifest = if manifest_path.exists() {
-            let content = std::fs::read_to_string(manifest_path).unwrap_or_default();
-            serde_json::from_str::<ModManifest>(&content).unwrap_or_default()
-        } else {
-            HashMap::new()
-        };
+        let mut manifest = Self::read_manifest_robust(manifest_path);
 
         let key = mod_manifest_key(file_name);
         let entry = manifest
@@ -154,12 +219,7 @@ impl ModManifestService {
     }
 
     pub fn reset_platform_metadata(manifest_path: &Path, file_name: &str) -> Result<(), String> {
-        let mut manifest = if manifest_path.exists() {
-            let content = std::fs::read_to_string(manifest_path).unwrap_or_default();
-            serde_json::from_str::<ModManifest>(&content).unwrap_or_default()
-        } else {
-            HashMap::new()
-        };
+        let mut manifest = Self::read_manifest_robust(manifest_path);
 
         let key = mod_manifest_key(file_name);
         let entry = manifest
@@ -181,12 +241,7 @@ impl ModManifestService {
             return Ok(());
         }
 
-        let mut manifest = if manifest_path.exists() {
-            let content = std::fs::read_to_string(manifest_path).unwrap_or_default();
-            serde_json::from_str::<ModManifest>(&content).unwrap_or_default()
-        } else {
-            HashMap::new()
-        };
+        let mut manifest = Self::read_manifest_robust(manifest_path);
 
         for (old_file_name, new_file_name) in renames {
             let old_key = mod_manifest_key(old_file_name);

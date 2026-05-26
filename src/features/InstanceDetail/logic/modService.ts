@@ -350,10 +350,30 @@ export const modService = {
     sourceKind: string,
     platform: string,
     projectId: string,
-    fileId: string
+    fileId: string,
+    version?: string
   ) => {
     modManifestCache.delete(instanceId);
-    return invoke('update_mod_manifest', { instanceId, fileName, sourceKind, platform, projectId, fileId })
+    return invoke('update_mod_manifest', { instanceId, fileName, sourceKind, platform, projectId, fileId, version })
+      .finally(() => {
+        modManifestCache.delete(instanceId);
+      });
+  },
+
+  updateAllModsMetadataSettings: (
+    instanceId: string,
+    settings: ModMetadataSettings
+  ) => {
+    modManifestCache.delete(instanceId);
+    return invoke('update_all_mods_metadata_settings', { instanceId, settings })
+      .finally(() => {
+        modManifestCache.delete(instanceId);
+      });
+  },
+
+  resetAllModsPlatformMetadata: (instanceId: string) => {
+    modManifestCache.delete(instanceId);
+    return invoke('reset_all_mods_platform_metadata', { instanceId })
       .finally(() => {
         modManifestCache.delete(instanceId);
       });

@@ -102,6 +102,8 @@ pub struct VerifyInstanceRuntimeResult {
     pub needs_repair: bool,
     pub issues: Vec<String>,
     pub repair: Option<MissingRuntime>,
+    pub total_missing_size: u64,
+    pub missing_file_count: usize,
 }
 
 #[derive(Debug, Serialize, Clone)]

@@ -53,7 +53,7 @@ fn collect_manifest_library_targets(
     manifest: &serde_json::Value,
     runtime_dir: &Path,
     seen_paths: &mut HashSet<String>,
-    targets: &mut Vec<(PathBuf, Option<String>, String)>,
+    targets: &mut Vec<(PathBuf, Option<String>, String, u64)>,
 ) {
     let Some(libraries) = manifest["libraries"].as_array() else {
         return;
@@ -75,6 +75,7 @@ fn collect_manifest_library_targets(
                         path,
                         artifact["sha1"].as_str().map(|value| value.to_lowercase()),
                         library_name.to_string(),
+                        artifact["size"].as_u64().unwrap_or(0),
                     ));
                 }
             }
@@ -83,7 +84,7 @@ fn collect_manifest_library_targets(
                 let path = runtime_dir.join("libraries").join(&download_path);
                 let key = path.to_string_lossy().to_string();
                 if seen_paths.insert(key) {
-                    targets.push((path, None, library_name.to_string()));
+                    targets.push((path, None, library_name.to_string(), 0));
                 }
             }
         }
@@ -109,6 +110,7 @@ fn collect_manifest_library_targets(
                                     .as_str()
                                     .map(|value| value.to_lowercase()),
                                 format!("{} ({})", library_name, classifier_key),
+                                classifier["size"].as_u64().unwrap_or(0),
                             ));
                         }
                     }
@@ -123,6 +125,7 @@ fn collect_manifest_library_targets(
                                 path,
                                 None,
                                 format!("{} ({})", library_name, classifier_key),
+                                0,
                             ));
                         }
                     }
@@ -136,7 +139,7 @@ fn collect_asset_targets(
     manifest: &serde_json::Value,
     runtime_dir: &Path,
     seen_paths: &mut HashSet<String>,
-    targets: &mut Vec<(PathBuf, Option<String>, String)>,
+    targets: &mut Vec<(PathBuf, Option<String>, String, u64)>,
     issues: &mut Vec<String>,
     samples: &mut Vec<String>,
 ) {
@@ -179,6 +182,7 @@ fn collect_asset_targets(
                 .as_str()
                 .map(|value| value.to_lowercase()),
             format!("assets-index-{}", index_id),
+            asset_index["size"].as_u64().unwrap_or(0),
         ));
     }
 
@@ -245,7 +249,8 @@ fn collect_asset_targets(
 
         let key = asset_path.to_string_lossy().to_string();
         if seen_paths.insert(key) {
-            targets.push((asset_path, Some(hash), format!("asset {}", name)));
+            let size = object["size"].as_u64().unwrap_or(0);
+            targets.push((asset_path, Some(hash), format!("asset {}", name), size));
         }
     }
 }
@@ -369,7 +374,7 @@ pub async fn verify_instance_runtime<R: Runtime>(
     }
 
     let mut seen_paths = HashSet::new();
-    let mut targets: Vec<(PathBuf, Option<String>, String)> = Vec::new();
+    let mut targets: Vec<(PathBuf, Option<String>, String, u64)> = Vec::new();
 
     let core_target_key = core_jar_path.to_string_lossy().to_string();
     if seen_paths.insert(core_target_key) {
@@ -381,6 +386,11 @@ pub async fn verify_instance_runtime<R: Runtime>(
                 .and_then(|value| value.as_str())
                 .map(|value| value.to_lowercase()),
             format!("minecraft-core-{}", mc_version),
+            core_manifest
+                .as_ref()
+                .and_then(|json| json.pointer("/downloads/client/size"))
+                .and_then(|value| value.as_u64())
+                .unwrap_or(0),
         ));
     }
 
@@ -409,7 +419,10 @@ pub async fn verify_instance_runtime<R: Runtime>(
     }
 
     let total = targets.len().max(1) as u64;
-    for (index, (target_path, expected_sha1, label)) in targets.iter().enumerate() {
+    let mut missing_file_count = 0;
+    let mut total_missing_size = 0;
+
+    for (index, (target_path, expected_sha1, label, size)) in targets.iter().enumerate() {
         let current = index as u64 + 1;
         emit_verify_progress(
             app,
@@ -425,6 +438,8 @@ pub async fn verify_instance_runtime<R: Runtime>(
                 &mut sample_issues,
                 format!("Missing file: {}", target_path.display()),
             );
+            missing_file_count += 1;
+            total_missing_size += *size;
             continue;
         }
 
@@ -442,6 +457,8 @@ pub async fn verify_instance_runtime<R: Runtime>(
                                 actual
                             ),
                         );
+                        missing_file_count += 1;
+                        total_missing_size += *size;
                     }
                 }
                 Err(error) => {
@@ -450,6 +467,8 @@ pub async fn verify_instance_runtime<R: Runtime>(
                         &mut sample_issues,
                         format!("Failed to hash file: {} ({})", target_path.display(), error),
                     );
+                    missing_file_count += 1;
+                    total_missing_size += *size;
                 }
             }
         }
@@ -479,6 +498,8 @@ pub async fn verify_instance_runtime<R: Runtime>(
         needs_repair: !all_issues.is_empty(),
         issues: sample_issues,
         repair: (!all_issues.is_empty()).then(|| build_runtime_repair(instance_id, &config)),
+        total_missing_size,
+        missing_file_count,
     })
 }
 

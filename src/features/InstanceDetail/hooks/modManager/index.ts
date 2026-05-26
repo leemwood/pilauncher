@@ -256,6 +256,8 @@ export const useModManager = (instanceId: string) => {
     saveModMetadataSettings,
     reidentifyMod,
     upgradeMod: operations.upgradeMod,
-    installModVersion: operations.installModVersion
+    installModVersion: operations.installModVersion,
+    setMods,
+    syncCloudMetadata
   };
 };

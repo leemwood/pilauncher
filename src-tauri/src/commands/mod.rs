@@ -104,6 +104,8 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         instance::resource_cmd::update_mod_platform_matches,
         instance::resource_cmd::update_mod_metadata_settings,
         instance::resource_cmd::reset_mod_platform_metadata,
+        instance::resource_cmd::update_all_mods_metadata_settings,
+        instance::resource_cmd::reset_all_mods_platform_metadata,
         instance::save_cmd::get_saves,
         instance::save_cmd::set_save_webdav_backup_enabled,
         instance::save_cmd::backup_save,

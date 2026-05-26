@@ -134,35 +134,7 @@ fn build_vanilla_version_json_urls(
     version_url: &str,
     dl_settings: &DownloadSettings,
 ) -> Vec<String> {
-    fn push_unique(urls: &mut Vec<String>, url: String) {
-        if !url.trim().is_empty() && !urls.iter().any(|existing| existing == &url) {
-            urls.push(url);
-        }
-    }
-
-    let mut urls = Vec::new();
-    let selected_url = if dl_settings.vanilla_source == "official" {
-        version_url.to_string()
-    } else {
-        version_url.replace(
-            "https://piston-meta.mojang.com",
-            &dl_settings.vanilla_source_url,
-        )
-    };
-    push_unique(&mut urls, selected_url);
-
-    if dl_settings.auto_check_latency {
-        push_unique(
-            &mut urls,
-            version_url.replace(
-                "https://piston-meta.mojang.com",
-                "https://bmclapi2.bangbang93.com",
-            ),
-        );
-        push_unique(&mut urls, version_url.to_string());
-    }
-
-    urls
+    crate::services::downloader::dependencies::mirror::route_vanilla_version_json_urls(version_url, dl_settings)
 }
 
 pub async fn install_vanilla_core<R: Runtime>(
@@ -210,20 +182,7 @@ pub async fn install_vanilla_core<R: Runtime>(
             },
         );
 
-        let manifest_url = if dl_settings.vanilla_source == "official" {
-            vec![
-                "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json".to_string(),
-                "https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json".to_string(),
-            ]
-        } else {
-            vec![
-                format!(
-                    "{}/mc/game/version_manifest_v2.json",
-                    dl_settings.vanilla_source_url
-                ),
-                "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json".to_string(),
-            ]
-        };
+        let manifest_url = crate::services::downloader::dependencies::mirror::route_vanilla_version_manifest_urls(&dl_settings);
 
         let mut manifest_res: Option<serde_json::Value> =
             read_cached_manifest(&manifest_cache_path);
@@ -321,30 +280,11 @@ pub async fn install_vanilla_core<R: Runtime>(
         .as_u64()
         .unwrap_or(0);
 
-    let mirror_jar_url = if dl_settings.vanilla_source == "official" {
-        jar_url.to_string()
-    } else {
-        jar_url.replace(
-            "https://piston-data.mojang.com",
-            &dl_settings.vanilla_source_url,
-        )
-    };
-
     let temp_jar_path = version_dir.join(format!("{}.jar.download", version_id));
-    let mut candidate_urls = if mirror_jar_url == jar_url {
-        vec![mirror_jar_url.clone()]
-    } else {
-        vec![mirror_jar_url.clone(), jar_url.to_string()]
-    };
-    if dl_settings.auto_check_latency && dl_settings.vanilla_source == "official" {
-        let bmcl_url = jar_url.replace(
-            "https://piston-data.mojang.com",
-            "https://bmclapi2.bangbang93.com",
-        );
-        if !candidate_urls.iter().any(|url| url == &bmcl_url) {
-            candidate_urls.push(bmcl_url);
-        }
-    }
+    let mut candidate_urls = crate::services::downloader::dependencies::mirror::route_vanilla_jar_urls(
+        jar_url,
+        &dl_settings,
+    );
     let speed_limit_bytes_per_sec = ConfigService::download_speed_limit_bytes_per_sec(&dl_settings);
     let rate_limiter = if speed_limit_bytes_per_sec > 0 {
         Some(Arc::new(DownloadRateLimiter::new(

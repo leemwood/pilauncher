@@ -1,6 +1,5 @@
 // /src/features/InstanceDetail/components/tabs/mods/components/dialogs/ModDetailModal.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { OreModal } from '../../../../../../../ui/primitives/OreModal';
 import { OreButton } from '../../../../../../../ui/primitives/OreButton';
@@ -41,6 +40,8 @@ interface ModDetailModalProps {
   onInstallVersion: (mod: ModMeta, version: OreProjectVersion, action: ModVersionInstallAction) => void;
   onSaveMetadataSettings: (mod: ModMeta, settings: ModMetadataSettings) => Promise<ModMeta>;
   onReidentifyMod: (mod: ModMeta) => Promise<ModMeta>;
+  openMetadataSettingsOnOpen?: boolean;
+  onMetadataSettingsOpenHandled?: () => void;
 }
 
 const PLATFORM_TABS = [
@@ -104,7 +105,9 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
   onDelete,
   onInstallVersion,
   onSaveMetadataSettings,
-  onReidentifyMod
+  onReidentifyMod,
+  openMetadataSettingsOnOpen = false,
+  onMetadataSettingsOpenHandled
 }) => {
   const [modVersions, setModVersions] = useState<any[]>([]);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
@@ -254,13 +257,22 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
     handleClose();
   };
 
-  const openMetadataSettings = () => {
+  const openMetadataSettings = useCallback(() => {
     const settings = displayMod?.manifestEntry?.metadataSettings;
     setMetadataPlatformDraft(normalizePreference(settings?.metadataPlatform));
     setUpdatePlatformDraft(normalizePreference(settings?.updatePlatform));
     setShowMetadataSettings(true);
     setTimeout(() => setFocus('metadata-platform-0'), 100);
-  };
+  }, [displayMod]);
+
+  useEffect(() => {
+    if (!openMetadataSettingsOnOpen || !displayMod) {
+      return;
+    }
+
+    openMetadataSettings();
+    onMetadataSettingsOpenHandled?.();
+  }, [displayMod, onMetadataSettingsOpenHandled, openMetadataSettings, openMetadataSettingsOnOpen]);
 
   const closeMetadataSettings = () => {
     if (isSavingMetadataSettings || isReidentifying) return;
@@ -320,7 +332,7 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
       ? 'Modrinth'
       : displayMod?.manifestEntry?.source.platform || '本地';
 
-  const cacheKey = displayMod?.modifiedAt || displayMod?.fileSize || displayMod?.fileName || 'cache';
+  const detailIconUrl = displayMod?.networkIconUrl || displayMod?.networkInfo?.icon_url || '';
   const currentFileId = getPlatformFileId(displayMod, activePlatform) || getPlatformFileId(mod, activePlatform);
   const currentVersionIndex = currentFileId
     ? modVersions.findIndex((version) => version.id === currentFileId)
@@ -370,8 +382,8 @@ export const ModDetailModal: React.FC<ModDetailModalProps> = ({
             <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto sm:mx-0 flex-shrink-0 bg-[#1A1A1C] border border-[#2A2A2C] flex items-center justify-center p-1 rounded-sm relative shadow-sm">
               {mod.isFetchingNetwork && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="animate-spin text-ore-green" /></div>}
 
-              {displayMod?.iconAbsolutePath || displayMod?.networkIconUrl || displayMod?.networkInfo?.icon_url ? (
-                <img src={displayMod.iconAbsolutePath ? `${convertFileSrc(displayMod.iconAbsolutePath)}?t=${cacheKey}` : (displayMod.networkIconUrl || displayMod.networkInfo?.icon_url)} alt="icon" className="w-full h-full object-cover rounded-sm" />
+              {detailIconUrl ? (
+                <img src={detailIconUrl} alt="icon" className="w-full h-full object-cover rounded-sm" />
               ) : <Blocks size={36} className="text-gray-600" />}
             </div>
 

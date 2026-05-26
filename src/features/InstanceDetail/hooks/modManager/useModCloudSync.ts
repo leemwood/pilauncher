@@ -12,12 +12,13 @@ import {
   type ModMeta,
   type ModPlatformMatch
 } from '../../logic/modService';
-import { getProjectDetails, type ModrinthProject, matchModrinthVersionsByHashes } from '../../logic/modrinthApi';
+import { fetchModrinthProjectById, type ModrinthProject, matchModrinthVersionsByHashes } from '../../logic/modrinthApi';
 
 type MatchPlatform = 'modrinth' | 'curseforge';
 type MatchedPlatforms = Record<MatchPlatform, ModPlatformMatch>;
 interface SyncCloudMetadataOptions {
   force?: boolean;
+  onProgress?: (current: number, total: number) => void;
 }
 
 const PLATFORM_PRIORITY: MatchPlatform[] = ['modrinth', 'curseforge'];
@@ -79,7 +80,8 @@ const buildMatchedManifestEntry = (
 const persistPlatformMatches = async (
   instanceId: string,
   mod: ModMeta,
-  matches: Partial<MatchedPlatforms>
+  matches: Partial<MatchedPlatforms>,
+  version?: string
 ) => {
   const primaryPlatform = hasCompletePrimarySource(mod) ? undefined : choosePrimaryPlatform(matches);
   const primaryMatch = primaryPlatform ? matches[primaryPlatform] : undefined;
@@ -92,7 +94,8 @@ const persistPlatformMatches = async (
         mod.manifestEntry?.source.kind || 'externalImport',
         primaryPlatform,
         primaryMatch.projectId,
-        primaryMatch.fileId
+        primaryMatch.fileId,
+        version
       );
     } catch (error) {
       console.error('Persist primary mod platform failed', error);
@@ -109,6 +112,7 @@ export const useModCloudSync = (instanceId: string) => {
   ) => {
     const matchedByFileName = new Map<string, Partial<ModMeta>>();
     const platformMatchesByFileName = new Map<string, Partial<MatchedPlatforms>>();
+    const versionByFileName = new Map<string, string>();
     const modrinthDetailCache = new Map<string, Promise<ModrinthProject>>();
     const curseForgeDetailCache = new Map<string, ReturnType<typeof getCurseForgeProjectDetails>>();
 
@@ -116,10 +120,15 @@ export const useModCloudSync = (instanceId: string) => {
       mod: ModMeta,
       platform: MatchPlatform,
       match: ModPlatformMatch,
-      meta?: Partial<ModMeta>
+      meta?: Partial<ModMeta>,
+      versionNumber?: string
     ) => {
       const nextMatches = mergePlatformMatch(platformMatchesByFileName.get(mod.fileName), platform, match);
       platformMatchesByFileName.set(mod.fileName, nextMatches);
+
+      if (versionNumber) {
+        versionByFileName.set(mod.fileName, versionNumber);
+      }
 
       if (meta) {
         const preferredPlatform = getModPreferredPlatform(mod, 'metadata');
@@ -142,93 +151,119 @@ export const useModCloudSync = (instanceId: string) => {
       && (options.force || !hasCompletePlatformReference(mod, 'modrinth'))
     ));
 
+    const curseForgeMods = hasCurseForgeApiKey()
+      ? modsToSync.filter((mod) => (
+          typeof mod.curseforgeFingerprint === 'number'
+          && (options.force || !hasCompletePlatformReference(mod, 'curseforge'))
+        ))
+      : [];
+
+    const total = sha1Mods.length + curseForgeMods.length;
+    let processed = 0;
+    if (total > 0) {
+      options.onProgress?.(0, total);
+    }
+
     try {
       const modrinthMatches = await matchModrinthVersionsByHashes(
         sha1Mods.map((mod) => mod.manifestEntry!.hash.value),
         'sha1'
       );
 
-      await Promise.all(sha1Mods.map(async (mod) => {
-        const version = modrinthMatches[mod.manifestEntry!.hash.value];
-        if (!version?.project_id) return;
+      const batchSize = 5;
+      for (let i = 0; i < sha1Mods.length; i += batchSize) {
+        const batch = sha1Mods.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (mod) => {
+          try {
+            const version = modrinthMatches[mod.manifestEntry!.hash.value];
+            if (!version?.project_id) return;
 
-        let detail: ModrinthProject | undefined;
-        try {
-          if (!modrinthDetailCache.has(version.project_id)) {
-            modrinthDetailCache.set(version.project_id, getProjectDetails(version.project_id));
-          }
-          detail = await modrinthDetailCache.get(version.project_id);
-          if (detail && mod.cacheKey) {
-            await modService.updateModCache(
-              mod.cacheKey,
-              detail.title,
-              detail.description,
-              detail.icon_url || ''
-            );
-          }
-        } catch (error) {
-          console.error('Modrinth cloud metadata sync failed', error);
-        }
-
-        recordMatch(mod, 'modrinth', {
-          projectId: version.project_id,
-          fileId: version.id
-        }, detail
-          ? {
-              name: mod.name || detail.title,
-              description: mod.description || detail.description,
-              networkIconUrl: detail.icon_url || mod.networkIconUrl
+            let detail: ModrinthProject | undefined;
+            try {
+              if (!modrinthDetailCache.has(version.project_id)) {
+                modrinthDetailCache.set(version.project_id, fetchModrinthProjectById(version.project_id));
+              }
+              detail = await modrinthDetailCache.get(version.project_id);
+              if (detail && mod.cacheKey) {
+                await modService.updateModCache(
+                  mod.cacheKey,
+                  detail.title,
+                  detail.description,
+                  detail.icon_url || ''
+                );
+              }
+            } catch (error) {
+              console.error('Modrinth cloud metadata sync failed', error);
             }
-          : undefined);
-      }));
+
+            recordMatch(mod, 'modrinth', {
+              projectId: version.project_id,
+              fileId: version.id
+            }, detail
+              ? {
+                  name: mod.name || detail.title,
+                  description: mod.description || detail.description,
+                  networkIconUrl: detail.icon_url || mod.networkIconUrl
+                }
+              : undefined, version.version_number);
+          } finally {
+            processed += 1;
+            options.onProgress?.(processed, total);
+          }
+        }));
+      }
     } catch (error) {
       console.error('Modrinth hash match failed', error);
     }
 
-    if (hasCurseForgeApiKey()) {
-      const curseForgeMods = modsToSync.filter((mod) => (
-        typeof mod.curseforgeFingerprint === 'number'
-        && (options.force || !hasCompletePlatformReference(mod, 'curseforge'))
-      ));
-
+    if (curseForgeMods.length > 0) {
       try {
         const curseForgeMatches = await matchCurseForgeFingerprints(
           curseForgeMods.map((mod) => mod.curseforgeFingerprint!)
         );
 
-        await Promise.all(curseForgeMods.map(async (mod) => {
-          const version = curseForgeMatches[mod.curseforgeFingerprint!];
-          if (!version?.project_id) return;
+        const batchSize = 5;
+        for (let i = 0; i < curseForgeMods.length; i += batchSize) {
+          const batch = curseForgeMods.slice(i, i + batchSize);
+          await Promise.all(batch.map(async (mod) => {
+            try {
+              const version = curseForgeMatches[mod.curseforgeFingerprint!];
+              if (!version?.project_id) return;
 
-          let detail: Awaited<ReturnType<typeof getCurseForgeProjectDetails>> | undefined;
-          try {
-            if (!curseForgeDetailCache.has(version.project_id)) {
-              curseForgeDetailCache.set(version.project_id, getCurseForgeProjectDetails(version.project_id));
-            }
-            detail = await curseForgeDetailCache.get(version.project_id);
-            if (detail && mod.cacheKey) {
-              await modService.updateModCache(
-                mod.cacheKey,
-                detail.title,
-                detail.description,
-                detail.icon_url || ''
-              );
-            }
-          } catch (error) {
-            console.error('CurseForge cloud metadata sync failed', error);
-          }
-
-          recordMatch(mod, 'curseforge', {
-            projectId: version.project_id,
-            fileId: version.id
-          }, detail
-            ? {
-                name: mod.name || detail.title,
-                description: mod.description || detail.description,
-                networkIconUrl: detail.icon_url || mod.networkIconUrl
+              let detail: Awaited<ReturnType<typeof getCurseForgeProjectDetails>> | undefined;
+              try {
+                if (!curseForgeDetailCache.has(version.project_id)) {
+                  curseForgeDetailCache.set(version.project_id, getCurseForgeProjectDetails(version.project_id));
+                }
+                detail = await curseForgeDetailCache.get(version.project_id);
+                if (detail && mod.cacheKey) {
+                  await modService.updateModCache(
+                    mod.cacheKey,
+                    detail.title,
+                    detail.description,
+                    detail.icon_url || ''
+                  );
+                }
+              } catch (error) {
+                console.error('CurseForge cloud metadata sync failed', error);
               }
-            : undefined);
-        }));
+
+              recordMatch(mod, 'curseforge', {
+                projectId: version.project_id,
+                fileId: version.id
+              }, detail
+                ? {
+                    name: mod.name || detail.title,
+                    description: mod.description || detail.description,
+                    networkIconUrl: detail.icon_url || mod.networkIconUrl
+                  }
+                : undefined, version.version_number);
+            } finally {
+              processed += 1;
+              options.onProgress?.(processed, total);
+            }
+          }));
+        }
       } catch (error) {
         console.error('CurseForge fingerprint match failed', error);
       }
@@ -243,7 +278,8 @@ export const useModCloudSync = (instanceId: string) => {
       if (!matches) return;
 
       try {
-        await persistPlatformMatches(instanceId, mod, matches);
+        const matchedVersion = versionByFileName.get(mod.fileName);
+        await persistPlatformMatches(instanceId, mod, matches, matchedVersion);
       } catch (error) {
         console.error('Persist mod platform matches failed', error);
       }
@@ -252,6 +288,7 @@ export const useModCloudSync = (instanceId: string) => {
     return modsToSync.map((mod) => {
       const matched = matchedByFileName.get(mod.fileName);
       const matches = platformMatchesByFileName.get(mod.fileName);
+      const matchedVersion = versionByFileName.get(mod.fileName);
 
       if (!matched && !matches) {
         return mod;
@@ -260,6 +297,7 @@ export const useModCloudSync = (instanceId: string) => {
       return {
         ...mod,
         ...matched,
+        version: mod.version || matchedVersion || matched?.version,
         manifestEntry: matches ? buildMatchedManifestEntry(mod, matches) : mod.manifestEntry,
         isFetchingNetwork: false
       };

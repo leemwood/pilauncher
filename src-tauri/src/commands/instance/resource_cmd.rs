@@ -179,6 +179,7 @@ pub async fn update_mod_manifest<R: Runtime>(
     platform: String,
     project_id: String,
     file_id: String,
+    version: Option<String>,
 ) -> Result<(), String> {
     ResourceManager::update_mod_manifest(
         &app,
@@ -188,7 +189,25 @@ pub async fn update_mod_manifest<R: Runtime>(
         &platform,
         &project_id,
         &file_id,
+        version,
     )
+}
+
+#[tauri::command]
+pub async fn update_all_mods_metadata_settings<R: Runtime>(
+    app: AppHandle<R>,
+    instance_id: String,
+    settings: crate::domain::mod_manifest::ModMetadataSettings,
+) -> Result<(), String> {
+    ResourceManager::update_all_mods_metadata_settings(&app, &instance_id, settings)
+}
+
+#[tauri::command]
+pub async fn reset_all_mods_platform_metadata<R: Runtime>(
+    app: AppHandle<R>,
+    instance_id: String,
+) -> Result<(), String> {
+    ResourceManager::reset_all_mods_platform_metadata(&app, &instance_id)
 }
 
 #[tauri::command]

@@ -13,7 +13,8 @@ import {
   Search,
   Sun,
   Trash2,
-  X
+  X,
+  Settings2
 } from 'lucide-react';
 
 import { OreButton } from '../../../../../../../ui/primitives/OreButton';
@@ -42,6 +43,7 @@ export interface ModListHeaderProps {
   onBatchDisable: () => void;
   onBatchDelete: () => void;
   onExitBatchMode: () => void;
+  onOpenModMetadataSettings: () => void;
   onCheckModUpdates: () => void;
   isCheckingModUpdates: boolean;
   onQuickFilterChange: (filter: ModQuickFilter) => void;
@@ -86,6 +88,7 @@ export const ModListHeader: React.FC<ModListHeaderProps> = ({
   onBatchDisable,
   onBatchDelete,
   onExitBatchMode,
+  onOpenModMetadataSettings,
   onCheckModUpdates,
   isCheckingModUpdates,
   onQuickFilterChange,
@@ -264,6 +267,20 @@ export const ModListHeader: React.FC<ModListHeaderProps> = ({
               </OreButton>
             </div>
           )}
+
+          <OreButton
+            focusKey="mod-btn-metadata-settings"
+            variant="secondary"
+            size="auto"
+            onClick={onOpenModMetadataSettings}
+            onArrowPress={onHeaderArrowPress}
+            className={MOD_LIST_HEADER_CLASSES.oreButton}
+            style={LIST_CONTROL_TEXT_STYLE}
+            title="MOD 元数据"
+          >
+            <Settings2 size={14} className="mr-1.5" />
+            元数据
+          </OreButton>
 
           <OreButton
             focusKey="mod-btn-check-updates"

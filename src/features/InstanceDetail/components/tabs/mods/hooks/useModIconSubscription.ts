@@ -11,7 +11,6 @@ const getModIconSnapshotKey = (mod: ModMeta) => {
   return [
     mod.cacheKey || mod.fileName,
     mod.fileName,
-    mod.iconAbsolutePath || '',
     mod.modifiedAt || 0,
     mod.fileSize || 0,
     mod.networkIconUrl || mod.networkInfo?.icon_url || ''

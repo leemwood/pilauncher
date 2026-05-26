@@ -330,10 +330,8 @@ fn copy_cached_metadata_from_raw(raw: Option<&RawModManifestEntry>, entry: &mut 
     };
 
     entry.mod_id = raw.mod_id.clone();
-    entry.name = raw.name.clone();
     entry.version = raw.version.clone();
     entry.description = raw.description.clone();
-    entry.icon_rel_path = raw.icon_rel_path.clone();
     entry.curseforge_fingerprint = raw.curseforge_fingerprint;
     entry.matched_platforms = raw.matched_platforms.clone();
     entry.metadata_settings = raw.metadata_settings.clone();
@@ -343,17 +341,11 @@ fn merge_cached_metadata(target: &mut ModManifestEntry, source: &ModManifestEntr
     if target.mod_id.is_none() {
         target.mod_id = source.mod_id.clone();
     }
-    if target.name.is_none() {
-        target.name = source.name.clone();
-    }
     if target.version.is_none() {
         target.version = source.version.clone();
     }
     if target.description.is_none() {
         target.description = source.description.clone();
-    }
-    if target.icon_rel_path.is_none() {
-        target.icon_rel_path = source.icon_rel_path.clone();
     }
     if target.curseforge_fingerprint.is_none() {
         target.curseforge_fingerprint = source.curseforge_fingerprint;
@@ -462,13 +454,13 @@ mod tests {
         .expect("normalize manifest");
 
         assert_eq!(normalized.mod_id.as_deref(), Some("demo_mod"));
-        assert_eq!(normalized.name.as_deref(), Some("Demo Mod"));
+        assert_eq!(normalized.name, None);
         assert_eq!(normalized.version.as_deref(), Some("1.0.0"));
         assert_eq!(
             normalized.description.as_deref(),
             Some("Cached description")
         );
-        assert_eq!(normalized.icon_rel_path.as_deref(), Some("icons/demo.png"));
+        assert_eq!(normalized.icon_rel_path, None);
         assert_eq!(
             normalized
                 .matched_platforms
@@ -542,10 +534,10 @@ mod tests {
 
         assert_eq!(entry.source.platform.as_deref(), Some("modrinth"));
         assert_eq!(entry.mod_id.as_deref(), Some("demo_mod"));
-        assert_eq!(entry.name.as_deref(), Some("Demo Mod"));
+        assert_eq!(entry.name, None);
         assert_eq!(entry.version.as_deref(), Some("1.0.0"));
         assert_eq!(entry.description.as_deref(), Some("Keep me"));
-        assert_eq!(entry.icon_rel_path.as_deref(), Some("icons/demo.png"));
+        assert_eq!(entry.icon_rel_path, None);
         assert_eq!(
             entry
                 .matched_platforms

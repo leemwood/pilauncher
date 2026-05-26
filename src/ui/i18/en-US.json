@@ -959,7 +959,8 @@
       "sections": {
         "core": "Core Data Directory",
         "thirdParty": "Imported Instances",
-        "privacy": "Privacy & Telemetry"
+        "privacy": "Privacy & Telemetry",
+        "instances": "Instances"
       },
       "telemetryUpload": {
         "label": "Upload installation telemetry",
@@ -1001,6 +1002,16 @@
       "success": "Success",
       "failed": "Removal failed: {{error}}",
       "error": "Error",
+      "manageInstances": {
+        "label": "Local Instance Management",
+        "description": "View all configured instances in a list and delete them quickly.",
+        "btn": "Manage Local Instances",
+        "modalTitle": "Local Instance Management",
+        "searchPlaceholder": "Search instances by name, version, loader or ID...",
+        "deleteConfirmTitle": "Delete Instance",
+        "deleteConfirmHeadline": "Are you sure you want to delete this instance?",
+        "deleteConfirmDesc": "This action is irreversible! All configuration files, mods, and singleplayer worlds will be permanently removed."
+      },
       "migrateConfirm": "Would you like to move all game data (instances, configs, etc.) from the current directory to the new one?\n\nSelect [Yes] to move all data.\nSelect [No] to only copy the basic configuration file (settings.json), keeping old data.",
       "migrateTitle": "Data Migration Confirmation",
       "migrateSuccess": "Data directory migration successful! To ensure normal game operation, PiLauncher will exit. Please restart the launcher.",

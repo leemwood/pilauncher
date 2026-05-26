@@ -11,70 +11,18 @@ struct NeoForgeBmclVersion {
     installer_path: Option<String>,
 }
 
-fn append_installer_urls(urls: &mut Vec<String>, base: &str, loader_version: &str) {
-    let Some(base) = normalize_source_base(base) else {
-        return;
-    };
-
-    let artifact_path = format!(
-        "net/neoforged/neoforge/{0}/neoforge-{0}-installer.jar",
-        loader_version
-    );
-
-    if let Some(maven_base) = replace_trailing_segment(&base, "neoforge", "maven") {
-        push_unique_url(urls, format!("{}/{}", maven_base, artifact_path));
-    }
-
-    push_unique_url(urls, format!("{}/{}", base, artifact_path));
-}
-
 pub(super) fn installer_urls(dl_settings: &DownloadSettings, loader_version: &str) -> Vec<String> {
-    const NEOFORGE_OFFICIAL_BASE: &str = "https://maven.neoforged.net/releases";
-    const NEOFORGE_BMCLAPI_BASE: &str = "https://bmclapi2.bangbang93.com/neoforge";
-
-    let mut urls = Vec::new();
-    for base in source_base_candidates(
-        &dl_settings.neoforge_source,
-        &dl_settings.neoforge_source_url,
-        NEOFORGE_OFFICIAL_BASE,
-        Some(NEOFORGE_BMCLAPI_BASE),
-    ) {
-        append_installer_urls(&mut urls, &base, loader_version);
-    }
-    urls
-}
-
-fn append_list_url(urls: &mut Vec<String>, base: &str, mc_version: &str) {
-    let Some(base) = normalize_source_base(base) else {
-        return;
-    };
-
-    let list_base = if base.ends_with("/neoforge") {
-        Some(base)
-    } else if base.ends_with("/maven") {
-        replace_trailing_segment(&base, "maven", "neoforge")
-    } else if base.contains("bangbang93.com") {
-        Some(format!("{}/neoforge", base))
-    } else {
-        None
-    };
-
-    if let Some(list_base) = list_base {
-        push_unique_url(urls, format!("{}/list/{}", list_base, mc_version));
-    }
+    crate::services::downloader::dependencies::mirror::route_neoforge_installer_urls(
+        loader_version,
+        dl_settings,
+    )
 }
 
 fn list_urls(dl_settings: &DownloadSettings, mc_version: &str) -> Vec<String> {
-    const NEOFORGE_BMCLAPI_BASE: &str = "https://bmclapi2.bangbang93.com/neoforge";
-
-    let mut urls = Vec::new();
-
-    if let Some(base) = normalize_source_base(&dl_settings.neoforge_source_url) {
-        append_list_url(&mut urls, &base, mc_version);
-    }
-
-    append_list_url(&mut urls, NEOFORGE_BMCLAPI_BASE, mc_version);
-    urls
+    crate::services::downloader::dependencies::mirror::route_neoforge_list_urls(
+        mc_version,
+        dl_settings,
+    )
 }
 
 fn normalize_version_token(value: &str, mc_version: &str) -> String {

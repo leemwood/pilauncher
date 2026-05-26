@@ -895,6 +895,28 @@ impl ModManagerService {
         }
     }
 
+    fn extract_version_from_filename(filename: &str) -> Option<String> {
+        let name = filename
+            .trim_end_matches(".disabled")
+            .trim_end_matches(".jar");
+        
+        if let Ok(re) = regex::Regex::new(r#"(?i)[-_+]v?(\d+(?:\.\d+)+(?:[-_][a-zA-Z0-9.]+)?)"#) {
+            let mut matches = Vec::new();
+            for cap in re.captures_iter(name) {
+                if let Some(m) = cap.get(1) {
+                    matches.push(m.as_str().to_string());
+                }
+            }
+            if !matches.is_empty() {
+                if matches.len() == 1 {
+                    return Some(matches[0].clone());
+                }
+                return Some(matches.last().unwrap().clone());
+            }
+        }
+        None
+    }
+
     /// Parse JAR metadata without extracting icons.
     fn parse_jar_meta(jar_path: &Path) -> ModMetadata {
         let file_name = jar_path.file_name().unwrap().to_string_lossy().to_string();
@@ -940,6 +962,26 @@ impl ModManagerService {
                     }
                 }
 
+                // 1.5. Quilt 解析
+                if !parsed {
+                    if let Ok(mut quilt_json) = archive.by_name("quilt.mod.json") {
+                        let mut contents = String::new();
+                        if quilt_json.read_to_string(&mut contents).is_ok() {
+                            if let Ok(json) = serde_json::from_str::<Value>(&contents) {
+                                if let Some(quilt_loader) = json.get("quilt_loader") {
+                                    meta.mod_id = quilt_loader["id"].as_str().map(|s| s.to_string());
+                                    meta.version = quilt_loader["version"].as_str().map(|s| s.to_string());
+                                    if let Some(metadata) = quilt_loader.get("metadata") {
+                                        meta.name = metadata["name"].as_str().map(|s| s.to_string());
+                                        meta.description = metadata["description"].as_str().map(|s| s.to_string());
+                                    }
+                                    parsed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // 2. Forge / NeoForge 解析
                 if !parsed {
                     for toml_path in ["META-INF/mods.toml", "META-INF/neoforge.mods.toml"] {
@@ -965,7 +1007,7 @@ impl ModManagerService {
                                 {
                                     if let Some(caps) = version_re.captures(&contents) {
                                         let v = caps[1].to_string();
-                                        if v != "${file.jarVersion}" {
+                                        if v != "${file.jarVersion}" && !v.starts_with("${") && v != "@VERSION@" {
                                             meta.version = Some(v);
                                         }
                                     }
@@ -1018,8 +1060,45 @@ impl ModManagerService {
                         }
                     }
                 }
+
+                // 4. Try reading META-INF/MANIFEST.MF for version if we don't have one yet
+                if meta.version.is_none() {
+                    if let Ok(mut manifest) = archive.by_name("META-INF/MANIFEST.MF") {
+                        let mut contents = String::new();
+                        if manifest.read_to_string(&mut contents).is_ok() {
+                            let mut impl_version = None;
+                            let mut spec_version = None;
+                            let mut bundle_version = None;
+                            for line in contents.lines() {
+                                let parts: Vec<&str> = line.splitn(2, ':').collect();
+                                if parts.len() == 2 {
+                                    let key = parts[0].trim().to_ascii_lowercase();
+                                    let val = parts[1].trim().to_string();
+                                    if key == "implementation-version" {
+                                        impl_version = Some(val);
+                                    } else if key == "specification-version" {
+                                        spec_version = Some(val);
+                                    } else if key == "bundle-version" {
+                                        bundle_version = Some(val);
+                                    }
+                                }
+                            }
+                            let v = impl_version.or(spec_version).or(bundle_version);
+                            if let Some(v_str) = v {
+                                if !v_str.starts_with("${") && v_str != "@VERSION@" {
+                                    meta.version = Some(v_str);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        if meta.version.is_none() {
+            meta.version = Self::extract_version_from_filename(&file_name);
+        }
+
         meta
     }
 
@@ -1458,6 +1537,7 @@ impl ModManagerService {
             &manifest_path,
             &target_path,
             ModSourceKind::LauncherDownload,
+            None,
             None,
             None,
             None,

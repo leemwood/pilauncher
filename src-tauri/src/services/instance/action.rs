@@ -1,7 +1,9 @@
 // src-tauri/src/services/instance/action.rs
 use crate::domain::instance::{CustomButtonConfig, ServerBinding};
 use crate::services::config_service::ConfigService;
+use crate::services::instance::binding::InstanceBindingService;
 use serde_json::Value;
+use sqlx::SqlitePool;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Runtime};
@@ -98,8 +100,9 @@ impl InstanceActionService {
 
     /// 安全清理来自第三方目录导入的实例缓存
     /// 返回被删除的关联实例数量
-    pub fn remove_imported_by_dir<R: Runtime>(
+    pub async fn remove_imported_by_dir<R: Runtime>(
         app: &AppHandle<R>,
+        pool: &SqlitePool,
         dir: &str,
     ) -> Result<usize, String> {
         let base_path = ConfigService::get_base_path(app)
@@ -124,15 +127,22 @@ impl InstanceActionService {
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
                                 if let Some(tp) = json["third_party_path"].as_str() {
                                     let tp_path = std::path::Path::new(tp);
-                                    if tp_path.starts_with(target_dir) {
-                                        if let Err(e) = fs::remove_dir_all(&path) {
+                                    if is_path_under_dir(tp_path, target_dir) {
+                                        let id_str = path.file_name().and_then(|name| name.to_str()).unwrap_or("").to_string();
+                                        let remove_result = fs::remove_dir_all(&path);
+                                        if remove_result.is_ok() || remove_result.as_ref().map_err(|e| e.kind()) == Err(std::io::ErrorKind::NotFound) {
+                                            if !id_str.is_empty() {
+                                                if let Err(db_err) = InstanceBindingService::delete_instance_records(pool, &id_str).await {
+                                                    eprintln!("Failed to delete instance db records for {}: {}", id_str, db_err);
+                                                }
+                                            }
+                                            removed += 1;
+                                        } else if let Err(e) = remove_result {
                                             eprintln!(
-                                                "Failed to remove imported instance {}: {}",
+                                                "Failed to remove imported instance folder {}: {}",
                                                 path.display(),
                                                 e
                                             );
-                                        } else {
-                                            removed += 1;
                                         }
                                     }
                                 }
@@ -274,4 +284,22 @@ impl InstanceActionService {
         }
         Ok(())
     }
+}
+
+fn is_path_under_dir(child: &std::path::Path, parent: &std::path::Path) -> bool {
+    let child_comps: Vec<_> = child.components().collect();
+    let parent_comps: Vec<_> = parent.components().collect();
+
+    if child_comps.len() < parent_comps.len() {
+        return false;
+    }
+
+    for (c, p) in child_comps.iter().zip(parent_comps.iter()) {
+        let c_str = c.as_os_str().to_string_lossy().to_lowercase();
+        let p_str = p.as_os_str().to_string_lossy().to_lowercase();
+        if c_str != p_str {
+            return false;
+        }
+    }
+    true
 }

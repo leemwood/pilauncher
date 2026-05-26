@@ -1,6 +1,8 @@
 use crate::domain::instance::{
     CustomButtonConfig, InstanceBindingState, ServerBinding, UpdateInstanceEnvironmentPayload,
+    InstanceConfig, LoaderConfig, JavaConfig, MemoryConfig, ResolutionConfig,
 };
+use sqlx::Row;
 use crate::services::db_service::AppDatabase;
 use crate::services::instance::action::InstanceActionService;
 use crate::services::instance::binding::InstanceBindingService;
@@ -50,9 +52,10 @@ pub async fn delete_instance<R: Runtime>(
 #[tauri::command]
 pub async fn remove_imported_instances<R: Runtime>(
     app: AppHandle<R>,
+    db: State<'_, AppDatabase>,
     dir_path: String,
 ) -> Result<usize, String> {
-    InstanceActionService::remove_imported_by_dir(&app, &dir_path)
+    InstanceActionService::remove_imported_by_dir(&app, &db.pool, &dir_path).await
 }
 
 #[tauri::command]
@@ -94,6 +97,84 @@ pub async fn get_instance_detail<R: Runtime>(
     db: State<'_, AppDatabase>,
     id: String,
 ) -> Result<serde_json::Value, String> {
+    // 如果 instance.json 不存在，尝试从 SQLite 数据库重建它
+    if let Ok(config_path) = InstanceBindingService::instance_config_path(&app, &id) {
+        if !config_path.exists() {
+            if let Ok(Some(row)) = sqlx::query(
+                "SELECT 
+                    name, mc_version, loader_type, loader_version, java_path, 
+                    min_memory, max_memory, icon_path, playtime_secs, 
+                    last_played_at, created_at, jvm_args, window_width, 
+                    window_height, is_favorite 
+                 FROM instances 
+                 WHERE id = ?"
+            )
+            .bind(&id)
+            .fetch_optional(&db.pool)
+            .await
+            {
+                let name: String = row.get("name");
+                let mc_version: String = row.get("mc_version");
+                let loader_type: String = row.get::<Option<String>, _>("loader_type").unwrap_or_else(|| "vanilla".to_string());
+                let loader_version: String = row.get::<Option<String>, _>("loader_version").unwrap_or_default();
+                let java_path: String = row.get::<Option<String>, _>("java_path").unwrap_or_else(|| "auto".to_string());
+                let min_memory: i64 = row.get::<Option<i64>, _>("min_memory").unwrap_or(1024);
+                let max_memory: i64 = row.get::<Option<i64>, _>("max_memory").unwrap_or(4096);
+                let icon_path: Option<String> = row.get("icon_path");
+                let playtime_secs: i64 = row.get::<Option<i64>, _>("playtime_secs").unwrap_or(0);
+                let last_played_at: Option<String> = row.get("last_played_at");
+                let created_at: String = row.get::<Option<String>, _>("created_at").unwrap_or_default();
+                let jvm_args: Option<String> = row.get("jvm_args");
+                let window_width: Option<i64> = row.get("window_width");
+                let window_height: Option<i64> = row.get("window_height");
+                let is_favorite: i64 = row.get::<Option<i64>, _>("is_favorite").unwrap_or(0);
+
+                let config = InstanceConfig {
+                    id: id.clone(),
+                    name,
+                    mc_version,
+                    loader: LoaderConfig {
+                        r#type: loader_type,
+                        version: loader_version,
+                    },
+                    java: JavaConfig {
+                        path: java_path,
+                        version: "auto".to_string(),
+                    },
+                    memory: MemoryConfig {
+                        min: min_memory as u32,
+                        max: max_memory as u32,
+                    },
+                    resolution: ResolutionConfig {
+                        width: 1280,
+                        height: 720,
+                    },
+                    play_time: playtime_secs as f64 / 3600.0,
+                    last_played: last_played_at.unwrap_or_else(|| "Never played".to_string()),
+                    created_at,
+                    cover_image: icon_path,
+                    hero_logo: None,
+                    gamepad: None,
+                    custom_buttons: None,
+                    third_party_path: None,
+                    server_binding: None,
+                    auto_join_server: None,
+                    tags: None,
+                    jvm_args,
+                    window_width: window_width.map(|w| w as u32),
+                    window_height: window_height.map(|h| h as u32),
+                    is_favorite: Some(is_favorite != 0),
+                };
+
+                if let Err(e) = InstanceBindingService::write_instance_config(&app, &id, &config) {
+                    eprintln!("[AutoRebuild] Failed to write reconstructed instance config: {}", e);
+                } else {
+                    println!("[AutoRebuild] Successfully reconstructed instance.json for {}", id);
+                }
+            }
+        }
+    }
+
     let mut detail = InstanceActionService::get_detail(&app, &id)?;
     let binding_state = InstanceBindingService::get_instance_binding_state(&app, &db.pool, &id)
         .await

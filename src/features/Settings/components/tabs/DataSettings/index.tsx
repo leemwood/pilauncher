@@ -22,6 +22,7 @@ import { ThirdPartyDirsSection } from './components/ThirdPartyDirsSection';
 import { WebDavSection } from './components/WebDavSection';
 import { WebDavSettingsModal } from './components/WebDavSettingsModal';
 import { WebDavManageModal } from './components/WebDavManageModal';
+import { ManageInstancesModal } from './components/ManageInstancesModal';
 import { useCoreDirectory } from './hooks/useCoreDirectory';
 import { useLogCleaner } from './hooks/useLogCleaner';
 import { useRemoteLogs } from './hooks/useRemoteLogs';
@@ -45,6 +46,7 @@ export const DataSettings: React.FC = () => {
   });
   const [removeDirTarget, setRemoveDirTarget] = useState<string | null>(null);
   const [isManageOpen, setIsManageOpen] = useState(false);
+  const [isInstancesManageOpen, setIsInstancesManageOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -82,6 +84,7 @@ export const DataSettings: React.FC = () => {
       'settings-data-rename-dir',
       'settings-data-clean-logs',
       'settings-data-remote-logs',
+      'settings-data-manage-instances',
       'settings-data-webdav',
       'settings-data-webdav-manage',
       'settings-data-webdav-auto-sync'
@@ -97,7 +100,8 @@ export const DataSettings: React.FC = () => {
     logCleaner.phase === 'idle' &&
     !remoteLogs.isOpen &&
     !webDavSync.isOpen &&
-    !isManageOpen;
+    !isManageOpen &&
+    !isInstancesManageOpen;
 
   const { handleLinearArrow } = useLinearNavigation(
     focusOrder,
@@ -197,6 +201,14 @@ export const DataSettings: React.FC = () => {
         }}
       />
 
+      <ManageInstancesModal
+        isOpen={isInstancesManageOpen}
+        onClose={() => {
+          setIsInstancesManageOpen(false);
+          setTimeout(() => setFocus('settings-data-manage-instances'), 50);
+        }}
+      />
+
       <SettingsSection title={t('settings.data.sections.privacy')} icon={<BarChart3 size={18} />}>
         <FormRow
           label={t('settings.data.telemetryUpload.label')}
@@ -218,6 +230,7 @@ export const DataSettings: React.FC = () => {
         onOpenRename={coreDirectory.openRenameModal}
         onOpenCleanLogs={logCleaner.openConfirm}
         onOpenRemoteLogs={remoteLogs.open}
+        onOpenManageInstances={() => setIsInstancesManageOpen(true)}
         onArrowPress={handleLinearArrow}
       />
 

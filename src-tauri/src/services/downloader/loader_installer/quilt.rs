@@ -5,22 +5,11 @@ pub(super) fn profile_urls(
     mc_version: &str,
     loader_version: &str,
 ) -> Vec<String> {
-    const QUILT_OFFICIAL_BASE: &str = "https://meta.quiltmc.org";
-
-    source_base_candidates(
-        &dl_settings.quilt_source,
-        &dl_settings.quilt_source_url,
-        QUILT_OFFICIAL_BASE,
-        None,
+    crate::services::downloader::dependencies::mirror::route_quilt_profile_urls(
+        mc_version,
+        loader_version,
+        dl_settings,
     )
-    .into_iter()
-    .map(|base| {
-        format!(
-            "{}/v3/versions/loader/{}/{}/profile/json",
-            base, mc_version, loader_version
-        )
-    })
-    .collect()
 }
 
 pub(super) async fn install<R: Runtime>(

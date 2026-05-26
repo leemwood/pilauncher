@@ -236,6 +236,7 @@ impl ResourceManager {
         platform: &str,
         project_id: &str,
         file_id: &str,
+        version: Option<String>,
     ) -> Result<(), String> {
         let instance_root = Self::get_instance_root(app, instance_id)?;
         let manifest_path = instance_root.join("mod_manifest.json");
@@ -262,7 +263,29 @@ impl ResourceManager {
             } else {
                 Some(file_id.to_string())
             },
+            version,
         )
+    }
+
+    pub fn update_all_mods_metadata_settings<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+        settings: crate::domain::mod_manifest::ModMetadataSettings,
+    ) -> Result<(), String> {
+        let instance_root = Self::get_instance_root(app, instance_id)?;
+        let manifest_path = instance_root.join("mod_manifest.json");
+
+        ModManifestService::update_all_metadata_settings(&manifest_path, settings)
+    }
+
+    pub fn reset_all_mods_platform_metadata<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+    ) -> Result<(), String> {
+        let instance_root = Self::get_instance_root(app, instance_id)?;
+        let manifest_path = instance_root.join("mod_manifest.json");
+
+        ModManifestService::reset_all_platform_metadata(&manifest_path)
     }
 
     pub fn update_mod_platform_matches<R: Runtime>(

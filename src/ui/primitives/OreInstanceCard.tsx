@@ -1,6 +1,8 @@
 // /src/ui/primitives/OreInstanceCard.tsx
 import React from 'react';
 import { Play } from 'lucide-react'; // 用于选中状态的小图标，可选
+import { useTranslation } from 'react-i18next';
+import { formatPlayTime } from '../../utils/formatters';
 
 export interface OreInstanceCardProps {
   id: string;
@@ -8,6 +10,7 @@ export interface OreInstanceCardProps {
   mcVersion: string;
   loaderType: string; // 例如: "Fabric 0.15.7", "Forge 47.2.0", "Vanilla"
   lastPlayed: string; // 例如: "2026-02-24" 或 "今天"
+  playTime?: number;  // 游玩时间 (秒)
   coverUrl?: string;  // 封面图 URL
   isActive?: boolean; // 是否处于选中状态
   onClick?: (id: string) => void;
@@ -23,12 +26,15 @@ export const OreInstanceCard: React.FC<OreInstanceCardProps> = ({
   mcVersion,
   loaderType,
   lastPlayed,
+  playTime,
   coverUrl,
   isActive = false,
   onClick,
   className = 'w-48 h-64', // 默认给一个竖向卡片的尺寸
   focusKey
 }) => {
+  const { t } = useTranslation();
+
   return (
     <FocusItem
       focusKey={focusKey}
@@ -45,54 +51,68 @@ export const OreInstanceCard: React.FC<OreInstanceCardProps> = ({
             ${className}
           `}
         >
-      {/* ================= 第一段：上部封面图 ================= */}
-      <div className="ore-instance-cover-wrapper flex-shrink-0 flex items-center justify-center overflow-hidden">
-        {coverUrl ? (
-          <img 
-            src={coverUrl} 
-            alt={name} 
-            className="w-full h-full object-cover opacity-90 transition-opacity hover:opacity-100" 
-            draggable={false}
-          />
-        ) : (
-          // 没有封面时的占位图 (可以放个草方块图标或者简单的文字)
-          <div className="text-ore-text-muted font-minecraft text-xl opacity-30">
-            NO COVER
+          {/* ================= 第一段：上部封面图 ================= */}
+          <div className="ore-instance-cover-wrapper flex-shrink-0 flex items-center justify-center overflow-hidden">
+            {coverUrl ? (
+              <img 
+                src={coverUrl} 
+                alt={name} 
+                className="w-full h-full object-cover opacity-90 transition-opacity hover:opacity-100" 
+                draggable={false}
+              />
+            ) : (
+              // 没有封面时的占位图 (可以放个草方块图标或者简单的文字)
+              <div className="text-ore-text-muted font-minecraft text-xl opacity-30">
+                NO COVER
+              </div>
+            )}
+
+            {/* 选中时，可以在封面图右下角叠一个小小的绿色对勾或播放图标 */}
+            {isActive && (
+              <div className="absolute bottom-1 right-1 bg-ore-green border border-ore-green-shadow p-0.5 shadow-md">
+                <Play size={12} fill="currentColor" className="text-white" />
+              </div>
+            )}
           </div>
-        )}
 
-        {/* 选中时，可以在封面图右下角叠一个小小的绿色对勾或播放图标 */}
-        {isActive && (
-          <div className="absolute bottom-1 right-1 bg-ore-green border border-ore-green-shadow p-0.5 shadow-md">
-            <Play size={12} fill="currentColor" className="text-white" />
+          {/* ================= 第二段：南部实例信息 ================= */}
+          <div className="flex-1 flex flex-col justify-center bg-[#2B2E33] px-3 py-2 w-full text-left">
+            {/* 实例名称：大号字体，文字带阴影，超长截断 */}
+            <span className="truncate font-minecraft text-white text-[15px] tracking-wide drop-shadow-md">
+              {name}
+            </span>
+            
+            {/* 版本与引导器、时间 */}
+            <div className="mt-1.5 flex items-center space-x-2 truncate font-minecraft text-[10px] text-gray-300">
+              <span className="bg-black/50 px-1.5 py-0.5 rounded-sm text-gray-300 border border-white/5 shadow-inner">
+                {mcVersion}
+              </span>
+
+              {loaderType && loaderType.toLowerCase() !== 'vanilla' && (
+                <span className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-sm text-gray-300 border border-white/5 shadow-inner">
+                  <img 
+                    src={new URL(`../../assets/icons/tags/loaders/${loaderType.toLowerCase()}.svg`, import.meta.url).href}
+                    alt={loaderType}
+                    className="w-3 h-3 opacity-80 invert brightness-0"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                  {loaderType}
+                </span>
+              )}
+
+              {playTime !== undefined && playTime > 0 ? (
+                <>
+                  <span className="opacity-30">|</span>
+                  <span>{formatPlayTime(playTime, t)}</span>
+                </>
+              ) : lastPlayed && lastPlayed !== t('home.neverPlayed') ? (
+                <>
+                  <span className="opacity-30">|</span>
+                  <span>{lastPlayed}</span>
+                </>
+              ) : null}
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* ================= 第二段：中部实例信息 (垂直居中) ================= */}
-      {/* flex-1 撑满剩余高度，内部 flex 垂直居中 */}
-      <div className="flex-1 flex flex-col justify-center items-center p-3 w-full text-center">
-        {/* 实例名称：大号字体，文字带阴影，超长截断 */}
-        <span className="font-minecraft font-bold text-lg text-white ore-text-shadow truncate w-full">
-          {name}
-        </span>
-        
-        {/* 版本与引导器：稍小、颜色略灰 */}
-        <div className="flex items-center justify-center space-x-1 mt-1 text-ore-text-muted text-xs font-minecraft tracking-wide">
-          <span className="truncate max-w-[80px]">{mcVersion}</span>
-          <span className="opacity-50 px-1">•</span>
-          <span className="truncate max-w-[80px] text-[#A8C7FA]">{loaderType}</span> {/* 给引导器一点特有的颜色区分 */}
-        </div>
-      </div>
-
-      {/* ================= 第三段：下部游玩时间 ================= */}
-      {/* 底部使用略深的半透明背景区隔，字体最小 */}
-      <div className="w-full bg-black/20 border-t border-black/20 py-1.5 flex justify-center items-center flex-shrink-0">
-        <span className="text-[10px] text-ore-text-muted font-bold uppercase tracking-wider">
-          Last Played: <span className="text-white ml-1">{lastPlayed}</span>
-        </span>
-      </div>
-      
         </button>
       )}
     </FocusItem>

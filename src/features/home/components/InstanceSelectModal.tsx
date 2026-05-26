@@ -162,6 +162,7 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
                           mcVersion={instance.version}
                           loaderType={instance.loader}
                           lastPlayed={formatLastPlayed(instance.lastPlayed)}
+                          playTime={instance.playTime}
                           coverUrl={instance.coverUrl}
                           isActive={isCurrent}
                           onClick={() => handleSelect(instance.id)}

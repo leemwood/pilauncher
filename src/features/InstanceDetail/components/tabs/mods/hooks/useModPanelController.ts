@@ -17,7 +17,7 @@ import {
   toggleSelectedModFile,
   type ModFileCleanupItem
 } from '../../../../logic/modPanelService';
-import type { ModMeta, ModMetadataSettings, ModVersionInstallAction } from '../../../../logic/modService';
+import { modService, type ModMeta, type ModMetadataSettings, type ModVersionInstallAction } from '../../../../logic/modService';
 import type { OreProjectVersion } from '../../../../logic/modrinthApi';
 import { useModPanelDialogs } from './useModPanelDialogs';
 
@@ -76,7 +76,9 @@ export const useModPanelController = (instanceId: string) => {
     saveModMetadataSettings,
     reidentifyMod,
     upgradeMod,
-    installModVersion
+    installModVersion,
+    setMods,
+    syncCloudMetadata
   } = useModManager(instanceId);
 
   const setActiveTab = useLauncherStore((state) => state.setActiveTab);
@@ -124,7 +126,8 @@ export const useModPanelController = (instanceId: string) => {
     openModDetail,
     openHistoryModal,
     syncHistoryAfterSnapshot,
-    openDeleteConfirm
+    openDeleteConfirm,
+    openGlobalMetadata
   } = dialogActions;
 
   useEffect(() => {
@@ -447,6 +450,46 @@ export const useModPanelController = (instanceId: string) => {
     openDeleteConfirm([fileName]);
   }, [openDeleteConfirm]);
 
+  const saveGlobalMetadataSettings = useCallback(async (settings: ModMetadataSettings) => {
+    try {
+      await modService.updateAllModsMetadataSettings(instanceId, settings);
+      addToast('success', '全局元数据设置已保存');
+      void loadMods();
+    } catch (error) {
+      console.error(error);
+      addToast('error', '保存全局元数据设置失败');
+    }
+  }, [instanceId, loadMods, addToast]);
+
+  const reidentifyAllMods = useCallback(async (onProgress?: (current: number, total: number) => void) => {
+    try {
+      await modService.resetAllModsPlatformMetadata(instanceId);
+      addToast('success', '元数据已重置，正在重新云端匹配所有模组...');
+      const clearedMods = mods.map((mod) => ({
+        ...mod,
+        manifestEntry: mod.manifestEntry
+          ? {
+              ...mod.manifestEntry,
+              source: {
+                ...mod.manifestEntry.source,
+                platform: undefined,
+                projectId: undefined,
+                fileId: undefined
+              },
+              matchedPlatforms: {}
+            }
+          : mod.manifestEntry
+      }));
+      const synced = await syncCloudMetadata(clearedMods, { force: true, onProgress });
+      setMods(synced);
+      addToast('success', '云端匹配完成');
+    } catch (error) {
+      console.error(error);
+      addToast('error', '重新匹配失败');
+      throw error;
+    }
+  }, [instanceId, mods, syncCloudMetadata, setMods, addToast]);
+
   const filteredMods = useMemo(() => {
     return filterModsByQuery(mods, searchQuery);
   }, [mods, searchQuery]);
@@ -470,7 +513,11 @@ export const useModPanelController = (instanceId: string) => {
     },
     dialogs: {
       state: dialogState,
-      actions: dialogActions
+      actions: {
+        ...dialogActions,
+        onSaveGlobalMetadataSettings: saveGlobalMetadataSettings,
+        onReidentifyAllMods: reidentifyAllMods
+      }
     },
     modActions: {
       onInstallVersion: handleUpgradeMod,
@@ -510,6 +557,7 @@ export const useModPanelController = (instanceId: string) => {
       onBatchDisable: handleBatchDisable,
       onBatchDelete: handleBatchDelete,
       onExitBatchMode: exitBatchMode,
+      onOpenModMetadataSettings: openGlobalMetadata,
       onCheckModUpdates: handleCheckModUpdates,
       emptyMessage
     },

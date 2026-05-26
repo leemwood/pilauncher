@@ -1,45 +1,15 @@
 use super::*;
 
-fn append_installer_urls(
-    urls: &mut Vec<String>,
-    base: &str,
-    mc_version: &str,
-    loader_version: &str,
-) {
-    let Some(base) = normalize_source_base(base) else {
-        return;
-    };
-
-    let artifact_path = format!(
-        "net/minecraftforge/forge/{0}-{1}/forge-{0}-{1}-installer.jar",
-        mc_version, loader_version
-    );
-
-    if let Some(maven_base) = replace_trailing_segment(&base, "forge", "maven") {
-        push_unique_url(urls, format!("{}/{}", maven_base, artifact_path));
-    }
-
-    push_unique_url(urls, format!("{}/{}", base, artifact_path));
-}
-
 pub(super) fn installer_urls(
     dl_settings: &DownloadSettings,
     mc_version: &str,
     loader_version: &str,
 ) -> Vec<String> {
-    const FORGE_OFFICIAL_BASE: &str = "https://maven.minecraftforge.net";
-    const FORGE_BMCLAPI_BASE: &str = "https://bmclapi2.bangbang93.com/forge";
-
-    let mut urls = Vec::new();
-    for base in source_base_candidates(
-        &dl_settings.forge_source,
-        &dl_settings.forge_source_url,
-        FORGE_OFFICIAL_BASE,
-        Some(FORGE_BMCLAPI_BASE),
-    ) {
-        append_installer_urls(&mut urls, &base, mc_version, loader_version);
-    }
-    urls
+    crate::services::downloader::dependencies::mirror::route_forge_installer_urls(
+        mc_version,
+        loader_version,
+        dl_settings,
+    )
 }
 
 pub(super) async fn install<R: Runtime>(

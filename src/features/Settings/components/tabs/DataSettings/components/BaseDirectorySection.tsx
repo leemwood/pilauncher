@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Database, Edit2, FileX, LogOut, Trash2 } from 'lucide-react';
+import { Database, Edit2, FileX, LogOut, Trash2, FolderKanban } from 'lucide-react';
 
 import { FormRow } from '../../../../../../ui/layout/FormRow';
 import { SettingsSection } from '../../../../../../ui/layout/SettingsSection';
@@ -13,6 +13,7 @@ interface BaseDirectorySectionProps {
   onOpenRename: () => void;
   onOpenCleanLogs: () => void;
   onOpenRemoteLogs: () => void;
+  onOpenManageInstances: () => void;
   onArrowPress: ArrowPressHandler;
 }
 
@@ -22,6 +23,7 @@ export const BaseDirectorySection: React.FC<BaseDirectorySectionProps> = ({
   onOpenRename,
   onOpenCleanLogs,
   onOpenRemoteLogs,
+  onOpenManageInstances,
   onArrowPress
 }) => {
   const { t } = useTranslation();
@@ -92,6 +94,23 @@ export const BaseDirectorySection: React.FC<BaseDirectorySectionProps> = ({
             className="w-[200px] justify-center whitespace-nowrap"
           >
             <Trash2 size={16} className="mr-1.5" /> {t('settings.data.remoteLogs.manage')}
+          </OreButton>
+        }
+      />
+
+      <FormRow
+        label={t('settings.data.manageInstances.label', '本地实例管理')}
+        description={t('settings.data.manageInstances.description', '统一查看并快速删除本地的实例。')}
+        vertical={false}
+        control={
+          <OreButton
+            variant="secondary"
+            onClick={onOpenManageInstances}
+            focusKey="settings-data-manage-instances"
+            onArrowPress={onArrowPress}
+            className="w-[200px] justify-center whitespace-nowrap"
+          >
+            <FolderKanban size={16} className="mr-1.5" /> {t('settings.data.manageInstances.btn', '管理本地实例')}
           </OreButton>
         }
       />

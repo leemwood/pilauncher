@@ -43,6 +43,7 @@ export interface ModListProps {
   onBatchDisable: () => void;
   onBatchDelete: () => void;
   onExitBatchMode: () => void;
+  onOpenModMetadataSettings: () => void;
   onCheckModUpdates: () => void;
   isCheckingModUpdates: boolean;
   emptyMessage?: string;
@@ -74,6 +75,7 @@ export const ModList: React.FC<ModListProps> = ({
   onBatchDisable,
   onBatchDelete,
   onExitBatchMode,
+  onOpenModMetadataSettings,
   onCheckModUpdates,
   isCheckingModUpdates,
   emptyMessage = '当前没有可用模组。',
@@ -93,6 +95,7 @@ export const ModList: React.FC<ModListProps> = ({
     onDeleteMod,
     onNavigateOut
   });
+
 
   useEffect(() => {
     if (
@@ -134,6 +137,7 @@ export const ModList: React.FC<ModListProps> = ({
         onBatchDisable={onBatchDisable}
         onBatchDelete={onBatchDelete}
         onExitBatchMode={onExitBatchMode}
+        onOpenModMetadataSettings={onOpenModMetadataSettings}
         onCheckModUpdates={onCheckModUpdates}
         isCheckingModUpdates={isCheckingModUpdates}
         onQuickFilterChange={controller.controls.onQuickFilterChange}

@@ -73,54 +73,7 @@ fn push_unique_url(urls: &mut Vec<String>, url: String) {
     }
 }
 
-fn replace_trailing_segment(base: &str, from: &str, to: &str) -> Option<String> {
-    let suffix = format!("/{}", from);
-    base.strip_suffix(&suffix)
-        .map(|prefix| format!("{}/{}", prefix, to))
-}
 
-fn source_base_candidates(
-    selected_source: &str,
-    selected_url: &str,
-    official_base: &str,
-    mirror_base: Option<&str>,
-) -> Vec<String> {
-    let mut bases = Vec::new();
-
-    if let Some(base) = normalize_source_base(selected_url) {
-        push_unique_url(&mut bases, base);
-    }
-
-    match selected_source {
-        "official" => {
-            push_unique_url(&mut bases, official_base.to_string());
-            if let Some(mirror_base) = mirror_base {
-                push_unique_url(&mut bases, mirror_base.to_string());
-            }
-        }
-        "bmclapi" => {
-            if let Some(mirror_base) = mirror_base {
-                push_unique_url(&mut bases, mirror_base.to_string());
-            }
-            push_unique_url(&mut bases, official_base.to_string());
-        }
-        _ => {
-            if let Some(mirror_base) = mirror_base {
-                push_unique_url(&mut bases, mirror_base.to_string());
-            }
-            push_unique_url(&mut bases, official_base.to_string());
-        }
-    }
-
-    if bases.is_empty() {
-        push_unique_url(&mut bases, official_base.to_string());
-        if let Some(mirror_base) = mirror_base {
-            push_unique_url(&mut bases, mirror_base.to_string());
-        }
-    }
-
-    bases
-}
 
 #[allow(dead_code)]
 fn fabric_profile_urls(

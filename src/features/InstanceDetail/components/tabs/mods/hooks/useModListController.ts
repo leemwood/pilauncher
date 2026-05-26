@@ -91,6 +91,10 @@ export const useModListController = ({
     return activeMods.findIndex((mod) => mod.fileName === focusedRowFileName);
   }, [activeMods, focusedRowFileName]);
 
+  const focusedMod = useMemo(() => {
+    return activeMods.find((mod) => mod.fileName === focusedRowFileName) ?? null;
+  }, [activeMods, focusedRowFileName]);
+
   const iconRangeMods = useMemo(() => {
     const startIndex = Math.max(0, virtualRange.startIndex - 48);
     const endIndex = Math.min(renderEntries.length - 1, virtualRange.endIndex + 48);
@@ -236,6 +240,7 @@ export const useModListController = ({
       mods,
       searchedMods: data.searchedMods,
       activeMods,
+      focusedMod,
       renderEntries,
       groups: data.groups,
       quickFilter,

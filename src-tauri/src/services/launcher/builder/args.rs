@@ -1,6 +1,6 @@
 use super::{LaunchCommandBuilder, LaunchPreparationError, VersionManifest};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 const LAUNCHER_NAME: &str = env!("CARGO_PKG_NAME");
@@ -622,8 +622,8 @@ impl LaunchCommandBuilder {
         }
         let all_libraries = Self::merge_libraries(&version_chain);
         let allow_minecraft_fallback = !raw.uses_module_bootstrap();
-        let natives_dir = self.get_natives_dir().to_string_lossy().to_string();
 
+        // 🌟 1. 仍然执行 PiLauncher 自带的安全依赖校验，防止缺少本地类库而静默崩溃
         let preliminary_classpath =
             self.build_classpath(&all_libraries, &launch_jar_id, allow_minecraft_fallback);
         if !preliminary_classpath.missing.is_empty() {
@@ -631,23 +631,101 @@ impl LaunchCommandBuilder {
                 preliminary_classpath.missing,
             ));
         }
-        let preliminary_classpath_entries = preliminary_classpath.entries;
-        let preliminary_classpath_string =
-            preliminary_classpath_entries.join(Self::classpath_separator());
-        let preliminary_jvm_args = self.resolve_jvm_args(
-            &raw,
-            &launch_version_id,
-            &preliminary_classpath_string,
-            &natives_dir,
+        let preliminary_classpath_entries = preliminary_classpath.entries.clone();
+        let preliminary_classpath_string = preliminary_classpath_entries.join(Self::classpath_separator());
+
+        // 🌟 2. 构造 lighty-launch 兼容的实例信息与版本元数据
+        let version_info = PiVersionInfo {
+            name: self.target_version_id.clone(),
+            mc_version: self.mc_version.clone(),
+            loader_version: "".to_string(),
+            game_dir: self.game_dir.clone(),
+            java_dir: self.runtime_dir.join("java"),
+            loader_type: match self.target_version_id.to_lowercase() {
+                id if id.contains("fabric") => lighty_loaders::types::Loader::Fabric,
+                id if id.contains("neoforge") => lighty_loaders::types::Loader::NeoForge,
+                id if id.contains("quilt") => lighty_loaders::types::Loader::Quilt,
+                id if id.contains("forge") => lighty_loaders::types::Loader::Forge,
+                _ => lighty_loaders::types::Loader::Vanilla,
+            },
+        };
+
+        let builder_version = construct_lighty_version(&raw, &all_libraries, &version_chain);
+
+        // 🌟 3. 第一轮生成：使用未过滤的 Classpath 解析初步参数以获取 Module Path 条目
+        let mut arg_overrides = std::collections::HashMap::new();
+        arg_overrides.insert("game_directory".to_string(), self.game_dir.to_string_lossy().to_string());
+        arg_overrides.insert("assets_root".to_string(), self.get_assets_dir().to_string_lossy().to_string());
+        arg_overrides.insert("library_directory".to_string(), self.get_libraries_dir().to_string_lossy().to_string());
+        arg_overrides.insert("natives_directory".to_string(), self.get_natives_dir().to_string_lossy().to_string());
+        arg_overrides.insert("auth_access_token".to_string(), self.auth.access_token.clone());
+        arg_overrides.insert("auth_uuid".to_string(), self.auth.uuid.clone());
+        arg_overrides.insert("auth_player_name".to_string(), self.auth.player_name.clone());
+        arg_overrides.insert("user_type".to_string(), self.auth.user_type.clone());
+        arg_overrides.insert("version_name".to_string(), launch_version_id.clone());
+        arg_overrides.insert("version_type".to_string(), "PiLauncher".to_string());
+        arg_overrides.insert("classpath".to_string(), preliminary_classpath_string);
+        arg_overrides.insert("resolution_width".to_string(), self.config.resolution_width.to_string());
+        arg_overrides.insert("resolution_height".to_string(), self.config.resolution_height.to_string());
+        arg_overrides.insert("assets_index_name".to_string(), raw.asset_index.clone());
+        arg_overrides.insert("launcher_name".to_string(), LAUNCHER_NAME.to_string());
+        arg_overrides.insert("launcher_version".to_string(), LAUNCHER_VERSION.to_string());
+        arg_overrides.insert("user_properties".to_string(), "{}".to_string());
+        arg_overrides.insert("auth_session".to_string(), "{}".to_string());
+        arg_overrides.insert("auth_xuid".to_string(), "0".to_string());
+        arg_overrides.insert("clientid".to_string(), "0".to_string());
+
+        let mut jvm_overrides = std::collections::HashMap::new();
+        jvm_overrides.insert("Xmx".to_string(), format!("{}M", self.config.max_memory));
+        jvm_overrides.insert("Xms".to_string(), format!("{}M", self.config.min_memory));
+
+        let preliminary_lighty_args = <PiVersionInfo as lighty_launch::arguments::Arguments>::build_arguments(
+            &version_info,
+            &builder_version,
+            &self.auth.player_name,
+            &self.auth.uuid,
+            &arg_overrides,
+            &std::collections::HashSet::new(),
+            &jvm_overrides,
+            &std::collections::HashSet::new(),
+            &[],
         );
 
+        let main_class_str = builder_version.main_class.main_class.clone();
+        let pos_prelim = preliminary_lighty_args.iter().position(|arg| arg == &main_class_str);
+        let preliminary_jvm_args = if let Some(pos) = pos_prelim {
+            preliminary_lighty_args[0..pos].to_vec()
+        } else {
+            preliminary_lighty_args.clone()
+        };
+
+        // 过滤得到最终 Classpath 列表（去除包含在 module-path 中的项）
         let final_classpath_entries =
             self.filter_module_path_entries(preliminary_classpath_entries, &preliminary_jvm_args);
         let classpath_string = final_classpath_entries.join(Self::classpath_separator());
-        let resolved_jvm_args =
-            self.resolve_jvm_args(&raw, &launch_version_id, &classpath_string, &natives_dir);
-        let resolved_game_args =
-            self.resolve_game_args(&raw, &launch_version_id, &classpath_string, &natives_dir);
+
+        // 🌟 4. 第二轮生成：使用过滤后的 Classpath 进行真正的参数构建
+        arg_overrides.insert("classpath".to_string(), classpath_string);
+
+        let lighty_args = <PiVersionInfo as lighty_launch::arguments::Arguments>::build_arguments(
+            &version_info,
+            &builder_version,
+            &self.auth.player_name,
+            &self.auth.uuid,
+            &arg_overrides,
+            &std::collections::HashSet::new(),
+            &jvm_overrides,
+            &std::collections::HashSet::new(),
+            &[],
+        );
+
+        // 🌟 5. 提取真正的 JVM 与 Game 参数
+        let pos = lighty_args.iter().position(|arg| arg == &main_class_str);
+        let (resolved_jvm_args, resolved_game_args) = if let Some(pos) = pos {
+            (lighty_args[0..pos].to_vec(), lighty_args[pos+1..].to_vec())
+        } else {
+            (lighty_args, Vec::new())
+        };
 
         let mut final_args = Vec::new();
         final_args.push("-XX:+IgnoreUnrecognizedVMOptions".to_string());
@@ -669,11 +747,23 @@ impl LaunchCommandBuilder {
         ) {
             final_args.push(format!("-javaagent:{}={}", jar_path, api_root));
         }
+
         final_args.extend(self.config.custom_jvm_args.clone());
-        final_args.extend(resolved_jvm_args);
-        final_args.push(raw.main_class);
+
+        // 过滤 JVM 参数，避免重复加入 -Xmx / -Xms 标志
+        let filtered_jvm_args: Vec<String> = resolved_jvm_args
+            .into_iter()
+            .filter(|arg| !arg.starts_with("-Xmx") && !arg.starts_with("-Xms"))
+            .collect();
+        final_args.extend(filtered_jvm_args);
+
+        // 主类
+        final_args.push(main_class_str);
+
+        // 游戏参数
         final_args.extend(resolved_game_args);
 
+        // 附加屏幕宽度与直连参数
         if !final_args.contains(&"--width".to_string()) {
             final_args.push("--width".to_string());
             final_args.push(self.config.resolution_width.to_string());
@@ -714,6 +804,96 @@ impl LaunchCommandBuilder {
         Ok(final_args)
     }
 }
+
+#[derive(Clone)]
+struct PiVersionInfo {
+    name: String,
+    mc_version: String,
+    loader_version: String,
+    game_dir: PathBuf,
+    java_dir: PathBuf,
+    loader_type: lighty_loaders::types::Loader,
+}
+
+impl lighty_loaders::types::VersionInfo for PiVersionInfo {
+    type LoaderType = lighty_loaders::types::Loader;
+    fn name(&self) -> &str { &self.name }
+    fn loader_version(&self) -> &str { &self.loader_version }
+    fn minecraft_version(&self) -> &str { &self.mc_version }
+    fn game_dirs(&self) -> &std::path::Path { &self.game_dir }
+    fn java_dirs(&self) -> &std::path::Path { &self.java_dir }
+    fn loader(&self) -> &Self::LoaderType { &self.loader_type }
+}
+
+fn construct_lighty_version(
+    raw: &RawLaunchArgs,
+    all_libraries: &[Value],
+    version_chain: &[VersionManifest],
+) -> lighty_loaders::types::version_metadata::Version {
+    let main_class = lighty_loaders::types::version_metadata::MainClass {
+        main_class: raw.main_class.clone(),
+    };
+
+    let mut major_version = 8;
+    for manifest in version_chain.iter().rev() {
+        if let Some(major) = manifest.json.pointer("/javaVersion/majorVersion").and_then(|v| v.as_u64()) {
+            major_version = major as u8;
+            break;
+        }
+    }
+    let java_version = lighty_loaders::types::version_metadata::JavaVersion {
+        major_version,
+    };
+
+    let arguments = lighty_loaders::types::version_metadata::Arguments {
+        game: raw.game.clone(),
+        jvm: Some(raw.jvm.clone()),
+    };
+
+    let mut libraries = Vec::new();
+    for lib_val in all_libraries {
+        let name = lib_val["name"].as_str().unwrap_or("").to_string();
+        let path = lib_val.pointer("/downloads/artifact/path").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let url = lib_val.pointer("/downloads/artifact/url").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let sha1 = lib_val.pointer("/downloads/artifact/sha1").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let size = lib_val.pointer("/downloads/artifact/size").and_then(|v| v.as_u64());
+
+        libraries.push(lighty_loaders::types::version_metadata::Library {
+            name,
+            url,
+            path,
+            sha1,
+            size,
+        });
+    }
+
+    let mut assets_index = None;
+    for manifest in version_chain.iter().rev() {
+        if let Some(obj) = manifest.json.get("assetIndex").and_then(|v| v.as_object()) {
+            assets_index = Some(lighty_loaders::types::version_metadata::AssetIndex {
+                id: obj.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                url: obj.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                sha1: obj.get("sha1").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                size: obj.get("size").and_then(|v| v.as_u64()).unwrap_or(0),
+                total_size: obj.get("totalSize").and_then(|v| v.as_u64()),
+            });
+            break;
+        }
+    }
+
+    lighty_loaders::types::version_metadata::Version {
+        main_class,
+        java_version,
+        arguments,
+        libraries,
+        mods: None,
+        natives: None,
+        client: None,
+        assets_index,
+        assets: None,
+    }
+}
+
 
 #[cfg(test)]
 fn split_path_entries_for_test(value: &str, separator: char) -> Vec<String> {
@@ -1227,6 +1407,74 @@ mod tests {
         assert!(!normalize_for_assert(&classpath).contains("versions/1.21.1/1.21.1.jar"));
         assert!(!normalize_for_assert(&classpath).contains("bootstraplauncher-2.0.2.jar"));
         assert!(normalize_for_assert(&module_path).contains("bootstraplauncher-2.0.2.jar"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn build_args_resolves_resolution_and_metadata_placeholders() {
+        let root = unique_test_root("resolution-placeholder-resolution");
+        let runtime_root = root.join("runtime");
+        let game_dir = root.join("game");
+
+        fs::create_dir_all(&game_dir).unwrap();
+        write_version_manifest(
+            &runtime_root,
+            "1.21.1",
+            &serde_json::json!({
+                "id": "1.21.1",
+                "mainClass": "net.minecraft.client.main.Main",
+                "arguments": {
+                    "jvm": ["-Djava.library.path=${natives_directory}", "-cp", "${classpath}"],
+                    "game": [
+                        "--username", "${auth_player_name}",
+                        "--width", "${resolution_width}",
+                        "--height", "${resolution_height}"
+                    ]
+                },
+                "libraries": []
+            }),
+        );
+
+        let builder = LaunchCommandBuilder::new(
+            ResolvedLaunchConfig {
+                java_path: "auto".to_string(),
+                min_memory: 1024,
+                max_memory: 2048,
+                resolution_width: 1280,
+                resolution_height: 720,
+                fullscreen: false,
+                custom_jvm_args: Vec::new(),
+                server_binding: None,
+            },
+            AuthSession {
+                player_name: "tester".to_string(),
+                uuid: "uuid".to_string(),
+                access_token: "token".to_string(),
+                user_type: "msa".to_string(),
+                authlib_api_root: None,
+                authlib_injector_jar: None,
+            },
+            "1.21.1",
+            "1.21.1",
+            game_dir,
+            runtime_root,
+            None,
+        );
+
+        let args = builder.build_args().expect("build_args should succeed");
+        // Verify that the placeholders ${resolution_width} and ${resolution_height} are fully replaced and do not exist in the output args.
+        assert!(!args.iter().any(|arg| arg.contains("${resolution_width}")));
+        assert!(!args.iter().any(|arg| arg.contains("${resolution_height}")));
+
+        // Check that the actual width and height are in the arguments list.
+        let width_idx = args.iter().position(|arg| arg == "--width");
+        assert!(width_idx.is_some());
+        assert_eq!(args[width_idx.unwrap() + 1], "1280");
+
+        let height_idx = args.iter().position(|arg| arg == "--height");
+        assert!(height_idx.is_some());
+        assert_eq!(args[height_idx.unwrap() + 1], "720");
 
         let _ = fs::remove_dir_all(root);
     }

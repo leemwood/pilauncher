@@ -5,23 +5,11 @@ pub(super) fn profile_urls(
     mc_version: &str,
     loader_version: &str,
 ) -> Vec<String> {
-    const FABRIC_OFFICIAL_BASE: &str = "https://meta.fabricmc.net";
-    const FABRIC_BMCLAPI_BASE: &str = "https://bmclapi2.bangbang93.com/fabric-meta";
-
-    source_base_candidates(
-        &dl_settings.fabric_source,
-        &dl_settings.fabric_source_url,
-        FABRIC_OFFICIAL_BASE,
-        Some(FABRIC_BMCLAPI_BASE),
+    crate::services::downloader::dependencies::mirror::route_fabric_profile_urls(
+        mc_version,
+        loader_version,
+        dl_settings,
     )
-    .into_iter()
-    .map(|base| {
-        format!(
-            "{}/v2/versions/loader/{}/{}/profile/json",
-            base, mc_version, loader_version
-        )
-    })
-    .collect()
 }
 
 pub(super) async fn install<R: Runtime>(

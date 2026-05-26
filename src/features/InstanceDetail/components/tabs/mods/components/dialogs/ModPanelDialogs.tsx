@@ -7,6 +7,7 @@ import type { ModMeta, ModMetadataSettings, ModVersionInstallAction } from '../.
 import type { OreProjectVersion } from '../../../../../logic/modrinthApi';
 import { ModSnapshotModal } from '../../../ModSnapshotModal';
 import { ModDetailModal } from './ModDetailModal';
+import { GlobalModMetadataModal } from './GlobalModMetadataModal';
 import type { ModPanelDialogActions, ModPanelDialogState } from '../../hooks/useModPanelDialogs';
 
 interface ModPanelDialogsProps {
@@ -18,6 +19,8 @@ interface ModPanelDialogsProps {
   onInstallVersion: (mod: ModMeta, version: OreProjectVersion, action: ModVersionInstallAction) => void;
   onSaveMetadataSettings: (mod: ModMeta, settings: ModMetadataSettings) => Promise<ModMeta>;
   onReidentifyMod: (mod: ModMeta) => Promise<ModMeta>;
+  onSaveGlobalMetadataSettings: (settings: ModMetadataSettings) => Promise<void>;
+  onReidentifyAllMods: (onProgress?: (current: number, total: number) => void) => Promise<void>;
 }
 
 export const ModPanelDialogs: React.FC<ModPanelDialogsProps> = ({
@@ -28,8 +31,15 @@ export const ModPanelDialogs: React.FC<ModPanelDialogsProps> = ({
   actions,
   onInstallVersion,
   onSaveMetadataSettings,
-  onReidentifyMod
+  onReidentifyMod,
+  onSaveGlobalMetadataSettings,
+  onReidentifyAllMods
 }) => {
+  const currentGlobalSettings = React.useMemo(() => {
+    const firstWithSettings = mods.find(m => m.manifestEntry?.metadataSettings);
+    return firstWithSettings?.manifestEntry?.metadataSettings;
+  }, [mods]);
+
   return (
     <>
       <ModDetailModal
@@ -41,6 +51,16 @@ export const ModPanelDialogs: React.FC<ModPanelDialogsProps> = ({
         onInstallVersion={onInstallVersion}
         onSaveMetadataSettings={onSaveMetadataSettings}
         onReidentifyMod={onReidentifyMod}
+        openMetadataSettingsOnOpen={state.openMetadataSettingsOnDetailOpen}
+        onMetadataSettingsOpenHandled={actions.markMetadataSettingsOpened}
+      />
+
+      <GlobalModMetadataModal
+        isOpen={state.isGlobalMetadataOpen}
+        onClose={actions.closeGlobalMetadata}
+        currentSettings={currentGlobalSettings}
+        onSaveMetadataSettings={onSaveGlobalMetadataSettings}
+        onReidentifyAllMods={onReidentifyAllMods}
       />
 
       <ModSnapshotModal
