@@ -44,6 +44,8 @@ export const useSavePanel = (instanceId: string) => {
   const [operationRowIndex, setOperationRowIndex] = useState<number | null>(null);
   const [isUploadingWebDav, setIsUploadingWebDav] = useState(false);
   const [returnFocusKey, setReturnFocusKey] = useState<string>('save-btn-history');
+  const [exitBackupEnabled, setExitBackupEnabled] = useState(false);
+  const [backupAllWorldsOnExit, setBackupAllWorldsOnExit] = useState(false);
   const backupProgressTimerRef = useRef<number | null>(null);
   const inputMode = useInputMode();
 
@@ -143,6 +145,16 @@ export const useSavePanel = (instanceId: string) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!instanceId) return;
+    invoke<boolean>('get_exit_backup_enabled', { id: instanceId })
+      .then(setExitBackupEnabled)
+      .catch((err) => console.error('Failed to get exit backup enabled:', err));
+    invoke<boolean>('get_backup_all_worlds_on_exit_enabled', { id: instanceId })
+      .then(setBackupAllWorldsOnExit)
+      .catch((err) => console.error('Failed to get backup all worlds on exit enabled:', err));
+  }, [instanceId]);
+
   const handleSelectBackup = useCallback((backup: SaveBackupMetadata) => {
     setIsBackupListOpen(false);
     setBackupDeleteReturnFocusKey(null);
@@ -229,6 +241,24 @@ export const useSavePanel = (instanceId: string) => {
       alert(`WebDAV 标记更新失败: ${error}`);
     }
   }, [setSaveWebDavBackupEnabled]);
+
+  const handleToggleExitBackup = useCallback(async (enabled: boolean) => {
+    try {
+      await invoke('set_exit_backup_enabled', { id: instanceId, enabled });
+      setExitBackupEnabled(enabled);
+    } catch (error) {
+      alert(`更新退出备份设置失败: ${error}`);
+    }
+  }, [instanceId]);
+
+  const handleToggleBackupAllWorlds = useCallback(async (enabled: boolean) => {
+    try {
+      await invoke('set_backup_all_worlds_on_exit_enabled', { id: instanceId, enabled });
+      setBackupAllWorldsOnExit(enabled);
+    } catch (error) {
+      alert(`更新备份范围设置失败: ${error}`);
+    }
+  }, [instanceId]);
 
   const handleUploadWebDav = useCallback(async () => {
     const { settings, updateGeneralSetting } = useSettingsStore.getState();
@@ -385,6 +415,8 @@ export const useSavePanel = (instanceId: string) => {
       backupSummaryByWorld,
       isBackupProgressOpen: !!activeBackupSave && (!!backupProgress || isBackingUp),
       isUploadingWebDav,
+      exitBackupEnabled,
+      backupAllWorldsOnExit,
     },
     actions: {
       setReturnFocusKey,
@@ -407,6 +439,8 @@ export const useSavePanel = (instanceId: string) => {
       handleActionArrow,
       handleRowNavigation,
       handleSelectBackup,
+      handleToggleExitBackup,
+      handleToggleBackupAllWorlds,
     },
   };
 };

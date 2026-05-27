@@ -17,6 +17,7 @@ import { FocusBoundary } from '../../../../../ui/focus/FocusBoundary';
 import { useLinearNavigation } from '../../../../../ui/focus/useLinearNavigation';
 import { OreButton } from '../../../../../ui/primitives/OreButton';
 import { OreModal } from '../../../../../ui/primitives/OreModal';
+import { OreSwitch } from '../../../../../ui/primitives/OreSwitch';
 
 import type { SaveBackupMetadata } from '../../../logic/saveService';
 
@@ -37,6 +38,11 @@ interface BackupListModalProps {
   onDeleteBackup: (backup: SaveBackupMetadata, focusKey: string) => void;
   isUploadingWebDav?: boolean;
   onUploadWebDav?: () => void;
+  exitBackupEnabled?: boolean;
+  onToggleExitBackup?: (enabled: boolean) => void;
+  backupAllWorldsOnExit?: boolean;
+  onToggleBackupAllWorlds?: (enabled: boolean) => void;
+  isGlobal?: boolean;
 }
 
 const formatTrigger = (trigger: string) => {
@@ -69,10 +75,21 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
   onDeleteBackup,
   isUploadingWebDav = false,
   onUploadWebDav,
+  exitBackupEnabled,
+  onToggleExitBackup,
+  backupAllWorldsOnExit,
+  onToggleBackupAllWorlds,
+  isGlobal = false,
 }) => {
   const focusOrder = useMemo(
     () => {
       const headerActions: string[] = [];
+      if (!isGlobal && onToggleExitBackup) {
+        headerActions.push('backup-list-exit-backup-switch');
+      }
+      if (isGlobal && onToggleBackupAllWorlds && exitBackupEnabled) {
+        headerActions.push('backup-list-all-worlds-switch');
+      }
       if (onToggleWebDavBackup) {
         headerActions.push('backup-list-webdav-toggle');
       }
@@ -89,7 +106,7 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
           ]
         : [...headerActions, 'backup-list-empty-close'];
     },
-    [backups, onToggleWebDavBackup, onUploadWebDav]
+    [backups, isGlobal, onToggleExitBackup, onToggleBackupAllWorlds, exitBackupEnabled, onToggleWebDavBackup, onUploadWebDav]
   );
   const defaultFocusKey = focusOrder[0];
   const { handleLinearArrow } = useLinearNavigation(
@@ -114,13 +131,35 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
         </div>
         <div className="min-w-0">
           <h3 className="ore-backup-list-modal__hero-title font-minecraft">{title}</h3>
-          <p className="ore-backup-list-modal__hero-text">
-            {backups.length > 0
-              ? `共找到 ${backups.length} 个压缩快照，可直接恢复或移除不再需要的备份。`
-              : '这里会展示当前实例的压缩备份记录，包括世界快照、配置快照和环境信息。'}
-          </p>
+          {backups.length > 0 && (
+            <p className="ore-backup-list-modal__hero-text">
+              共找到 {backups.length} 个压缩快照，可直接恢复或移除不再需要的备份。
+            </p>
+          )}
         </div>
         <div className="flex items-center space-x-3 shrink-0 ml-auto justify-end">
+          {!isGlobal && onToggleExitBackup && (
+            <OreSwitch
+              focusKey="backup-list-exit-backup-switch"
+              checked={!!exitBackupEnabled}
+              onChange={onToggleExitBackup}
+              label="退出游戏自动备份"
+              disabled={isBusy}
+              onArrowPress={handleLinearArrow}
+            />
+          )}
+
+          {isGlobal && onToggleBackupAllWorlds && (
+            <OreSwitch
+              focusKey="backup-list-all-worlds-switch"
+              checked={!!backupAllWorldsOnExit}
+              onChange={onToggleBackupAllWorlds}
+              label="备份所有世界 (全局)"
+              disabled={isBusy || !exitBackupEnabled}
+              onArrowPress={handleLinearArrow}
+            />
+          )}
+
           {onToggleWebDavBackup && (
             <OreButton
               focusKey="backup-list-webdav-toggle"

@@ -80,3 +80,38 @@ pub async fn get_save_backups<R: tauri::Runtime>(
 pub async fn open_saves_folder<R: Runtime>(app: AppHandle<R>, id: String) -> Result<(), String> {
     SaveManagerService::open_saves_folder(&app, &id)
 }
+
+#[tauri::command]
+pub async fn get_exit_backup_enabled<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+) -> Result<bool, String> {
+    SaveManagerService::get_exit_backup_enabled(&app, &id)
+}
+
+#[tauri::command]
+pub async fn set_exit_backup_enabled<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    SaveManagerService::set_exit_backup_enabled(&app, &id, enabled)
+}
+
+#[tauri::command]
+pub async fn get_backup_all_worlds_on_exit_enabled<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+) -> Result<bool, String> {
+    SaveManagerService::get_backup_all_worlds_on_exit_enabled(&app, &id)
+}
+
+#[tauri::command]
+pub async fn set_backup_all_worlds_on_exit_enabled<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    SaveManagerService::set_backup_all_worlds_on_exit_enabled(&app, &id, enabled)
+}
+

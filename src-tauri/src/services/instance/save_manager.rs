@@ -128,7 +128,7 @@ impl Default for SaveBackupPolicy {
     fn default() -> Self {
         Self {
             enabled: true,
-            auto_on_exit: true,
+            auto_on_exit: false,
             include_configs: true,
             backup_all_worlds_on_exit: false,
             wait_after_exit_seconds: DEFAULT_EXIT_BACKUP_COOLDOWN_SECONDS,
@@ -1054,6 +1054,39 @@ impl SaveManagerService {
         Uuid::from_bytes(bytes).to_string()
     }
 
+    fn get_or_create_world_uuid(save_dir: &Path, cached_uuid: &str) -> String {
+        let idx_path = save_dir.join("pilauncher_world_idx.json");
+
+        #[derive(serde::Serialize, serde::Deserialize)]
+        struct WorldIdx {
+            uuid: String,
+        }
+
+        if idx_path.exists() {
+            if let Ok(content) = fs::read_to_string(&idx_path) {
+                if let Ok(idx) = serde_json::from_str::<WorldIdx>(&content) {
+                    if !idx.uuid.trim().is_empty() {
+                        return idx.uuid;
+                    }
+                }
+            }
+        }
+
+        // If not in pilauncher_world_idx.json, check if we have a cached UUID
+        let new_uuid = if !cached_uuid.trim().is_empty() {
+            cached_uuid.to_string()
+        } else {
+            Uuid::new_v4().to_string()
+        };
+
+        // Save it to pilauncher_world_idx.json
+        let idx = WorldIdx { uuid: new_uuid.clone() };
+        if let Ok(content) = serde_json::to_string_pretty(&idx) {
+            let _ = fs::write(&idx_path, content);
+        }
+        new_uuid
+    }
+
     fn hash_pairs(pairs: &[(String, String)]) -> String {
         let mut hasher = Sha1::new();
         for (name, hash) in pairs {
@@ -1066,7 +1099,7 @@ impl SaveManagerService {
     }
 
     fn inspect_save_folder(
-        instance_id: &str,
+        _instance_id: &str,
         folder_name: &str,
         save_dir: &Path,
     ) -> Result<SaveMetadataCache, String> {
@@ -1093,13 +1126,14 @@ impl SaveManagerService {
                 .unwrap_or_default()
         };
         let meta_modified = Self::metadata_time(&meta_path);
+        let world_uuid = Self::get_or_create_world_uuid(save_dir, &cache.world_uuid);
         let needs_refresh = cache.world_uuid.is_empty()
             || cache.world_name.is_empty()
             || meta_modified < level_modified;
 
         if needs_refresh {
             cache = SaveMetadataCache {
-                world_uuid: Self::stable_world_uuid(instance_id, folder_name),
+                world_uuid,
                 world_name: folder_name.to_string(),
                 size_bytes: Self::get_dir_size(save_dir),
                 last_played_time: level_modified,
@@ -1111,9 +1145,7 @@ impl SaveManagerService {
                     .unwrap_or_default(),
             };
         } else {
-            if cache.world_uuid.is_empty() {
-                cache.world_uuid = Self::stable_world_uuid(instance_id, folder_name);
-            }
+            cache.world_uuid = world_uuid;
             if cache.world_name.is_empty() {
                 cache.world_name = folder_name.to_string();
             }
@@ -2149,6 +2181,96 @@ impl SaveManagerService {
             .spawn()
             .map_err(|e| e.to_string())?;
 
+        Ok(())
+    }
+
+    pub fn get_exit_backup_enabled<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+    ) -> Result<bool, String> {
+        let instance_dir = Self::get_instance_dir(app, instance_id)?;
+        let policy = Self::read_backup_policy(&instance_dir);
+        Ok(policy.auto_on_exit)
+    }
+
+    pub fn set_exit_backup_enabled<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+        enabled: bool,
+    ) -> Result<(), String> {
+        let instance_dir = Self::get_instance_dir(app, instance_id)?;
+        let config_path = instance_dir.join("instance.json");
+        
+        let content = fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+        let mut value: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        
+        if let Some(save_backup) = value.get_mut("saveBackup") {
+            if let Some(obj) = save_backup.as_object_mut() {
+                obj.insert("autoOnExit".to_string(), serde_json::Value::Bool(enabled));
+            }
+        } else {
+            let save_backup_obj = serde_json::json!({
+                "enabled": true,
+                "autoOnExit": enabled,
+                "includeConfigs": true,
+                "backupAllWorldsOnExit": false,
+                "safety": {
+                    "waitAfterExitSeconds": DEFAULT_EXIT_BACKUP_COOLDOWN_SECONDS,
+                    "requireStableFiles": true,
+                    "stableWindowSeconds": DEFAULT_STABLE_WINDOW_SECONDS,
+                }
+            });
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert("saveBackup".to_string(), save_backup_obj);
+            }
+        }
+        
+        Self::write_json_atomically(&config_path, &value)?;
+        Ok(())
+    }
+
+    pub fn get_backup_all_worlds_on_exit_enabled<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+    ) -> Result<bool, String> {
+        let instance_dir = Self::get_instance_dir(app, instance_id)?;
+        let policy = Self::read_backup_policy(&instance_dir);
+        Ok(policy.backup_all_worlds_on_exit)
+    }
+
+    pub fn set_backup_all_worlds_on_exit_enabled<R: Runtime>(
+        app: &AppHandle<R>,
+        instance_id: &str,
+        enabled: bool,
+    ) -> Result<(), String> {
+        let instance_dir = Self::get_instance_dir(app, instance_id)?;
+        let config_path = instance_dir.join("instance.json");
+        
+        let content = fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+        let mut value: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        
+        if let Some(save_backup) = value.get_mut("saveBackup") {
+            if let Some(obj) = save_backup.as_object_mut() {
+                obj.insert("backupAllWorldsOnExit".to_string(), serde_json::Value::Bool(enabled));
+            }
+        } else {
+            let save_backup_obj = serde_json::json!({
+                "enabled": true,
+                "autoOnExit": false,
+                "includeConfigs": true,
+                "backupAllWorldsOnExit": enabled,
+                "safety": {
+                    "waitAfterExitSeconds": DEFAULT_EXIT_BACKUP_COOLDOWN_SECONDS,
+                    "requireStableFiles": true,
+                    "stableWindowSeconds": DEFAULT_STABLE_WINDOW_SECONDS,
+                }
+            });
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert("saveBackup".to_string(), save_backup_obj);
+            }
+        }
+        
+        Self::write_json_atomically(&config_path, &value)?;
         Ok(())
     }
 }

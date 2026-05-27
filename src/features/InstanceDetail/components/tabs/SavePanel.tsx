@@ -167,6 +167,11 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
           onUploadWebDav={actions.handleUploadWebDav}
           onSelectBackup={actions.handleSelectBackup}
           onDeleteBackup={actions.openBackupDeleteModal}
+          exitBackupEnabled={state.exitBackupEnabled}
+          onToggleExitBackup={actions.handleToggleExitBackup}
+          backupAllWorldsOnExit={state.backupAllWorldsOnExit}
+          onToggleBackupAllWorlds={actions.handleToggleBackupAllWorlds}
+          isGlobal={!state.backupListWorldUuid}
         />
 
         <BackupDeleteConfirmModal
