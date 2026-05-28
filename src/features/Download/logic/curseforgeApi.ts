@@ -87,6 +87,7 @@ interface CurseForgeFile {
   gameVersions: string[];
   sortableGameVersions?: CurseForgeSortableGameVersion[];
   dependencies?: CurseForgeDependency[];
+  fileFingerprint?: number;
 }
 
 interface CurseForgeFingerprintMatch {
@@ -360,7 +361,8 @@ const mapProjectVersion = (file: CurseForgeFile): OreProjectVersion | null => {
         project_id: dependency.modId ? String(dependency.modId) : null,
         file_name: null,
         dependency_type: mapDependencyType(dependency.relationType)
-      }))
+      })),
+    fileFingerprint: file.fileFingerprint
   };
 };
 
@@ -463,7 +465,11 @@ export const matchCurseForgeFingerprints = async (
     const version = mapProjectVersion(match.file);
     if (!version) return;
 
-    mapped[match.id] = {
+    const fingerprintKey = typeof match.file.fileFingerprint === 'number'
+      ? match.file.fileFingerprint
+      : match.id;
+
+    mapped[fingerprintKey] = {
       ...version,
       project_id: String(match.file.modId)
     };

@@ -268,7 +268,7 @@ impl ModManagerService {
         *hash ^= k;
     }
 
-    fn has_complete_remote_source(entry: Option<&ModManifestEntry>) -> bool {
+    fn has_complete_curseforge_source(entry: Option<&ModManifestEntry>) -> bool {
         let Some(entry) = entry else {
             return false;
         };
@@ -277,7 +277,7 @@ impl ModManagerService {
             .source
             .platform
             .as_deref()
-            .is_some_and(|value| !value.is_empty())
+            .is_some_and(|value| value == "curseforge")
             && entry
                 .source
                 .project_id
@@ -298,7 +298,7 @@ impl ModManagerService {
             return Some(fingerprint);
         }
 
-        if Self::has_complete_remote_source(entry) {
+        if Self::has_complete_curseforge_source(entry) {
             return None;
         }
 
@@ -366,7 +366,6 @@ impl ModManagerService {
                         let is_fast_path = match &manifest_entry {
                             Some(entry) => {
                                 entry.file_state.as_ref() == Some(&current_file_state)
-                                    && entry.name.is_some()
                             }
                             None => false,
                         };
@@ -1895,3 +1894,6 @@ impl ModManagerService {
         Ok(())
     }
 }
+
+
+

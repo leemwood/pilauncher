@@ -125,6 +125,7 @@ export interface OreProjectVersion {
   file_name: string;      
   download_url: string;   
   dependencies?: OreProjectDependency[]; // ✅ 注入依赖字段
+  fileFingerprint?: number;
 }
 
 interface ModrinthRawVersionFile {
