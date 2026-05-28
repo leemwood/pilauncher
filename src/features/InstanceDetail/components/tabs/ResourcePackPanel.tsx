@@ -178,7 +178,7 @@ export const ResourcePackPanel: React.FC<{ instanceId: string }> = ({ instanceId
     <>
       <SettingsPageLayout width="wide">
         <div className="relative flex h-full w-full flex-col">
-          <div className="mb-6 flex items-center justify-between border-2 border-[#2A2A2C] bg-[#18181B] p-4">
+          <div className="mb-6 mx-1.5 flex items-center justify-between border-2 border-[#2A2A2C] bg-[#18181B] py-4 pl-4 pr-[26px]">
             <div>
               <h3 className="flex items-center font-minecraft text-white">
                 <Package size={18} className="mr-2 text-ore-green" />
@@ -193,7 +193,8 @@ export const ResourcePackPanel: React.FC<{ instanceId: string }> = ({ instanceId
               <OreButton
                 focusKey="btn-download-resourcepack"
                 variant="primary"
-                size="sm"
+                size="auto"
+                className="!h-10 !min-h-10"
                 onArrowPress={handleTopArrow}
                 onClick={() => {
                   setInstanceDownloadTarget('resourcepack');
@@ -207,7 +208,8 @@ export const ResourcePackPanel: React.FC<{ instanceId: string }> = ({ instanceId
               <OreButton
                 focusKey="btn-open-resourcepack-folder"
                 variant="secondary"
-                size="sm"
+                size="auto"
+                className="!h-10 !min-h-10"
                 onArrowPress={handleTopArrow}
                 onClick={openFolder}
               >
@@ -225,7 +227,7 @@ export const ResourcePackPanel: React.FC<{ instanceId: string }> = ({ instanceId
             <FocusBoundary
               id="resourcepack-list"
               trapFocus={operationRowIndex !== null}
-              className="custom-scrollbar grid grid-cols-1 gap-2 overflow-y-auto pb-4"
+              className="custom-scrollbar grid grid-cols-1 gap-2 overflow-y-auto px-1.5 pt-1.5 pb-4"
             >
               {items.map((item, index) => {
                 const cacheKey = item.modifiedAt || item.fileSize || item.fileName;
@@ -241,7 +243,7 @@ export const ResourcePackPanel: React.FC<{ instanceId: string }> = ({ instanceId
                     onArrowPress={handleRowNavigation}
                   >
                     {({ ref, focused }) => (
-                      <div ref={ref as any}>
+                      <div ref={ref as React.RefObject<HTMLDivElement>}>
                         <OreAssetRow
                           focusable={false}
                           focused={focused}

@@ -86,6 +86,7 @@ export const GlobalModMetadataModal: React.FC<GlobalModMetadataModalProps> = ({
       onClose={onClose}
       title="全局模组元数据设置"
       className="w-[95vw] max-w-xl"
+      actionsClassName="!justify-center"
       defaultFocusKey="global-metadata-platform-0"
       actions={
         <>
@@ -108,40 +109,40 @@ export const GlobalModMetadataModal: React.FC<GlobalModMetadataModalProps> = ({
         </>
       }
     >
-      <FocusBoundary id="global-mod-metadata-boundary" trapFocus onEscape={onClose} className="space-y-5 bg-[#141415]">
-        <div className="rounded-sm border border-[#2A2A2C] bg-[#1A1A1C] p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-minecraft font-bold text-white">全局元数据平台</h3>
+      <FocusBoundary id="global-mod-metadata-boundary" trapFocus onEscape={onClose} className="flex flex-col gap-3.5 w-full">
+        {/* 主要设置区域 - 合并为一个卡片，逻辑分割 */}
+        <div className="rounded-sm border border-[#2A2A2C] bg-[#1A1A1C] p-4 flex flex-col gap-4">
+          <div>
+            <h3 className="text-xs font-minecraft font-bold text-gray-300 mb-2">全局元数据平台</h3>
+            <OreToggleButton
+              options={platformOptions}
+              value={metadataPlatformDraft}
+              onChange={(val) => setMetadataPlatformDraft(val as ModPlatformPreference)}
+              focusKeyPrefix="global-metadata-platform"
+            />
           </div>
-          <OreToggleButton
-            options={platformOptions}
-            value={metadataPlatformDraft}
-            onChange={(val) => setMetadataPlatformDraft(val as ModPlatformPreference)}
-            focusKeyPrefix="global-metadata-platform"
-          />
+
+          <div className="border-t border-[#2A2A2C] pt-3.5">
+            <h3 className="text-xs font-minecraft font-bold text-gray-300 mb-2">全局更新来源</h3>
+            <OreToggleButton
+              options={platformOptions}
+              value={updatePlatformDraft}
+              onChange={(val) => setUpdatePlatformDraft(val as ModPlatformPreference)}
+              focusKeyPrefix="global-update-platform"
+            />
+          </div>
         </div>
 
-        <div className="rounded-sm border border-[#2A2A2C] bg-[#1A1A1C] p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-minecraft font-bold text-white">全局更新来源</h3>
-          </div>
-          <OreToggleButton
-            options={platformOptions}
-            value={updatePlatformDraft}
-            onChange={(val) => setUpdatePlatformDraft(val as ModPlatformPreference)}
-            focusKeyPrefix="global-update-platform"
-          />
-        </div>
-
-        <div className="rounded-sm border border-ore-green/30 bg-ore-green/10 p-3 text-xs text-ore-green font-minecraft">
+        {/* 提示信息区域 */}
+        <div className="rounded-sm border border-ore-green/30 bg-ore-green/10 px-3 py-2 text-[11px] text-ore-green font-minecraft leading-relaxed">
           提示：此设置将应用于当前实例中的所有模组。如果您选择特定平台，将锁定它们的元数据或更新来源。
         </div>
 
         {/* 危险操作 / 维护区域 */}
-        <div className="rounded-sm border border-red-900/50 bg-red-950/20 p-4 space-y-3">
+        <div className="rounded-sm border border-red-900/40 bg-red-950/10 p-4 flex flex-col gap-3">
           <div>
             <h4 className="text-xs font-minecraft font-bold text-red-300">高级维护操作</h4>
-            <p className="text-[11px] text-gray-300 mt-1 font-minecraft leading-relaxed">
+            <p className="text-[11px] text-gray-400 mt-1 font-minecraft leading-relaxed">
               如果模组匹配信息出现偏差或无法获取更新，可清空并重新从云端检索匹配所有模组的数据。
             </p>
           </div>
@@ -161,7 +162,7 @@ export const GlobalModMetadataModal: React.FC<GlobalModMetadataModalProps> = ({
             <OreButton
               focusKey="global-metadata-reidentify"
               variant="danger"
-              className="w-full justify-center"
+              className="w-full justify-center !h-10 !min-h-10"
               onClick={handleReidentifyAll}
               disabled={isSaving}
             >

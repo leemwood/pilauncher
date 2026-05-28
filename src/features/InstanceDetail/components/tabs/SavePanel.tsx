@@ -49,7 +49,7 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
   return (
     <SettingsPageLayout width="wide">
       <div className="relative flex h-full w-full flex-col">
-        <div className="mb-6 flex items-center justify-between border-2 border-[#2A2A2C] bg-[#18181B] p-4">
+        <div className="mb-6 mx-1.5 flex items-center justify-between border-2 border-[#2A2A2C] bg-[#18181B] py-4 pl-4 pr-[26px]">
           <div>
             <h3 className="flex items-center font-minecraft text-white">
               <HardDrive size={18} className="mr-2 text-ore-green" />
@@ -64,7 +64,8 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
             <OreButton
               focusKey="save-btn-history"
               variant="secondary"
-              size="sm"
+              size="auto"
+              className="!h-10 !min-h-10"
               onArrowPress={actions.handleTopArrow}
               onClick={() => actions.openBackupList('恢复中心', null, 'save-btn-history')}
             >
@@ -75,7 +76,8 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
             <OreButton
               focusKey="save-btn-folder"
               variant="secondary"
-              size="sm"
+              size="auto"
+              className="!h-10 !min-h-10"
               onArrowPress={actions.handleTopArrow}
               onClick={handleOpenFolder}
             >
@@ -93,7 +95,7 @@ export const SavePanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
           <FocusBoundary
             id="save-list"
             trapFocus={state.operationRowIndex !== null}
-            className="grid grid-cols-1 gap-2 overflow-y-auto pb-4 custom-scrollbar"
+            className="grid grid-cols-1 gap-2 overflow-y-auto px-1.5 pt-1.5 pb-4 custom-scrollbar"
           >
             {saves.map((save, index) => {
               const summary =

@@ -5,7 +5,6 @@ import { SettingsPageLayout } from '../../../../ui/layout/SettingsPageLayout';
 
 import { ModList } from './mods/components/list/ModList';
 import { ModPanelDialogs } from './mods/components/dialogs/ModPanelDialogs';
-import { ModPanelTopBar } from './mods/components/panel/ModPanelTopBar';
 import { useModPanelController } from './mods/hooks/useModPanelController';
 import { useModPanelFocusNavigation } from './mods/hooks/useModPanelFocusNavigation';
 import { FavoritePlaceholderModal } from '../../../Download/components/FavoritePlaceholderModal';
@@ -248,14 +247,16 @@ export const ModPanel: React.FC<{ instanceId: string }> = ({ instanceId }) => {
       scrollable={false}
       className="[&_.ore-settings-page-layout__content]:gap-2"
     >
-      <ModPanelTopBar
-        {...controller.topBar}
-        isCollapsed={isTopBarCollapsed}
-        onArrowPress={focusNavigation.handleTopBarArrow}
-      />
-
       <ModList
         {...controller.list}
+        snapshotState={controller.topBar.snapshotState}
+        snapshotProgressPhase={controller.topBar.snapshotProgressPhase}
+        onCreateSnapshot={controller.topBar.onCreateSnapshot}
+        onOpenHistory={controller.topBar.onOpenHistory}
+        onOpenModFolder={controller.topBar.onOpenModFolder}
+        onAnalyzeCleanup={controller.topBar.onAnalyzeCleanup}
+        onOpenDownload={controller.topBar.onOpenDownload}
+        isTopBarCollapsed={isTopBarCollapsed}
         onBatchFavorite={handleBatchFavorite}
         onTopBarCollapseChange={handleTopBarCollapseChange}
         onHeaderArrowPress={focusNavigation.handleTopBarArrow}

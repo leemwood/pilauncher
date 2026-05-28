@@ -51,6 +51,15 @@ export interface ModListProps {
   emptyMessage?: string;
   onNavigateOut?: (direction: 'up' | 'down') => boolean;
   onTopBarCollapseChange?: (collapsed: boolean) => void;
+  isTopBarCollapsed?: boolean;
+  // Top bar props (merged from ModPanelTopBar)
+  snapshotState: 'idle' | 'snapshotting' | 'rolling_back';
+  snapshotProgressPhase: string | null;
+  onCreateSnapshot: () => void | Promise<void>;
+  onOpenHistory: () => void | Promise<void>;
+  onOpenModFolder: () => void | Promise<void>;
+  onAnalyzeCleanup: () => void;
+  onOpenDownload: () => void;
 }
 
 export const ModList: React.FC<ModListProps> = ({
@@ -83,7 +92,15 @@ export const ModList: React.FC<ModListProps> = ({
   isCheckingModUpdates,
   emptyMessage = '当前没有可用模组。',
   onNavigateOut,
-  onTopBarCollapseChange
+  onTopBarCollapseChange,
+  isTopBarCollapsed,
+  snapshotState,
+  snapshotProgressPhase,
+  onCreateSnapshot,
+  onOpenHistory,
+  onOpenModFolder,
+  onAnalyzeCleanup,
+  onOpenDownload
 }) => {
   const [listTheme, setListTheme] = useState<ModListTheme>('dark');
   const [hasShownReadyList, setHasShownReadyList] = useState(false);
@@ -163,6 +180,14 @@ export const ModList: React.FC<ModListProps> = ({
         onViewModeChange={controller.controls.onViewModeChange}
         listTheme={listTheme}
         onThemeChange={setListTheme}
+        isTopBarCollapsed={isTopBarCollapsed}
+        snapshotState={snapshotState}
+        snapshotProgressPhase={snapshotProgressPhase}
+        onCreateSnapshot={onCreateSnapshot}
+        onOpenHistory={onOpenHistory}
+        onOpenModFolder={onOpenModFolder}
+        onAnalyzeCleanup={onAnalyzeCleanup}
+        onOpenDownload={onOpenDownload}
       />
 
       <ModListGridHeader

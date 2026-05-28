@@ -11,7 +11,7 @@ import { formatTrigger, getActionFocusKey, getRowFocusKey, type RowAction } from
 export interface SaveListRowProps {
   index: number;
   save: SaveDetail;
-  summary: { count: number; latest: any | null };
+  summary: { count: number; latest: any | null }; // eslint-disable-line @typescript-eslint/no-explicit-any
   operationRowIndex: number | null;
   isBackingUp: boolean;
   isRestoring: boolean;

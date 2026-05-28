@@ -228,7 +228,7 @@ export const ModRowView: React.FC<ModRowViewProps> = ({
     return (
       <div
         onClick={onClick}
-        className={`group relative grid min-h-[5.5rem] cursor-pointer select-none ${MOD_LIST_TABLE_GRID_CLASS} items-center gap-2 overflow-hidden border-b px-2 text-left transition-colors ${borderClass} ${rowBackgroundClass} ${activeClass}`}
+        className={`group relative grid min-h-[5.5rem] cursor-pointer select-none ${MOD_LIST_TABLE_GRID_CLASS} items-center gap-2 overflow-hidden border-b px-2 text-left ${borderClass} ${rowBackgroundClass} ${activeClass}`}
       >
         <div className={`absolute inset-y-0 left-0 ${isActive ? 'w-1.5' : 'w-1'} ${accentClass}`} />
 
@@ -246,12 +246,12 @@ export const ModRowView: React.FC<ModRowViewProps> = ({
             iconUrl={iconUrl}
             isIconLoading={isIconLoading}
             isEnabled={isEnabled}
-            className={`h-[3.25rem] w-[3.25rem] ${isSelected ? 'border-[#57D38C]' : isLightTheme ? 'border-[#1E1E1F]' : 'border-[#2A3140]'}`}
-            fallbackIconSize={24}
+            className={`h-[3.5rem] w-[3.5rem] ${isSelected ? 'border-[#57D38C]' : isLightTheme ? 'border-[#1E1E1F]' : 'border-[#2A3140]'}`}
+            fallbackIconSize={26}
             placeholderLabel={displayName || mod.fileName}
             placeholderSeed={mod.cacheKey || mod.fileName}
           />
-          <div className="min-w-0">
+          <div className={`min-w-0 ${isEnabled ? '' : 'opacity-55'}`}>
             <div className={`truncate text-[1.125rem] font-bold leading-tight ${titleTextClass}`}>
               {displayName}
             </div>
@@ -261,12 +261,12 @@ export const ModRowView: React.FC<ModRowViewProps> = ({
           </div>
         </div>
 
-        <div className={`min-w-0 truncate text-[1.0625rem] leading-tight ${fileNameTextClass}`}>
+        <div className={`min-w-0 truncate text-[1.0625rem] leading-tight ${fileNameTextClass} ${isEnabled ? '' : 'opacity-55'}`}>
           {mod.fileName}
         </div>
 
         <div className="min-w-0">
-          <div className="flex min-w-0 flex-col items-start gap-1">
+          <div className={`flex min-w-0 flex-col items-start gap-1 ${isEnabled ? '' : 'opacity-55'}`}>
             <VersionBadge version={mod.version} size="md" listTheme={listTheme} />
             <UpdateBadge
               currentVersion={mod.version}
@@ -293,7 +293,7 @@ export const ModRowView: React.FC<ModRowViewProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`group relative grid min-h-[4rem] cursor-pointer select-none grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-[15px] overflow-hidden border-b px-3 py-1 text-left transition-colors ${borderClass} ${rowBackgroundClass} ${activeClass}`}
+      className={`group relative grid min-h-[4rem] cursor-pointer select-none grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-[15px] overflow-hidden border-b px-3 py-1 text-left ${borderClass} ${rowBackgroundClass} ${activeClass}`}
     >
       <div className={`absolute inset-y-0 left-0 ${isActive ? 'w-1.5' : 'w-1'} ${accentClass}`} />
 
@@ -301,13 +301,13 @@ export const ModRowView: React.FC<ModRowViewProps> = ({
         iconUrl={iconUrl}
         isIconLoading={isIconLoading}
         isEnabled={isEnabled}
-        className="h-8 w-8"
-        fallbackIconSize={16}
+        className="h-9 w-9"
+        fallbackIconSize={20}
         placeholderLabel={displayName || mod.fileName}
         placeholderSeed={mod.cacheKey || mod.fileName}
       />
 
-      <div className="min-w-0">
+      <div className={`min-w-0 ${isEnabled ? '' : 'opacity-55'}`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <span className={`truncate text-[1.0625rem] leading-tight ${titleTextClass}`}>
             {displayName}
