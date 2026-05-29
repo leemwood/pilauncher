@@ -73,8 +73,8 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       className="group flex min-h-[26rem] flex-col overflow-hidden border-[3px] bg-[#313233] shadow-[8px_8px_0_rgba(0,0,0,0.24)]"
       style={{
         '--home-news-action-h': '2.75rem',
-        '--home-news-action-font': 'clamp(0.875rem, 1.05vw, 1.375rem)',
-        '--home-news-action-icon': 'clamp(1rem, 1.25vw, 1.75rem)',
+        '--home-news-action-font': 'clamp(0.875rem, 0.95vw, 1.125rem)',
+        '--home-news-action-icon': 'clamp(1rem, 1.1vw, 1.25rem)',
         borderTopColor: '#5A5B5C',
         borderLeftColor: '#5A5B5C',
         borderRightColor: '#1E1E1F',
@@ -157,14 +157,14 @@ export const NewsCard: React.FC<NewsCardProps> = ({
               focusKey={createInstanceFocusKey}
               variant="primary"
               size="auto"
-              className="w-full !h-[var(--home-news-action-h)] gap-[clamp(0.5rem,0.75vw,1rem)] !text-[length:var(--home-news-action-font)] !text-white [&_svg]:!text-white ore-text-shadow"
+              className="w-full !h-[var(--home-news-action-h)] gap-[clamp(0.4rem,0.5vw,0.75rem)] !text-[length:var(--home-news-action-font)] !text-white [&_svg]:!text-white ore-text-shadow"
               onClick={onCreateInstance}
               onFocus={onActionFocus}
               onArrowPress={onCreateInstanceArrowPress}
               autoScroll
             >
               <Plus size="var(--home-news-action-icon)" />
-              <span>{resolvedCreateInstanceLabel}</span>
+              <span className="truncate whitespace-nowrap">{resolvedCreateInstanceLabel}</span>
             </OreButton>
           )}
           <div className="flex gap-3">
@@ -172,28 +172,28 @@ export const NewsCard: React.FC<NewsCardProps> = ({
               focusKey={officialFocusKey}
               variant="secondary"
               size="auto"
-              className="flex-1 !min-w-0 !h-[var(--home-news-action-h)] gap-[clamp(0.5rem,0.75vw,1rem)] !text-[length:var(--home-news-action-font)] !text-[#111214] [&_svg]:!text-[#111214]"
+              className="flex-1 !min-w-0 !h-[var(--home-news-action-h)] gap-[clamp(0.4rem,0.5vw,0.75rem)] !text-[length:var(--home-news-action-font)] !text-[#111214] [&_svg]:!text-[#111214]"
               onClick={() => void openExternalLink(officialUrl)}
               onFocus={onActionFocus}
               onArrowPress={onOfficialArrowPress}
               autoScroll
             >
               <ExternalLink size="var(--home-news-action-icon)" />
-              <span>{officialLabel}</span>
+              <span className="truncate whitespace-nowrap">{officialLabel}</span>
             </OreButton>
 
             <OreButton
               focusKey={wikiFocusKey}
               variant="secondary"
               size="auto"
-              className="flex-1 !min-w-0 !h-[var(--home-news-action-h)] gap-[clamp(0.5rem,0.75vw,1rem)] !text-[length:var(--home-news-action-font)] !text-[#111214] [&_svg]:!text-[#111214]"
+              className="flex-1 !min-w-0 !h-[var(--home-news-action-h)] gap-[clamp(0.4rem,0.5vw,0.75rem)] !text-[length:var(--home-news-action-font)] !text-[#111214] [&_svg]:!text-[#111214]"
               onClick={() => void openExternalLink(wikiUrl)}
               onFocus={onActionFocus}
               onArrowPress={onWikiArrowPress}
               autoScroll
             >
               <BookOpen size="var(--home-news-action-icon)" />
-              <span>{wikiLabel}</span>
+              <span className="truncate whitespace-nowrap">{wikiLabel}</span>
             </OreButton>
           </div>
         </div>

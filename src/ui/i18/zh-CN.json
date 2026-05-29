@@ -4,6 +4,10 @@
     "neverPlayed": "从未进行游戏",
     "playTime": "游戏时长",
     "playTimeUnit": "H",
+    "playTimeZero": "0 小时",
+    "playTimeHoursMinutes": "{{hours}} 小时 {{minutes}} 分钟",
+    "playTimeHoursOnly": "{{hours}} 小时",
+    "playTimeMinutesOnly": "{{minutes}} 分钟",
     "lastPlayed": "上次游玩",
     "notification": "通知与新闻",
     "addAccount": "添加账号",
@@ -53,6 +57,11 @@
       "rejectTrust": "拒绝并忽略",
       "acceptTrust": "接受并信任"
     }
+  },
+  "instanceCard": {
+    "noCover": "无封面",
+    "launching": "启动中...",
+    "details": "详情"
   },
   "multiplayer": {
     "title": "联机中心",

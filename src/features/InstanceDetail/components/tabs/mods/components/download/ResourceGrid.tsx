@@ -106,6 +106,50 @@ const prettifyLoader = (loader: string) => {
   return loader.charAt(0).toUpperCase() + loader.slice(1);
 };
 
+const ResourceCardSkeleton = () => {
+  return (
+    <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60 animate-pulse">
+      <div className="absolute inset-y-0 left-0 w-1.5 bg-[#48494A]/20" />
+      <div className="absolute inset-x-0 top-0 h-[0.25rem] bg-white/10" />
+
+      <div className="flex w-full items-stretch gap-[0.875rem] p-[0.875rem] pr-[1rem]">
+        <div className="flex w-[4.75rem] shrink-0 flex-col items-center justify-between">
+          <div className="w-[4.75rem] h-[4.75rem] border-[0.125rem] border-[#1E1E1F] bg-[#48494A]/30 shadow-[inset_0_-4px_0_rgba(0,0,0,0.1)]" />
+          <div className="flex h-[1.375rem] w-full items-center justify-center gap-[0.25rem] overflow-hidden">
+            <div className="h-[1.375rem] w-[1.375rem] bg-[#48494A]/20 border-[0.125rem] border-[#262729]" />
+            <div className="h-[1.375rem] w-[1.375rem] bg-[#48494A]/20 border-[0.125rem] border-[#262729]" />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-[0.75rem]">
+              <div className="h-5 w-36 bg-[#48494A]/30 rounded-sm" />
+              <div className="h-4 w-20 bg-[#48494A]/20 rounded-sm" />
+            </div>
+            <div className="mt-3 space-y-1.5">
+              <div className="h-4 w-[90%] bg-[#48494A]/25 rounded-sm" />
+              <div className="h-4 w-[60%] bg-[#48494A]/25 rounded-sm" />
+            </div>
+          </div>
+
+          <div className="flex h-[1.375rem] min-w-0 items-center justify-between gap-[1rem]">
+            <div className="flex h-full min-w-0 items-center gap-[0.4375rem] overflow-hidden">
+              <div className="h-[1.375rem] w-14 bg-[#90A6D6]/30 border-[0.125rem] border-[#262729] rounded-sm" />
+              <div className="h-[1.375rem] w-14 bg-[#90A6D6]/30 border-[0.125rem] border-[#262729] rounded-sm" />
+            </div>
+            <div className="flex h-full items-center gap-x-[0.875rem] text-[#161719]/40">
+              <div className="h-4 w-12 bg-[#48494A]/20 rounded-sm" />
+              <div className="h-4 w-12 bg-[#48494A]/20 rounded-sm" />
+              <div className="h-4 w-16 bg-[#48494A]/20 rounded-sm" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ResourceCard = React.memo(({
   project,
   viewModel,
@@ -465,8 +509,10 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
       >
         <div className="min-h-full px-[0.875rem] pb-[1.25rem] pt-[0.875rem] sm:px-[1rem] sm:pb-[1.5rem] sm:pt-[1rem]">
           {emptyLoading ? (
-            <div className="flex h-full min-h-[22.5rem] items-center justify-center">
-              <Loader2 size={44} className="animate-spin text-ore-green" />
+            <div className="grid grid-cols-1 gap-[0.75rem] pb-[1.5rem]">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <ResourceCardSkeleton key={i} />
+              ))}
             </div>
           ) : results.length === 0 ? (
             <div className="flex min-h-[22.5rem] flex-col items-center justify-center gap-3 px-6 text-center">

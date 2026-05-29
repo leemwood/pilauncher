@@ -25,18 +25,20 @@ export const formatDate = (dateStr?: string) => {
  * 格式化游玩时长 (秒 -> 结合 i18n 输出可读文本)
  */
 export const formatPlayTime = (seconds: number | undefined | null, t: TFunction) => {
-  if (!seconds || seconds <= 0) return `0${t('home.playTimeUnit', { defaultValue: 'H' })}`;
+  if (!seconds || seconds <= 0) {
+    return t('home.playTimeZero', { defaultValue: '0h' });
+  }
   
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
 
   if (hours > 0) {
     if (minutes > 0) {
-      return `${hours}${t('home.playTimeUnit', { defaultValue: 'H' })} ${minutes}m`;
+      return t('home.playTimeHoursMinutes', { hours, minutes, defaultValue: `${hours}h ${minutes}m` });
     }
-    return `${hours}${t('home.playTimeUnit', { defaultValue: 'H' })}`;
+    return t('home.playTimeHoursOnly', { hours, defaultValue: `${hours}h` });
   }
-  return `${Math.max(1, minutes)}m`;
+  return t('home.playTimeMinutesOnly', { minutes: Math.max(1, minutes), defaultValue: `${Math.max(1, minutes)}m` });
 };
 
 /**

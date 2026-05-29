@@ -26,6 +26,8 @@ import { OreTag } from '../ui/primitives/OreTag';
 import { OreButton } from '../ui/primitives/OreButton';
 import { Filter, Tags, Search } from 'lucide-react';
 import { InstanceCardView } from '../features/Instances/components/InstanceCardView';
+import { OreOverlayScrollArea } from '../ui/primitives/OreOverlayScrollArea';
+import { LayoutGroup } from 'framer-motion';
 
 const Instances: React.FC = () => {
   const { t } = useTranslation();
@@ -264,33 +266,36 @@ const Instances: React.FC = () => {
         handleImportSource={handleImportSource}
       />
 
-      <div
-        className={`
-          min-h-0 flex-1 overflow-y-auto pb-10 pr-0 scrollbar-none
+      <OreOverlayScrollArea
+        className="min-h-0 flex-1"
+        viewportClassName="pb-10 pr-0"
+        contentClassName={`
           ${viewMode === 'grid'
             ? 'flex flex-wrap content-start justify-center gap-4 sm:gap-5 lg:gap-6'
             : 'grid grid-cols-1 content-start gap-3 auto-rows-max'
           }
         `}
       >
-        {filteredInstances.map((instance) =>
-          viewMode === 'list' ? (
-            <InstanceListView
-              key={instance.id}
-              instance={instance}
-              onClick={() => handleCardClick(instance.id)}
-              onEdit={() => handleEdit(instance.id)}
-            />
-          ) : (
-            <InstanceCardView
-              key={instance.id}
-              instance={instance}
-              onClick={() => handleCardClick(instance.id)}
-              onEdit={() => handleEdit(instance.id)}
-            />
-          )
-        )}
-      </div>
+        <LayoutGroup id="instances-layout-group">
+          {filteredInstances.map((instance) =>
+            viewMode === 'list' ? (
+              <InstanceListView
+                key={instance.id}
+                instance={instance}
+                onClick={() => handleCardClick(instance.id)}
+                onEdit={() => handleEdit(instance.id)}
+              />
+            ) : (
+              <InstanceCardView
+                key={instance.id}
+                instance={instance}
+                onClick={() => handleCardClick(instance.id)}
+                onEdit={() => handleEdit(instance.id)}
+              />
+            )
+          )}
+        </LayoutGroup>
+      </OreOverlayScrollArea>
 
       {isDirModalOpen && (
         <DirectoryBrowserModal

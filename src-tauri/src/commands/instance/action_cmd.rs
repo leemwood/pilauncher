@@ -149,7 +149,7 @@ pub async fn get_instance_detail<R: Runtime>(
                         width: 1280,
                         height: 720,
                     },
-                    play_time: playtime_secs as f64 / 3600.0,
+                    play_time: playtime_secs as f64,
                     last_played: last_played_at.unwrap_or_else(|| "Never played".to_string()),
                     created_at,
                     cover_image: icon_path,
@@ -177,6 +177,9 @@ pub async fn get_instance_detail<R: Runtime>(
     }
 
     let mut detail = InstanceActionService::get_detail(&app, &id)?;
+    if let Err(e) = crate::services::playtime::PlaytimeService::merge_into_instance_detail(&app, &db.pool, &id, &mut detail).await {
+        eprintln!("[get_instance_detail] Failed to merge playtime: {}", e);
+    }
     let binding_state = InstanceBindingService::get_instance_binding_state(&app, &db.pool, &id)
         .await
         .map_err(|e| e.to_string())?;

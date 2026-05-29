@@ -23,7 +23,10 @@ export const InstanceListView: React.FC<InstanceListViewProps> = ({ instance, on
   const { t } = useTranslation();
 
   return (
-    <div className="relative flex w-full min-h-[88px] flex-none flex-row bg-[#4B4C50] border-2 border-b-[4px] border-[#1E1E1F] overflow-hidden shadow-md">
+    <motion.div
+      layoutId={`instance-container-${instance.id}`}
+      className="relative flex w-full min-h-[88px] flex-none flex-row bg-[#4B4C50] border-2 border-b-[4px] border-[#1E1E1F] overflow-hidden shadow-md"
+    >
       
       {/* ✅ 修复 3：去除 (e) */}
       <FocusItem focusKey={`list-play-${instance.id}`} onEnter={() => launchGame(instance.id)}>
@@ -37,7 +40,19 @@ export const InstanceListView: React.FC<InstanceListViewProps> = ({ instance, on
             className={`relative w-[156px] h-full bg-[#141415] flex-shrink-0 overflow-hidden cursor-pointer ${focused ? 'outline outline-[4px] outline-offset-[-4px] outline-ore-green z-20' : ''}`}
           >
             {instance.coverUrl ? (
-              <motion.img src={instance.coverUrl} alt={instance.name} variants={OreMotionTokens.cardCoverScale as Variants} className="w-full h-full object-cover origin-center" draggable={false} />
+              <motion.img
+                src={instance.coverUrl}
+                alt={instance.name}
+                layoutId={`instance-cover-${instance.id}`}
+                variants={OreMotionTokens.cardCoverScale as Variants}
+                className="w-full h-full object-cover origin-center"
+                style={{
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                  willChange: 'transform',
+                }}
+                draggable={false}
+              />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-[10px] text-ore-text-muted">NO COVER</div>
             )}
@@ -67,7 +82,12 @@ export const InstanceListView: React.FC<InstanceListViewProps> = ({ instance, on
             className={`flex-1 flex flex-col justify-center px-4 border-l-2 border-[#1E1E1F] relative overflow-hidden cursor-pointer transition-colors ${focused ? 'bg-white/10 outline outline-[3px] outline-offset-[-3px] outline-white z-20' : 'hover:bg-white/5'}`}
           >
             <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10 pointer-events-none" />
-            <span className="text-white font-minecraft text-xl truncate drop-shadow-md">{instance.name}</span>
+            <motion.span
+              layoutId={`instance-title-${instance.id}`}
+              className="text-white font-minecraft text-xl truncate drop-shadow-md"
+            >
+              {instance.name}
+            </motion.span>
             <div className="flex items-center text-[#A0A0A0] font-minecraft text-xs mt-1.5 space-x-2 truncate">
               <span>{instance.lastPlayed ? formatRelativeTime(instance.lastPlayed, t) : t('home.neverPlayed', { defaultValue: '从未进行游戏' })}</span>
               {instance.playTime > 0 && <><span className="opacity-40">|</span><span>{formatPlayTime(instance.playTime, t)}</span></>}
@@ -90,6 +110,6 @@ export const InstanceListView: React.FC<InstanceListViewProps> = ({ instance, on
           </button>
         )}
       </FocusItem>
-    </div>
+    </motion.div>
   );
 };

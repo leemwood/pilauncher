@@ -4,6 +4,10 @@
     "neverPlayed": "Never played",
     "playTime": "Play Time",
     "playTimeUnit": "H",
+    "playTimeZero": "0h",
+    "playTimeHoursMinutes": "{{hours}}h {{minutes}}m",
+    "playTimeHoursOnly": "{{hours}}h",
+    "playTimeMinutesOnly": "{{minutes}}m",
     "lastPlayed": "Last Played",
     "notification": "Notifications & News",
     "addAccount": "Add Account",
@@ -53,6 +57,11 @@
       "rejectTrust": "Reject & Ignore",
       "acceptTrust": "Accept & Trust"
     }
+  },
+  "instanceCard": {
+    "noCover": "No Cover",
+    "launching": "Launching...",
+    "details": "Details"
   },
   "multiplayer": {
     "title": "Multiplayer Hub",

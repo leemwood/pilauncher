@@ -209,10 +209,10 @@ export const OverviewPanel: React.FC<OverviewPanelProps> = ({
             {data.name}
           </h1>
           <div className="flex items-center gap-4 mt-1">
-            {Number(data.playTime || 0) > 0 && (
+            {data.playTime !== undefined && data.playTime > 0 && (
               <div className="flex items-center gap-1 text-ore-text-muted text-xs font-minecraft">
                 <Clock size={12} />
-                <span>{formatPlayTime(Number(data.playTime || 0), t)}</span>
+                <span>{formatPlayTime(data.playTime, t)}</span>
               </div>
             )}
             <div className="flex items-center gap-1 text-ore-text-muted text-xs font-minecraft">

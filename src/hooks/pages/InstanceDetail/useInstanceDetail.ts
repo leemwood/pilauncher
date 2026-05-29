@@ -36,7 +36,7 @@ export interface InstanceDetailData {
   version?: string;
   loader?: string;
   loaderVersion?: string;
-  playTime?: string;
+  playTime?: number;
   lastPlayed?: string;
   customButtons?: CustomButton[];
   serverBinding?: ServerBindingInfo;
@@ -113,16 +113,15 @@ export const useInstanceDetail = (instanceId: string) => {
           : '';
         const screenshots = screenshotsRaw.map((path) => `${convertFileSrc(path)}?t=${Date.now()}`);
 
+        const playTimeRaw = realData.playTime ?? realData.play_time;
         const playTime =
-          typeof realData.playTime === 'string'
-            ? realData.playTime
-            : typeof realData.play_time === 'string'
-              ? realData.play_time
-              : typeof realData.playTime === 'number'
-                ? `${realData.playTime} 小时`
-                : typeof realData.play_time === 'number'
-                  ? `${realData.play_time} 小时`
-                  : '';
+          typeof playTimeRaw === 'number'
+            ? playTimeRaw
+            : typeof playTimeRaw === 'string'
+              ? (playTimeRaw.includes('小时') || playTimeRaw.includes('h') || playTimeRaw.includes('H')
+                ? (parseFloat(playTimeRaw) || 0) * 3600
+                : (parseFloat(playTimeRaw) || 0))
+              : 0;
 
         setData({
           id: instanceId,
