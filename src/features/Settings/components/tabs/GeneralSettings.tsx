@@ -125,28 +125,28 @@ export const GeneralSettings: React.FC = () => {
     switch (checkStatus) {
       case 'checking':
         return (
-          <OreButton focusKey="settings-btn-check-update" className="w-[200px] justify-center whitespace-nowrap" disabled>
+          <OreButton focusKey="settings-btn-check-update" className="w-[240px] justify-center whitespace-nowrap" disabled>
             <Loader2 size={16} className="animate-spin mr-1.5" />
             {t('settings.general.checkUpdate.checking')}
           </OreButton>
         );
       case 'up-to-date':
         return (
-          <OreButton focusKey="settings-btn-check-update" className="w-[200px] justify-center whitespace-nowrap" variant="secondary" disabled>
+          <OreButton focusKey="settings-btn-check-update" className="w-[240px] justify-center whitespace-nowrap" variant="secondary" disabled>
             <CheckCircle2 size={16} className="text-ore-green mr-1.5" />
             {t('settings.general.checkUpdate.upToDate')}
           </OreButton>
         );
       case 'error':
         return (
-          <OreButton focusKey="settings-btn-check-update" className="w-[200px] justify-center whitespace-nowrap" variant="danger" disabled>
+          <OreButton focusKey="settings-btn-check-update" className="w-[240px] justify-center whitespace-nowrap" variant="danger" disabled>
             <XCircle size={16} className="mr-1.5" />
             {t('settings.general.checkUpdate.error')}
           </OreButton>
         );
       default:
         return (
-          <OreButton focusKey="settings-btn-check-update" className="w-[200px] justify-center whitespace-nowrap" onClick={checkForUpdate}>
+          <OreButton focusKey="settings-btn-check-update" className="w-[240px] justify-center whitespace-nowrap" onClick={checkForUpdate}>
             <RefreshCw size={16} className="mr-1.5" />
             {t('settings.general.checkUpdate.check')}
           </OreButton>
@@ -162,7 +162,7 @@ export const GeneralSettings: React.FC = () => {
             label={t('settings.general.deviceName.label')}
             description={t('settings.general.deviceName.description')}
             control={
-              <div className="relative focus-within:z-50 w-[200px]">
+              <div className="relative focus-within:z-50 w-[240px]">
                 <OreInput
                   focusKey="settings-device-name"
                   value={general.deviceName}
@@ -178,7 +178,7 @@ export const GeneralSettings: React.FC = () => {
             label={t('settings.general.language.label')}
             description={t('settings.general.language.description')}
             control={
-              <div className="relative focus-within:z-50 w-[200px]">
+              <div className="relative focus-within:z-50 w-[240px]">
                 <OreDropdown
                   options={languageOptions}
                   value={general.language}
@@ -215,7 +215,7 @@ export const GeneralSettings: React.FC = () => {
               'Battery Saver is recommended for low-power devices like Steam Deck.'
             )}
             control={
-              <div className="relative focus-within:z-50 w-[200px]">
+              <div className="relative focus-within:z-50 w-[240px]">
                 <OreDropdown
                   options={performanceProfileOptions}
                   value={general.performanceProfile}
@@ -233,7 +233,7 @@ export const GeneralSettings: React.FC = () => {
             label={t('settings.general.closeBehavior.label')}
             description={t('settings.general.closeBehavior.description')}
             control={
-              <div className="relative focus-within:z-50 w-[200px]">
+              <div className="relative focus-within:z-50 w-[240px]">
                 <OreDropdown
                   options={closeBehaviorOptions}
                   value={general.closeBehavior}
@@ -275,7 +275,7 @@ export const GeneralSettings: React.FC = () => {
             control={
               <OreButton
                 focusKey="settings-btn-toggle-fullscreen"
-                className="w-[200px] justify-center whitespace-nowrap"
+                className="w-[240px] justify-center whitespace-nowrap"
                 onClick={toggleFullscreen}
                 disabled={isFullscreenTransitioning}
               >
@@ -296,7 +296,7 @@ export const GeneralSettings: React.FC = () => {
               <OreButton
                 focusKey="settings-btn-exit-app"
                 variant="danger"
-                className="w-[200px] justify-center whitespace-nowrap"
+                className="w-[240px] justify-center whitespace-nowrap"
                 onClick={() => setIsExitConfirmOpen(true)}
               >
                 <PowerOff size={16} className="mr-1.5" />
@@ -314,7 +314,7 @@ export const GeneralSettings: React.FC = () => {
               <OreButton
                 focusKey="settings-btn-reset-settings"
                 variant="danger"
-                className="w-[200px] justify-center whitespace-nowrap"
+                className="w-[240px] justify-center whitespace-nowrap"
                 onClick={() => setIsResetConfirmOpen(true)}
               >
                 <RotateCcw size={16} className="mr-1.5" />

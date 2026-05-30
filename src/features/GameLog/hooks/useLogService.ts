@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { useGameLogStore } from '../../../store/useGameLogStore';
+import { useUpdaterStore } from '../../../hooks/useAppUpdater';
 
 interface UseLogServiceProps {
   forceLauncherToFront: () => Promise<void>;
@@ -17,6 +18,14 @@ export const useLogService = ({
     return line.includes('[minecraft/Minecraft]: Stopping!');
   }, []);
 
+  const triggerPostGameUpdateReminder = useCallback(() => {
+    const updaterStore = useUpdaterStore.getState();
+    if (updaterStore.isRemindedLater && updaterStore.updateInfo) {
+      updaterStore.setIsUpdateDialogOpen(true);
+      updaterStore.setIsRemindedLater(false);
+    }
+  }, []);
+
   useEffect(() => {
     const unlistenLog = listen<string>('game-log', (event) => {
       const line = event.payload;
@@ -26,6 +35,7 @@ export const useLogService = ({
         const store = useGameLogStore.getState();
         store.setGameState('idle');
         void restoreLauncherAfterGameExit();
+        triggerPostGameUpdateReminder();
       }
     });
 
@@ -49,6 +59,7 @@ export const useLogService = ({
       } else {
         store.setGameState('idle');
         void restoreLauncherAfterGameExit();
+        triggerPostGameUpdateReminder();
       }
     });
 
@@ -60,6 +71,7 @@ export const useLogService = ({
   }, [
     forceLauncherToFront,
     isMinecraftStoppingLog,
-    restoreLauncherAfterGameExit
+    restoreLauncherAfterGameExit,
+    triggerPostGameUpdateReminder
   ]);
 };

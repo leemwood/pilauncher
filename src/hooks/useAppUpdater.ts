@@ -47,12 +47,14 @@ interface UpdaterStoreState {
   pendingUpdate: PendingUpdateContext | null;
   isUpdateDialogOpen: boolean;
   isInstalling: boolean;
+  isRemindedLater: boolean;
 
   setCheckStatus: (status: CheckStatus) => void;
   setUpdateInfo: (info: UpdateInfo | null) => void;
   setPendingUpdate: (ctx: PendingUpdateContext | null) => void;
   setIsUpdateDialogOpen: (open: boolean) => void;
   setIsInstalling: (installing: boolean) => void;
+  setIsRemindedLater: (reminded: boolean) => void;
   clearPendingUpdate: () => void;
 }
 
@@ -62,12 +64,14 @@ export const useUpdaterStore = create<UpdaterStoreState>((set) => ({
   pendingUpdate: null,
   isUpdateDialogOpen: false,
   isInstalling: false,
+  isRemindedLater: false,
 
   setCheckStatus: (status) => set({ checkStatus: status }),
   setUpdateInfo: (info) => set({ updateInfo: info }),
   setPendingUpdate: (ctx) => set({ pendingUpdate: ctx }),
   setIsUpdateDialogOpen: (open) => set({ isUpdateDialogOpen: open }),
   setIsInstalling: (installing) => set({ isInstalling: installing }),
+  setIsRemindedLater: (reminded) => set({ isRemindedLater: reminded }),
   clearPendingUpdate: () => set({ pendingUpdate: null, updateInfo: null }),
 }));
 
@@ -89,6 +93,7 @@ export function useAppUpdater() {
   const pendingUpdate = useUpdaterStore((s) => s.pendingUpdate);
   const isUpdateDialogOpen = useUpdaterStore((s) => s.isUpdateDialogOpen);
   const isInstalling = useUpdaterStore((s) => s.isInstalling);
+  const isRemindedLater = useUpdaterStore((s) => s.isRemindedLater);
 
   // 构造请求参数
   const currentAccount = accounts.find((a) => a.uuid === activeAccountId) ?? null;
@@ -99,6 +104,7 @@ export function useAppUpdater() {
     const store = useUpdaterStore.getState();
     if (store.checkStatus === 'checking') return;
 
+    store.setIsRemindedLater(false);
     store.setCheckStatus('checking');
     store.clearPendingUpdate();
 
@@ -223,6 +229,12 @@ export function useAppUpdater() {
     store.clearPendingUpdate();
   }, []);
 
+  const handleLaterRemind = useCallback(() => {
+    const store = useUpdaterStore.getState();
+    store.setIsUpdateDialogOpen(false);
+    store.setIsRemindedLater(true);
+  }, []);
+
   return {
     // 状态
     checkStatus,
@@ -230,9 +242,11 @@ export function useAppUpdater() {
     pendingUpdate,
     isUpdateDialogOpen,
     isInstalling,
+    isRemindedLater,
     // 操作
     checkForUpdate,
     installUpdate,
     closeUpdateDialog,
+    handleLaterRemind,
   };
 }

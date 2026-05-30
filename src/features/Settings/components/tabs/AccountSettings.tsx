@@ -8,7 +8,6 @@ import { SettingsPageLayout } from '../../../../ui/layout/SettingsPageLayout';
 import { SettingsSection } from '../../../../ui/layout/SettingsSection';
 import { OreButton } from '../../../../ui/primitives/OreButton';
 import { OreModal } from '../../../../ui/primitives/OreModal';
-import { FocusItem } from '../../../../ui/focus/FocusItem';
 
 import { useAccountStore } from '../../../../store/useAccountStore';
 import { AccountCard } from './AS/AccountCard';
@@ -132,25 +131,27 @@ export const AccountSettings: React.FC = () => {
           <div className="mt-auto pt-8 flex flex-col items-center">
             <span className="text-ore-text-muted font-minecraft text-sm mb-5">{t('settings.account.noMcTip')}</span>
             <div className="flex flex-wrap items-center justify-center gap-6">
-              <FocusItem focusKey="link-buy-mc" onEnter={() => openShell('https://www.minecraft.net/zh-hans/store/minecraft-java-bedrock-edition-pc')}>
-                {({ ref, focused }) => (
-                  <button
-                    ref={ref as any} onClick={() => openShell('https://www.minecraft.net/zh-hans/store/minecraft-java-bedrock-edition-pc')}
-                    className={`flex items-center text-sm text-green-400 hover:text-green-300 transition-all font-minecraft px-4 py-2 bg-green-400/10 rounded-full outline-none ${focused ? 'outline outline-[2px] outline-white scale-105 shadow-lg' : 'hover:underline'}`}
-                  >
-                    <ShoppingCart size={16} className="mr-2" /> {t('settings.account.buyMc')}</button>
-                )}
-              </FocusItem>
+              <OreButton
+                focusKey="link-buy-mc"
+                variant="secondary"
+                size="auto"
+                onClick={() => openShell('https://www.minecraft.net/zh-hans/store/minecraft-java-bedrock-edition-pc')}
+                className="!text-green-400 !bg-green-400/10 hover:!bg-green-400/20 !border-green-400/20 whitespace-nowrap"
+              >
+                <ShoppingCart size={16} className="mr-1.5" />
+                {t('settings.account.buyMc')}
+              </OreButton>
 
-              <FocusItem focusKey="link-buy-ms" onEnter={() => openShell('ms-windows-store://pdp/?productid=9NXP44L49SHJ')}>
-                {({ ref, focused }) => (
-                  <button
-                    ref={ref as any} onClick={() => openShell('ms-windows-store://pdp/?productid=9NXP44L49SHJ')}
-                    className={`flex items-center text-sm text-purple-400 hover:text-purple-300 transition-all font-minecraft px-4 py-2 bg-purple-400/10 rounded-full outline-none ${focused ? 'outline outline-[2px] outline-white scale-105 shadow-lg' : 'hover:underline'}`}
-                  >
-                    <ShoppingCart size={16} className="mr-2" /> {t('settings.account.buyMs')}</button>
-                )}
-              </FocusItem>
+              <OreButton
+                focusKey="link-buy-ms"
+                variant="secondary"
+                size="auto"
+                onClick={() => openShell('ms-windows-store://pdp/?productid=9NXP44L49SHJ')}
+                className="!text-purple-400 !bg-purple-400/10 hover:!bg-purple-400/20 !border-purple-400/20 whitespace-nowrap"
+              >
+                <ShoppingCart size={16} className="mr-1.5" />
+                {t('settings.account.buyMs')}
+              </OreButton>
             </div>
           </div>
         </div>

@@ -426,9 +426,8 @@ export const AboutSettings: React.FC = () => {
 
                           <OreButton
                             focusKey={`settings-about-open-source-project-${globalIndex}`}
-                            size="auto"
                             variant="ghost"
-                            className="h-8 min-w-[70px] px-3 text-xs"
+                            className="!h-8 !min-w-[70px] !px-3 !text-xs"
                             onClick={() => void openExternalLink(project.url)}
                           >
                             <ExternalLink size={12} className="mr-1.5" />

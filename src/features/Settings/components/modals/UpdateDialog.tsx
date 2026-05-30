@@ -16,6 +16,7 @@ export interface UpdateInfo {
 interface UpdateDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onLater: () => void;
   updateInfo: UpdateInfo | null;
   isInstalling: boolean;
   onConfirm: () => void;
@@ -29,6 +30,7 @@ const VERSION_ICON_SIZE = '1.375rem';
 export const UpdateDialog: React.FC<UpdateDialogProps> = ({
   isOpen,
   onClose,
+  onLater,
   updateInfo,
   isInstalling,
   onConfirm,
@@ -101,12 +103,13 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
   return (
     <OreModal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={onLater}
       title={t('settings.update.title')}
       className="w-[min(36rem,calc(100vw-2rem))]"
       contentClassName="overflow-y-auto p-[1.5rem] custom-scrollbar"
       defaultFocusKey={INSTALL_FOCUS_KEY}
-      closeOnOutsideClick={!isInstalling}
+      closeOnOutsideClick={false}
+      hideCloseButton={true}
       actionsClassName="px-[1.5rem] py-[1.125rem]"
       actions={
         <div className="flex w-full justify-center gap-3">
@@ -114,7 +117,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
             focusKey={LATER_FOCUS_KEY}
             variant="secondary"
             size="full"
-            onClick={onClose}
+            onClick={onLater}
             disabled={isInstalling}
             className="flex-1 gap-2"
           >

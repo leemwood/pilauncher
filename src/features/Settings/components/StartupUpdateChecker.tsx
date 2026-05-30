@@ -15,6 +15,7 @@ export const StartupUpdateChecker: React.FC = () => {
     checkForUpdate,
     installUpdate,
     closeUpdateDialog,
+    handleLaterRemind,
     updateInfo,
     isUpdateDialogOpen,
     isInstalling,
@@ -39,6 +40,7 @@ export const StartupUpdateChecker: React.FC = () => {
     <UpdateDialog
       isOpen={isUpdateDialogOpen}
       onClose={closeUpdateDialog}
+      onLater={handleLaterRemind}
       updateInfo={updateInfo}
       isInstalling={isInstalling}
       onConfirm={installUpdate}
