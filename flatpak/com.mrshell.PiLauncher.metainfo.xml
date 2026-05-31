@@ -49,6 +49,25 @@
   </categories>
 
   <releases>
+    <release version="0.1.38" date="2026-05-31">
+      <description>
+        <p xml:lang="zh_CN">新增版本更新日志弹窗与翻译 API 配置，优化更新提示与项目图标动画效果。</p>
+        <ul xml:lang="zh_CN">
+          <li>[新功能] 新增更新日志弹窗，支持在应用内查看版本更新记录并进行多语言翻译。</li>
+          <li>[新功能] 设置中新增翻译 API 配置，支持自定义翻译服务。</li>
+          <li>[优化] 引入平滑动画效果，提升项目图标的视觉动态体验并优化资源网格的响应式布局。</li>
+          <li>[优化] 改进更新提示功能，优化各组件的提示界面与交互表现。</li>
+        </ul>
+        <p>Added a version changelog modal and translation API configuration, and optimized update reminders and project icon animations.</p>
+        <ul>
+          <li>[New] Added a version changelog modal to view update details in-app with translation support.</li>
+          <li>[New] Added translation API configuration and integration in settings.</li>
+          <li>[Optimization] Integrated animations for project icons and enhanced the responsiveness of the resource grid.</li>
+          <li>[Optimization] Enhanced update reminder functionality and adjusted related user interfaces.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.1.37" date="2026-05-29">
       <description>
         <p xml:lang="zh_CN">集成游戏启动前检查与修复机制，深度重构模组元数据管理，优化手柄焦点与无障碍交互体验。</p>
