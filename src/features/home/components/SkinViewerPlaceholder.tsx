@@ -22,6 +22,8 @@ export const SkinViewerPlaceholder: React.FC<SkinViewerPlaceholderProps> = ({ cl
   return (
     <div
       ref={containerRef}
+      role="img"
+      aria-label="3D 角色皮肤预览"
       className={`${baseClassName} transition-opacity duration-500 ${isSkinLoaded ? 'opacity-100' : 'opacity-0'}`}
     />
   );

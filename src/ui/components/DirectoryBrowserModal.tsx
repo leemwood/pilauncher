@@ -526,7 +526,7 @@ export const DirectoryBrowserModal: React.FC<DirectoryBrowserModalProps> = ({
                 {t('directoryBrowser.status.loading')}
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-1" role="list" aria-label="文件与文件夹列表">
                 {sortedNodes.map((node) => (
                   <FocusItem
                     key={node.path}
@@ -537,13 +537,16 @@ export const DirectoryBrowserModal: React.FC<DirectoryBrowserModalProps> = ({
                       return false;
                     }}
                   >
-                    {({ ref, focused }) => (
+                    {({ ref, focused, tabIndex }) => (
                       <div
                         ref={ref as any}
                         onClick={() => {
                           (ref.current as any)?.focus();
                         }}
                         onDoubleClick={() => openNode(node)}
+                        role="listitem"
+                        aria-label={`${node.name} - ${node.is_file ? getDisplayCategoryLabel(node.extension) : t('directoryBrowser.fileCategories.folder', '文件夹')}`}
+                        tabIndex={tabIndex}
                         className={`group z-0 flex cursor-pointer select-none items-center rounded-sm border-2 p-3 outline-none transition-all ${focused ? 'z-10 scale-[1.01] border-ore-green bg-ore-green/15 text-white shadow-lg' : 'border-transparent bg-transparent text-ore-text-muted hover:bg-white/5 hover:text-white'}`}
                       >
                         {getFileIcon(node, focused)}

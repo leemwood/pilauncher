@@ -427,6 +427,8 @@ export const OnlineServerCard: React.FC<OnlineServerCardProps> = ({
   return (
     <article
       ref={cardRef}
+      role="listitem"
+      aria-label={`${server.name} - ${serverTypeLabel} - 版本 ${versionLabel || '未知'}`}
       className={`group relative h-[30rem] w-[min(90vw,80rem)] font-minecraft flex-[0_0_auto] overflow-hidden rounded-[1rem] border bg-[#111827] transition-[border-color,box-shadow,filter] duration-300 ${isCardFocused ? 'border-green-300/45 shadow-[0_1.5rem_3.5rem_rgba(0,0,0,0.58),0_0_2rem_rgba(108,195,73,0.2)] brightness-[1.04]' : 'border-white/10 shadow-[0_1.25rem_3.125rem_rgba(0,0,0,0.5)]'
         }`}
       style={{ scrollSnapAlign: 'center', contentVisibility: 'auto', containIntrinsicSize: '30rem' }}

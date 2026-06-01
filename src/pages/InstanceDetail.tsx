@@ -203,6 +203,7 @@ const InstanceDetail: React.FC = () => {
   return (
     <FocusContext.Provider value={focusKey}>
       <div ref={pageFocusRef} className="w-full h-full flex flex-col overflow-hidden">
+        <h1 className="sr-only">{t('instanceDetail.title', '实例详情')}</h1>
         <div className="flex flex-col flex-shrink-0 z-20 border-b-[0.1875rem] border-[#18181B] bg-[#1E1E1F] shadow-md">
           <div className="w-full bg-[#18181B] px-[clamp(1rem,2vw,2rem)] py-[clamp(0.75rem,1.6vh,1.25rem)]">
             <div className="mx-auto grid w-full max-w-[120rem] grid-cols-[minmax(0,1fr)] items-center gap-[clamp(0.625rem,1.4vw,1.25rem)] md:grid-cols-[clamp(4rem,5vw,5.25rem)_minmax(0,1fr)_clamp(4rem,5vw,5.25rem)]">

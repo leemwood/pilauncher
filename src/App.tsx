@@ -251,26 +251,30 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // 禁用默认右键菜单
+  // 允许输入框/文本区域使用右键菜单，对于其他区域进行禁用，保证无障碍剪贴板操作
   useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+    };
     document.addEventListener('contextmenu', handleContextMenu);
     return () => document.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
-  // 禁用全局触控动作（如双指缩放、下拉刷新、全屏滚动等）
+  // 禁用全局触控动作（如双指缩放、下拉刷新等），仅通过 CSS touch-action 样式，不再注册 touchmove 的 preventDefault 监听
   useEffect(() => {
     const preventTouch = general?.preventTouchAction ?? true;
     if (preventTouch) {
       document.documentElement.style.touchAction = 'none';
-      const handleTouchMove = (e: TouchEvent) => {
-        e.preventDefault();
-      };
-      // passive 必须为 false 才能起作用
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
       return () => {
         document.documentElement.style.touchAction = '';
-        document.removeEventListener('touchmove', handleTouchMove);
       };
     } else {
       document.documentElement.style.touchAction = '';
@@ -278,13 +282,46 @@ const App: React.FC = () => {
     }
   }, [general?.preventTouchAction]);
 
+  const [announcement, setAnnouncement] = useState('');
+  useEffect(() => {
+    const tabNames: Record<string, string> = {
+      home: '首页',
+      news: '新闻',
+      instances: '实例列表',
+      library: '资源库',
+      'new-instance': '新建实例',
+      wardrobe: '衣柜',
+      settings: '设置',
+      multiplayer: '多人游戏',
+      'instance-detail': '实例详情',
+      'instance-mod-download': '模组下载',
+      downloads: '下载管理',
+    };
+    const name = tabNames[activeTab] || activeTab;
+    setAnnouncement(`已切换到${name}页面`);
+  }, [activeTab]);
+
   return (
     <FocusProvider>
       <div className="relative flex h-screen w-screen flex-col overflow-hidden text-ore-text">
         <OreBackground />
+        
+        {/* 跳过导航链接 */}
+        <a 
+          href="#main-content" 
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-ore-green focus:text-white"
+        >
+          跳过导航
+        </a>
+
+        {/* 全局无障碍状态公告区域 */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only" id="announcer">
+          {announcement}
+        </div>
+
         <TitleBar />
 
-        <main className="relative flex flex-1">
+        <main id="main-content" aria-label="主内容" className="relative flex flex-1">
           <AnimatePresence mode="wait">
             {!['multiplayer', 'instance-detail', 'instance-mod-download', 'downloads'].includes(activeTab) && (
               <motion.div

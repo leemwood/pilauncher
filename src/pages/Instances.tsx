@@ -100,6 +100,7 @@ const Instances: React.FC = () => {
       isActive={!isDirModalOpen}
       className="flex h-full w-full flex-col overflow-hidden px-6 pb-6 pt-3 sm:px-8 sm:pb-8 sm:pt-4"
     >
+      <h1 className="sr-only">{t('nav.instances', '实例')}</h1>
       <div className="mb-4 flex w-full flex-wrap items-center justify-between gap-4 lg:mb-5">
         {/* 左侧组：视图切换、搜索、排序、标签 */}
         <div className="flex flex-row items-center gap-3 flex-wrap sm:flex-nowrap">
@@ -241,6 +242,8 @@ const Instances: React.FC = () => {
 
       <OreOverlayScrollArea
         className="min-h-0 flex-1"
+        role="list"
+        aria-label={t('instancesPage.listLabel', '我的游戏实例列表')}
         viewportClassName="pb-10 pr-0"
         contentClassName={`
           ${viewMode === 'grid'

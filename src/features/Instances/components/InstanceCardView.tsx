@@ -76,7 +76,7 @@ export const InstanceCardView: React.FC<InstanceCardViewProps> = ({ instance, on
   return (
     <>
       <FocusItem focusKey={`card-play-${instance.id}`} onEnter={() => handlePlayClick()}>
-        {({ ref, focused }) => {
+        {({ ref, focused, tabIndex }) => {
           useEffect(() => {
             if (focused) {
               tooltipTimeoutRef.current = setTimeout(() => {
@@ -103,8 +103,10 @@ export const InstanceCardView: React.FC<InstanceCardViewProps> = ({ instance, on
               >
                 <motion.div
                   ref={ref}
+                  role="listitem"
+                  aria-label={`${instance.name} - Minecraft ${instance.version} ${instance.loader || 'Vanilla'}`}
                   layoutId={`instance-container-${instance.id}`}
-                  tabIndex={-1}
+                  tabIndex={tabIndex}
                   onClick={handlePlayClick}
                   // 保留原生键盘支持，作为鼠标/纯键盘模式下的兜底
                   onKeyDown={(e) => {

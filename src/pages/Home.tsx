@@ -65,6 +65,7 @@ const Home: React.FC = () => {
         [--home-skin-h:clamp(18.75rem,50vh,40rem)]
       "
     >
+      <h1 className="sr-only">{t('nav.home', '首页')}</h1>
       {/* ✅ 修复 3：将提取出的数据传给 PlayStats */}
       <PlayStats instanceId={currentId} playTime={playTime} lastPlayed={lastPlayed} />
       <div className="absolute bottom-[clamp(1rem,3vh,3rem)] right-[var(--home-panel-edge)] z-20 flex w-[var(--home-skin-w)] flex-col items-center gap-[clamp(0.75rem,1.4vh,1.5rem)]">

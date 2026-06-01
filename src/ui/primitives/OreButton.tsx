@@ -54,15 +54,16 @@ export const OreButton: React.FC<OreButtonProps> = ({
       autoScroll={autoScroll}
       onEnter={() => onClick && onClick({ preventDefault: () => {}, stopPropagation: () => {} } as any)}
     >
-      {({ ref, focused }) => (
+      {({ ref, focused, tabIndex }) => (
         <button
           ref={ref}
           disabled={disabled}
           onClick={onClick}
-          // 单层尺寸控制，采用rem和标准响应式类适配TV/SteamDeck/PC
+          tabIndex={tabIndex}
+          // 单层尺寸控制，采用rem和标准响应式类适配TV/SteamDeck/PC，同时支持 focus-visible 焦点环
           className={`
             ore-btn relative inline-flex items-center justify-center font-minecraft tracking-wide
-            focus:outline-none transition-none antialiased
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 transition-none antialiased
             ${buttonSizes[size]}
             ${variants[variant]}
             ${focused ? 'is-focused' : ''}

@@ -24,6 +24,8 @@ interface OreModalProps {
   actionsClassName?: string;
   closeOnOutsideClick?: boolean;
   wrapperClassName?: string;
+  role?: 'dialog' | 'alertdialog';
+  'aria-describedby'?: string;
 }
 
 export const OreModal: React.FC<OreModalProps> = ({
@@ -40,9 +42,12 @@ export const OreModal: React.FC<OreModalProps> = ({
   actionsClassName = '',
   closeOnOutsideClick = true,
   wrapperClassName = 'z-[100]',
+  role = 'dialog',
+  'aria-describedby': ariaDescribedby,
 }) => {
   const modalId = useId();
   const boundaryId = `modal-boundary-${modalId.replace(/:/g, '')}`;
+  const titleId = `modal-title-${boundaryId}`;
   const hasTitleBar = !hideTitleBar && !!title;
   const closeFocusKey = `modal-close-${boundaryId}`;
   const modalEntryFocusKey = `modal-entry-${boundaryId}`;
@@ -128,6 +133,7 @@ export const OreModal: React.FC<OreModalProps> = ({
           }}
         >
           <motion.div
+            aria-hidden="true"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -143,10 +149,10 @@ export const OreModal: React.FC<OreModalProps> = ({
             className="relative z-10 outline-none"
           >
             <FocusItem focusKey={modalEntryFocusKey} autoScroll={false}>
-              {({ ref }) => (
+              {({ ref, tabIndex }) => (
                 <span
                   ref={ref as any}
-                  tabIndex={-1}
+                  tabIndex={tabIndex}
                   aria-hidden="true"
                   className="absolute h-px w-px overflow-hidden opacity-0 pointer-events-none"
                 />
@@ -154,6 +160,11 @@ export const OreModal: React.FC<OreModalProps> = ({
             </FocusItem>
 
             <motion.div
+              role={role}
+              aria-modal="true"
+              aria-labelledby={hasTitleBar ? titleId : undefined}
+              aria-label={!hasTitleBar ? title : undefined}
+              aria-describedby={ariaDescribedby}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -173,14 +184,14 @@ export const OreModal: React.FC<OreModalProps> = ({
                   className="flex-shrink-0 flex items-center justify-center h-12 px-4 relative bg-[var(--ore-modal-header-bg)] border-b-[3px] border-[var(--ore-border-color)] z-20"
                   style={{ boxShadow: 'var(--ore-modal-header-shadow)' }}
                 >
-                  <h2 className="flex-1 text-center font-minecraft font-bold text-xl text-[var(--ore-modal-header-text)] ore-text-shadow tracking-wider uppercase truncate px-8">
+                  <h2 id={titleId} className="flex-1 text-center font-minecraft font-bold text-xl text-[var(--ore-modal-header-text)] ore-text-shadow tracking-wider uppercase truncate px-8">
                     {title}
                   </h2>
 
                   {!hideCloseButton && (
                     <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center p-1.5 z-50">
                       <FocusItem focusKey={closeFocusKey} onEnter={onClose}>
-                        {({ ref, focused }) => (
+                        {({ ref, focused, tabIndex }) => (
                           <button
                             type="button"
                             ref={ref as any}
@@ -188,7 +199,8 @@ export const OreModal: React.FC<OreModalProps> = ({
                               e.stopPropagation();
                               onClose();
                             }}
-                            tabIndex={-1}
+                            tabIndex={tabIndex}
+                            aria-label="关闭对话框"
                             className={`
                               relative flex items-center justify-center p-1.5 rounded-sm transition-none outline-none cursor-pointer
                               ${focused

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 
 import { InstanceModDownloadView } from '../features/InstanceDetail/components/tabs/mods/components/download/InstanceModDownloadView';
@@ -8,6 +9,7 @@ import { FocusBoundary } from '../ui/focus/FocusBoundary';
 import { OreButton } from '../ui/primitives/OreButton';
 
 const InstanceModDownloadPage: React.FC = () => {
+  const { t } = useTranslation();
   const instanceId = useLauncherStore((state) => state.selectedInstanceId);
   const setActiveTab = useLauncherStore((state) => state.setActiveTab);
   const target = useLauncherStore((state) => state.instanceDownloadTarget);
@@ -46,8 +48,7 @@ const InstanceModDownloadPage: React.FC = () => {
 
   return (
     <FocusBoundary id="instance-mod-download-page" className="flex h-full w-full flex-col overflow-hidden">
-
-
+      <h1 className="sr-only">{t('instanceModDownload.title', '模组与资源下载')}</h1>
       <div className="min-h-0 flex-1 overflow-hidden p-4">
         <InstanceModDownloadView
           instanceId={instanceId}

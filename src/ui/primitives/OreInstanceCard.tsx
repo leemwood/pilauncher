@@ -40,10 +40,13 @@ export const OreInstanceCard: React.FC<OreInstanceCardProps> = ({
       focusKey={focusKey}
       onEnter={() => onClick && onClick(id)}
     >
-      {({ ref, focused }) => (
+      {({ ref, focused, tabIndex }) => (
         <button
           ref={ref as any}
           onClick={() => onClick && onClick(id)}
+          tabIndex={tabIndex}
+          aria-label={`${name} - Minecraft ${mcVersion} ${loaderType}`}
+          aria-pressed={isActive}
           className={`
             ore-instance-card focus:outline-none
             ${isActive ? 'active' : ''} 
@@ -69,7 +72,7 @@ export const OreInstanceCard: React.FC<OreInstanceCardProps> = ({
 
             {/* 选中时，可以在封面图右下角叠一个小小的绿色对勾或播放图标 */}
             {isActive && (
-              <div className="absolute bottom-1 right-1 bg-ore-green border border-ore-green-shadow p-0.5 shadow-md">
+              <div className="absolute bottom-1 right-1 bg-ore-green border border-ore-green-shadow p-0.5 shadow-md" aria-hidden="true">
                 <Play size={12} fill="currentColor" className="text-white" />
               </div>
             )}

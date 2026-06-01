@@ -108,7 +108,11 @@ const ResourceGridHeader: React.FC = () => {
 
 const RESOURCE_GRID_COMPONENTS = {
   Header: ResourceGridHeader,
-  Footer: ResourceGridFooter
+  Footer: ResourceGridFooter,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  List: React.forwardRef<HTMLDivElement, any>((props, ref) => (
+    <div {...props} ref={ref} role="list" aria-label="资源列表" />
+  ))
 };
 
 const prettifyLoader = (loader: string) => {
@@ -222,7 +226,7 @@ const ResourceCard = React.memo(({
         if (isNearBottom && hasMore && canLoadMore()) onLoadMore();
       }}
     >
-      {({ ref, focused }) => {
+      {({ ref, focused, tabIndex }) => {
         const focusRef = ref as React.MutableRefObject<HTMLDivElement | null>;
         const setCardNode = (node: HTMLDivElement | null) => {
           cardRef.current = node;
@@ -258,8 +262,8 @@ const ResourceCard = React.memo(({
               event.stopPropagation();
               onToggleSelection?.(project);
             }}
-            role="button"
-            tabIndex={-1}
+            role="listitem"
+            tabIndex={tabIndex}
             aria-label={t('download.actions.openProject', {
               defaultValue: `Open ${project.title}`,
               project: project.title

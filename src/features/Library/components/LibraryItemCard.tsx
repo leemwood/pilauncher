@@ -96,11 +96,13 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
       onEnter={() => onOpen?.(item)}
       onArrowPress={onArrowPress}
     >
-      {({ ref, focused }) => (
+      {({ ref, focused, tabIndex }) => (
         <article
           ref={ref as React.RefObject<HTMLElement>}
           data-library-resource-focus-key={focusKey}
-          tabIndex={-1}
+          role="listitem"
+          aria-label={`${item.title} - ${typeLabel} - ${t('libraryPage.item.byAuthor', { author: authorLabel })}`}
+          tabIndex={tabIndex}
           className={[
             'group relative flex w-full overflow-hidden border-[0.125rem] border-[var(--ore-color-border-primary-default)] text-left outline-none transition-none',
             focused

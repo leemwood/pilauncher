@@ -423,6 +423,7 @@ const ResourceDownloadPage: React.FC = () => {
 
   return (
     <FocusBoundary id="resource-download-page" trapFocus={true} className="relative flex h-full w-full flex-col bg-transparent text-white">
+      <h1 className="sr-only">{t('download.title', '资源下载')}</h1>
       <FilterBar
         activeTab={activeTab}
         tabs={tabs}

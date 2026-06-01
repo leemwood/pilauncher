@@ -301,11 +301,11 @@ export default function NewInstance() {
             </button>
             
             <div className="ml-auto flex items-center pr-[1rem]">
-              <span className="font-minecraft text-[1.125rem] font-bold leading-[1.75rem] text-white">
+              <h1 className="font-minecraft text-[1.125rem] font-bold leading-[1.75rem] text-white">
                 {view === 'custom' && '自建实例'}
                 {view === 'download' && '下载整合包'}
                 {view === 'import' && '导入本地整合包'}
-              </span>
+              </h1>
             </div>
           </div>
 

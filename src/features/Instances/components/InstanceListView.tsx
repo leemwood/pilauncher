@@ -24,15 +24,19 @@ export const InstanceListView: React.FC<InstanceListViewProps> = ({ instance, on
 
   return (
     <motion.div
+      role="listitem"
+      aria-label={`${instance.name} - Minecraft ${instance.version} ${instance.loader}`}
       layoutId={`instance-container-${instance.id}`}
       className="relative flex w-full min-h-[88px] flex-none flex-row bg-[#4B4C50] border-2 border-b-[4px] border-[#1E1E1F] overflow-hidden shadow-md"
     >
       
-      {/* ✅ 修复 3：去除 (e) */}
       <FocusItem focusKey={`list-play-${instance.id}`} onEnter={() => launchGame(instance.id)}>
-        {({ ref, focused }) => (
+        {({ ref, focused, tabIndex }) => (
           <motion.div 
             ref={ref}
+            role="button"
+            aria-label={`启动 ${instance.name}`}
+            tabIndex={tabIndex}
             onClick={(e) => launchGame(instance.id, e as any)}
             initial="rest"
             animate={focused ? "hover" : "rest"}
@@ -76,9 +80,13 @@ export const InstanceListView: React.FC<InstanceListViewProps> = ({ instance, on
       </FocusItem>
 
       <FocusItem focusKey={`list-detail-${instance.id}`} onEnter={onClick}>
-        {({ ref, focused }) => (
+        {({ ref, focused, tabIndex }) => (
           <div 
-            ref={ref} onClick={onClick}
+            ref={ref}
+            role="button"
+            aria-label={`${instance.name} 详情`}
+            tabIndex={tabIndex}
+            onClick={onClick}
             className={`flex-1 flex flex-col justify-center px-4 border-l-2 border-[#1E1E1F] relative overflow-hidden cursor-pointer transition-colors ${focused ? 'bg-white/10 outline outline-[3px] outline-offset-[-3px] outline-white z-20' : 'hover:bg-white/5'}`}
           >
             <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10 pointer-events-none" />
@@ -98,12 +106,13 @@ export const InstanceListView: React.FC<InstanceListViewProps> = ({ instance, on
 
       {/* ✅ 修复 4：去除 (e) 与 stopPropagation */}
       <FocusItem focusKey={`list-edit-${instance.id}`} onEnter={() => onEdit()}>
-        {({ ref, focused }) => (
+        {({ ref, focused, tabIndex }) => (
           <button
             ref={ref} onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            tabIndex={tabIndex}
+            aria-label={`编辑 ${instance.name} 配置`}
             className={`w-[88px] h-full flex-shrink-0 flex items-center justify-center border-l-2 border-[#1E1E1F] transition-colors focus:outline-none relative group/edit ${focused ? 'bg-white/20 outline outline-[3px] outline-offset-[-3px] outline-white z-20' : 'hover:bg-white/10'}`}
             title="编辑配置"
-            tabIndex={-1}
           >
             <div className="absolute top-0 left-0 w-[1px] h-full bg-white/10 pointer-events-none" />
             <Pencil size={24} className={`drop-shadow-md transition-colors ${focused ? 'text-ore-green' : 'text-white group-hover/edit:text-ore-green'}`} />

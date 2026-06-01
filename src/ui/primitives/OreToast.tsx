@@ -71,6 +71,7 @@ const ToastEntry: React.FC<{ item: ToastItem }> = ({ item }) => {
 
   return (
     <div
+      role={item.tone === 'error' ? 'alert' : 'status'}
       className={`
         pointer-events-auto flex items-start gap-3 rounded border-2 px-4 py-3
         font-minecraft text-sm text-white shadow-lg
@@ -84,6 +85,7 @@ const ToastEntry: React.FC<{ item: ToastItem }> = ({ item }) => {
       <span className="flex-1 leading-snug">{item.message}</span>
       <button
         onClick={dismiss}
+        aria-label="关闭通知"
         className="mt-0.5 flex-shrink-0 cursor-pointer text-white/50 transition-colors hover:text-white"
       >
         <X size={14} />
@@ -97,7 +99,12 @@ export const OreToastContainer: React.FC = () => {
   const toasts = useToastStore((s) => s.toasts);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[9999] flex flex-col items-center gap-2">
+    <div 
+      role="log" 
+      aria-live="polite" 
+      aria-label="通知区域" 
+      className="pointer-events-none fixed inset-x-0 bottom-6 z-[9999] flex flex-col items-center gap-2"
+    >
       {toasts.map((t) => (
         <ToastEntry key={t.id} item={t} />
       ))}

@@ -799,6 +799,7 @@ const LibraryPage: React.FC = () => {
       defaultFocusKey="library-search"
       className="flex h-full w-full flex-col overflow-hidden bg-[rgba(18,18,19,0.86)] font-sans text-[var(--ore-color-text-primary-default)]"
     >
+      <h1 className="sr-only">{t('nav.library', '收藏库')}</h1>
       <LibraryHeader
         activeView={activeHeaderView}
         onViewChange={handleHeaderViewChange}

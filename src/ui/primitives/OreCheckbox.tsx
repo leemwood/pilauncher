@@ -10,6 +10,7 @@ interface OreCheckboxProps {
   className?: string;
   focusKey?: string;
   onArrowPress?: (direction: string) => boolean | void;
+  'aria-label'?: string;
 }
 
 export const OreCheckbox: React.FC<OreCheckboxProps> = ({
@@ -20,6 +21,7 @@ export const OreCheckbox: React.FC<OreCheckboxProps> = ({
   className = '',
   focusKey,
   onArrowPress,
+  'aria-label': ariaLabel,
 }) => {
   return (
     <FocusItem
@@ -28,15 +30,27 @@ export const OreCheckbox: React.FC<OreCheckboxProps> = ({
       onEnter={() => !disabled && onChange(!checked)}
       onArrowPress={onArrowPress}
     >
-      {({ ref, focused }) => (
+      {({ ref, focused, tabIndex }) => (
         <div
           ref={ref as any}
+          role="checkbox"
+          aria-checked={checked}
+          aria-disabled={disabled}
+          aria-label={ariaLabel || label}
           className={`ore-checkbox-wrapper ${checked ? 'is-checked' : ''} ${disabled ? 'disabled' : ''} ${focused ? 'is-focused' : ''} ${className}`}
           onClick={(e) => {
             e.stopPropagation();
             if (!disabled) onChange(!checked);
           }}
-          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (disabled) return;
+            if (e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange(!checked);
+            }
+          }}
+          tabIndex={tabIndex}
         >
           {/* Checkbox 盒体 */}
           <div className="ore-checkbox-box">

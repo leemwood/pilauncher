@@ -137,20 +137,28 @@ export const TitleBar: React.FC = () => {
           </div>
         </div>
 
-        <div
-          data-tauri-drag-region
+        <nav
+          aria-label="主导航"
           className="flex shrink-0 items-center justify-center gap-3 py-[2px]"
         >
-          <div
-            className={`flex cursor-pointer items-center justify-center transition-transform duration-150 ${pressingLB ? 'scale-75' : 'scale-90 hover:scale-95 active:scale-75'
+          <button
+            type="button"
+            aria-label="上一个标签页"
+            className={`flex cursor-pointer items-center justify-center transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white rounded ${pressingLB ? 'scale-75' : 'scale-90 hover:scale-95 active:scale-75'
               }`}
             onClick={() => handleSwitchTab(-1)}
             onPointerDown={() => setPressingLB(true)}
             onPointerUp={() => setPressingLB(false)}
             onPointerLeave={() => setPressingLB(false)}
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                handleSwitchTab(-1);
+              }
+            }}
           >
             <GamepadButtonIcon button="LB" tone={pressingLB ? 'green' : 'dark'} size="lg" />
-          </div>
+          </button>
 
           <OreSegmentedControl
             tabs={navTabs}
@@ -159,17 +167,25 @@ export const TitleBar: React.FC = () => {
             focusable={false}
           />
 
-          <div
-            className={`flex cursor-pointer items-center justify-center transition-transform duration-150 ${pressingRB ? 'scale-75' : 'scale-90 hover:scale-95 active:scale-75'
+          <button
+            type="button"
+            aria-label="下一个标签页"
+            className={`flex cursor-pointer items-center justify-center transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white rounded ${pressingRB ? 'scale-75' : 'scale-90 hover:scale-95 active:scale-75'
               }`}
             onClick={() => handleSwitchTab(1)}
             onPointerDown={() => setPressingRB(true)}
             onPointerUp={() => setPressingRB(false)}
             onPointerLeave={() => setPressingRB(false)}
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                handleSwitchTab(1);
+              }
+            }}
           >
             <GamepadButtonIcon button="RB" tone={pressingRB ? 'green' : 'dark'} size="lg" />
-          </div>
-        </div>
+          </button>
+        </nav>
 
         <div
           data-tauri-drag-region
@@ -180,24 +196,24 @@ export const TitleBar: React.FC = () => {
               <button
                 type="button"
                 onClick={handleMinimize}
-                tabIndex={-1}
-                className="rounded p-1 text-white transition-colors outline-none hover:bg-white/10 active:bg-white/20"
+                aria-label="最小化窗口"
+                className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-white/10 active:bg-white/20"
               >
                 <Minus size={16} />
               </button>
               <button
                 type="button"
                 onClick={handleMaximize}
-                tabIndex={-1}
-                className="rounded p-1 text-white transition-colors outline-none hover:bg-white/10 active:bg-white/20"
+                aria-label="最大化/还原窗口"
+                className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-white/10 active:bg-white/20"
               >
                 <Square size={14} />
               </button>
               <button
                 type="button"
                 onClick={() => void handleClose()}
-                tabIndex={-1}
-                className="rounded p-1 text-white transition-colors outline-none hover:bg-red-600 active:bg-red-700"
+                aria-label="关闭窗口"
+                className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-red-600 active:bg-red-700"
               >
                 <X size={16} />
               </button>

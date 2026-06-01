@@ -20,22 +20,25 @@ export const OreAccordion: React.FC<OreAccordionProps> = ({
   className = '',
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const contentId = React.useId();
 
   return (
     <div className={`flex flex-col w-full ${className}`}>
       
       <FocusItem onEnter={() => setIsExpanded(!isExpanded)}>
-        {({ ref, focused }) => (
+        {({ ref, focused, tabIndex }) => (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            tabIndex={-1} // 禁用浏览器原生焦点
+            tabIndex={tabIndex}
+            aria-expanded={isExpanded}
+            aria-controls={isExpanded ? contentId : undefined}
             className={`
               ore-accordion-header outline-none flex items-center justify-between
               ${isExpanded ? 'bg-ore-nav-active' : ''}
               ${focused ? 'is-focused' : ''}
             `}
           >
-            {/* ✅ 核心修复：将 ref 绑定到紧贴文字的 div 上，而非全宽的 button。
+            {/* ✅ 核心修复：将 ref 绑定到紧贴文字的 div 上，而非全宽 of button。
               引擎现在会认为这个组件的中心点在“左侧”，当你按下 ↓ 键时，
               它会笔直地找到同样靠左排列的第一个版本卡片！
             */}
@@ -67,7 +70,7 @@ export const OreAccordion: React.FC<OreAccordionProps> = ({
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             className="ore-accordion-content-wrapper"
           >
-            <div className="ore-accordion-content">
+            <div id={contentId} role="region" className="ore-accordion-content" aria-label={title}>
               {children}
             </div>
           </motion.div>

@@ -42,7 +42,11 @@ const ResourceGridHeader: React.FC = () => {
 const RESOURCE_GRID_COMPONENTS = {
   Header: ResourceGridHeader,
   Footer: ResourceGridFooter,
-  Scroller: VirtuosoScroller
+  Scroller: VirtuosoScroller,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  List: React.forwardRef<HTMLDivElement, any>((props, ref) => (
+    <div {...props} ref={ref} role="list" aria-label="资源下载列表" />
+  ))
 };
 
 const ResourceCardSkeleton = () => {

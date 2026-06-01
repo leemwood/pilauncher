@@ -66,6 +66,8 @@ export const OreToggleButton: React.FC<OreToggleButtonProps> = ({
       )}
 
       <div
+        role="radiogroup"
+        aria-label={title}
         className={`
           ore-toggle-btn-group flex items-stretch
           ${isAdaptiveScale ? 'ore-toggle-btn-group--adaptive' : `w-full ${sizeClasses[size]}`}
@@ -75,10 +77,13 @@ export const OreToggleButton: React.FC<OreToggleButtonProps> = ({
           const isActive = option.value === value;
           const optionFocusKey = focusKeyPrefix ? `${focusKeyPrefix}-${idx}` : undefined;
 
-          const renderButton = (ref?: any, focused: boolean = false) => (
+          const renderButton = (ref?: any, focused: boolean = false, tabIndex: number = -1) => (
             <button
               ref={ref}
               onClick={() => !isActive && onChange(option.value)}
+              role="radio"
+              aria-checked={isActive}
+              aria-disabled={disabled}
               className={`
                 ore-toggle-btn-item
                 px-2 outline-none
@@ -86,7 +91,7 @@ export const OreToggleButton: React.FC<OreToggleButtonProps> = ({
                 ${focused ? 'is-focused' : ''}
                 ${buttonClassName}
               `}
-              tabIndex={-1}
+              tabIndex={tabIndex}
             >
               <div className={`flex items-center justify-center whitespace-nowrap w-full transition-none ${isActive ? 'ore-text-shadow' : ''}`}>
                 {option.label}
@@ -95,7 +100,7 @@ export const OreToggleButton: React.FC<OreToggleButtonProps> = ({
           );
 
           if (!focusable) {
-            return <React.Fragment key={option.value}>{renderButton()}</React.Fragment>;
+            return <React.Fragment key={option.value}>{renderButton(undefined, false, -1)}</React.Fragment>;
           }
 
           return (
@@ -106,7 +111,7 @@ export const OreToggleButton: React.FC<OreToggleButtonProps> = ({
               onArrowPress={onArrowPress}
               onEnter={() => !isActive && onChange(option.value)}
             >
-              {({ ref, focused }) => renderButton(ref as any, focused)}
+              {({ ref, focused, tabIndex }) => renderButton(ref as any, focused, tabIndex)}
             </FocusItem>
           );
         })}

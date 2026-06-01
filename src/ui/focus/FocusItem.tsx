@@ -9,6 +9,7 @@ interface FocusItemRenderProps {
   ref: React.RefObject<any>;
   focused: boolean;          
   hasFocusedChild: boolean;  
+  tabIndex: number;
 }
 
 interface FocusItemProps {
@@ -101,6 +102,13 @@ export const FocusItem: React.FC<FocusItemProps> = ({
     };
   }, [ref, resolvedFocusKey, disabled, focusable, isBoundaryActive, inputMode]);
 
-  // ✅ 传给 OreButton / OreList 等 UI 组件的将是严格过滤过的视觉状态
-  return children({ ref: ref as React.RefObject<any>, focused: isVisualFocused, hasFocusedChild });
+  const tabIndex = (inputMode === 'controller' || disabled || !focusable || !isBoundaryActive) ? -1 : 0;
+
+  // ✅ 传给 OreButton / OreList 等 UI 组件的将是严格过滤过的视觉状态和动态 tabIndex
+  return children({ 
+    ref: ref as React.RefObject<any>, 
+    focused: isVisualFocused, 
+    hasFocusedChild,
+    tabIndex
+  });
 };

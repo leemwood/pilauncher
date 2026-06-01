@@ -323,7 +323,7 @@ export const OreDropdown: React.FC<OreDropdownProps> = ({
             <div className="ore-dropdown-search-wrapper">
               <div className="relative flex h-full items-center">
                 <Search size={14} className="pointer-events-none absolute left-3 text-[#B1B2B5]" />
-                <input autoFocus type="text" value={searchTerm} placeholder="搜索..." onChange={(e) => setSearchTerm(e.target.value)} onClick={(e) => e.stopPropagation()} className="ore-dropdown-search-input" />
+                <input autoFocus type="text" value={searchTerm} aria-label="搜索选项" placeholder="搜索..." onChange={(e) => setSearchTerm(e.target.value)} onClick={(e) => e.stopPropagation()} className="ore-dropdown-search-input" />
               </div>
             </div>
           )}
@@ -339,6 +339,8 @@ export const OreDropdown: React.FC<OreDropdownProps> = ({
                   <button
                     key={option.value}
                     type="button"
+                    role="option"
+                    aria-selected={isSelected}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     onClick={() => selectOption(option.value)}
                     className={`ore-dropdown-item ${isSelected ? 'is-selected' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
@@ -372,7 +374,7 @@ export const OreDropdown: React.FC<OreDropdownProps> = ({
       onArrowPress={onArrowPress}
       onEnter={toggleDropdown}
     >
-      {({ ref: focusRef, focused }) => (
+      {({ ref: focusRef, focused, tabIndex }) => (
         <div
           ref={focusRef as React.RefObject<HTMLDivElement>}
           className={`ore-dropdown-root relative block h-[40px] w-full rounded-sm ${className} ${isOpen ? 'z-[100]' : 'z-20'} ${focused ? 'is-focused' : ''}`}
@@ -383,7 +385,10 @@ export const OreDropdown: React.FC<OreDropdownProps> = ({
               type="button"
               disabled={disabled}
               onClick={toggleDropdown}
-              tabIndex={-1}
+              tabIndex={tabIndex}
+              aria-haspopup="listbox"
+              aria-expanded={isOpen}
+              aria-controls={isOpen ? panelId : undefined}
               className={`ore-dropdown-trigger ${isOpen ? 'is-open' : ''}`}
             >
               <div className="ore-dropdown-trigger__content">

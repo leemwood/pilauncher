@@ -239,7 +239,7 @@ const News: React.FC = () => {
 
           {visibleItems.length > 0 && (
             <>
-              <div className="grid grid-cols-1 gap-5 min-[1000px]:grid-cols-2">
+              <div role="feed" aria-label="新闻资讯列表" className="grid grid-cols-1 gap-5 min-[1000px]:grid-cols-2">
                 {visibleItems.map((item, index) => {
                   const focusSegment = getNewsFocusKeySegment(item.id);
 

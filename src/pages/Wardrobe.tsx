@@ -424,9 +424,9 @@ const Wardrobe: React.FC = () => {
               <ArrowLeft className="w-4 h-4" />
             </div>
           </div>
-          <div className="header_title text-[#48494A] flex flex-1 justify-center items-center font-minecraft text-[length:clamp(1.5rem,4vh,2.5rem)] leading-none h-full">
+          <h1 className="header_title text-[#48494A] flex flex-1 justify-center items-center font-minecraft text-[length:clamp(1.5rem,4vh,2.5rem)] leading-none h-full">
             <span>{t('wardrobe.title')}</span>
-          </div>
+          </h1>
           <div className="header_right flex items-center h-full">
             {currentAccount && (
               <div

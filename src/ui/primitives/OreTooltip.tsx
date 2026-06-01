@@ -54,6 +54,7 @@ export const OreTooltip: React.FC<OreTooltipProps> = ({
   className = '',
   visible: controlledVisible,
 }) => {
+  const tooltipId = React.useId();
   const [isOpen, setIsOpen] = useState(false);
   const isControlled = controlledVisible !== undefined;
   const isShown = isControlled ? controlledVisible : isOpen;
@@ -205,6 +206,7 @@ export const OreTooltip: React.FC<OreTooltipProps> = ({
 
   const trigger = React.cloneElement(children as React.ReactElement<any>, {
     ref: triggerRefHandler,
+    'aria-describedby': isShown ? tooltipId : undefined,
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
       (children as any).props.onMouseEnter?.(e);
       handleShow();
@@ -414,6 +416,8 @@ export const OreTooltip: React.FC<OreTooltipProps> = ({
       {isShown && (
         <motion.div
           ref={tooltipRef}
+          id={tooltipId}
+          role="tooltip"
           variants={animationVariants}
           initial="hidden"
           animate="visible"

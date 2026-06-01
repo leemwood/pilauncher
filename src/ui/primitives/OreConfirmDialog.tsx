@@ -126,6 +126,8 @@ export const OreConfirmDialog: React.FC<OreConfirmDialogProps> = ({
     return false;
   }, [enabledActionKeys]);
 
+  const descriptionId = React.useId();
+
   return (
     <OreModal
       isOpen={isOpen}
@@ -136,6 +138,8 @@ export const OreConfirmDialog: React.FC<OreConfirmDialogProps> = ({
       contentClassName={modalContentClassName}
       defaultFocusKey={defaultFocusKey}
       closeOnOutsideClick={closeOnOutsideClick}
+      role="alertdialog"
+      aria-describedby={descriptionId}
       actions={
         <>
           {!hideCancelButton && (
@@ -174,14 +178,14 @@ export const OreConfirmDialog: React.FC<OreConfirmDialogProps> = ({
             disabled={isConfirming}
           >
             {isConfirming
-              ? <Loader2 size={16} className="mr-2 animate-spin" />
+              ? <Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />
               : confirmIcon}
             {confirmLabel}
           </OreButton>
         </>
       }
     >
-      <div className={bodyClassName}>
+      <div className={bodyClassName} id={descriptionId}>
         <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 ${palette.shell}`}>
           {resolvedDialogIcon}
         </div>

@@ -10,6 +10,7 @@ interface OreSwitchProps {
   className?: string;
   focusKey?: string; 
   onArrowPress?: (direction: string) => boolean | void;
+  'aria-label'?: string;
 }
 
 export const OreSwitch: React.FC<OreSwitchProps> = ({
@@ -20,6 +21,7 @@ export const OreSwitch: React.FC<OreSwitchProps> = ({
   className = '',
   focusKey,
   onArrowPress,
+  'aria-label': ariaLabel,
 }) => {
   return (
     // 1. 使用 FocusItem 接管组件，支持手柄 A 键和键盘 Enter 键直接切换
@@ -29,16 +31,28 @@ export const OreSwitch: React.FC<OreSwitchProps> = ({
       onEnter={() => !disabled && onChange(!checked)}
       onArrowPress={onArrowPress}
     >
-      {({ ref, focused }) => (
+      {({ ref, focused, tabIndex }) => (
         <div 
           ref={ref as any}
+          role="switch"
+          aria-checked={checked}
+          aria-disabled={disabled}
+          aria-label={ariaLabel || label}
           // ✅ 核心修复：添加 is-on 状态类名，将内外光影和滑块位移全权交给 CSS 处理
           className={`ore-switch-wrapper ${checked ? 'is-on' : ''} ${disabled ? 'disabled' : ''} ${focused ? 'is-focused' : ''} ${className}`}
           onClick={(e) => {
             e.stopPropagation();
             if (!disabled) onChange(!checked);
           }}
-          tabIndex={-1} // 禁用原生焦点
+          onKeyDown={(e) => {
+            if (disabled) return;
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange(!checked);
+            }
+          }}
+          tabIndex={tabIndex}
         >
           {/* 文本标签 */}
           {label && (

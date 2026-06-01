@@ -48,11 +48,22 @@ export const LibraryResourceList: React.FC<LibraryResourceListProps> = ({
         overscrollBehaviorY: 'contain',
       }}
       data={items}
-      components={{ Scroller: VirtuosoScroller }}
+      components={{
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Scroller: React.forwardRef<HTMLDivElement, any>((props, ref) => (
+          <VirtuosoScroller
+            {...props}
+            ref={ref}
+            role="list"
+            aria-label={t('libraryPage.listLabel', '收藏资源列表')}
+          />
+        ))
+      }}
       computeItemKey={(_, item) => item.id}
       increaseViewportBy={{ top: 320, bottom: 720 }}
       itemContent={(index, item) => (
         <div
+          role="listitem"
           className={['px-5', index === 0 ? 'pt-5' : '', itemGapClass].join(' ')}
           draggable={sortMode}
           onDragStart={(event) => {

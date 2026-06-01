@@ -16,6 +16,7 @@ interface OreSliderProps {
   onArrowPress?: (direction: string) => boolean | void;
   fillColorClass?: string;
   thumbColorClass?: string;
+  'aria-label'?: string;
 }
 
 export const OreSlider: React.FC<OreSliderProps> = ({
@@ -32,6 +33,7 @@ export const OreSlider: React.FC<OreSliderProps> = ({
   onArrowPress,
   fillColorClass = '',  
   thumbColorClass = '', 
+  'aria-label': ariaLabel,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -82,7 +84,6 @@ export const OreSlider: React.FC<OreSliderProps> = ({
         </div>
       )}
 
-      {/* 接入底层空间导航引擎 */}
       <FocusItem 
         focusKey={focusKey} 
         disabled={disabled}
@@ -91,7 +92,7 @@ export const OreSlider: React.FC<OreSliderProps> = ({
           trackRef.current?.focus({ preventScroll: true });
         }}
       >
-        {({ ref: focusRef, focused }) => (
+        {({ ref: focusRef, focused, tabIndex }) => (
           <div 
             ref={(node) => {
               trackRef.current = node;
@@ -103,7 +104,14 @@ export const OreSlider: React.FC<OreSliderProps> = ({
                 }
               }
             }}
-            tabIndex={disabled ? -1 : 0}
+            role="slider"
+            aria-valuenow={value}
+            aria-valuemin={min}
+            aria-valuemax={max}
+            aria-valuetext={valueFormatter ? valueFormatter(value) : String(value)}
+            aria-label={ariaLabel || label}
+            aria-disabled={disabled}
+            tabIndex={tabIndex}
             className={`ore-slider-wrapper ${disabled ? 'disabled' : ''} ${focused ? 'is-focused' : ''}`}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}

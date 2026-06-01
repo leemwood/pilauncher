@@ -28,8 +28,9 @@ interface LiveStatus {
 const VirtuosoHeader = () => <div style={{ height: 'max(calc(50vh - 18rem), 6rem)' }} />;
 const VirtuosoFooter = () => <div style={{ height: 'max(calc(50vh - 18rem), 6rem)' }} />;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const VirtuosoScroller = React.forwardRef<HTMLDivElement, any>((props, ref) => (
-  <div {...props} ref={ref} style={{ ...props.style, overflowY: 'overlay' as any }} />
+  <div {...props} ref={ref} role="list" aria-label="在线服务器列表" style={{ ...props.style, overflowY: 'overlay' as React.CSSProperties['overflowY'] }} />
 ));
 VirtuosoScroller.displayName = 'VirtuosoScroller';
 
@@ -329,7 +330,7 @@ export const OnlineServersList: React.FC<OnlineServersListProps> = ({
               visibleRange.current = range;
             }}
             itemContent={(_index, server, context) => (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '1.25rem max(1rem, 3vw)' }}>
+              <div role="listitem" style={{ display: 'flex', justifyContent: 'center', padding: '1.25rem max(1rem, 3vw)' }}>
                 <OnlineServerCard
                   server={server}
                   liveStatus={context.liveStatuses[server.id] || null}

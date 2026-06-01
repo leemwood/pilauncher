@@ -21,7 +21,7 @@ export const NavItem: React.FC<NavItemProps> = ({
 
   return (
     <FocusItem focusKey={id} onEnter={onSelect}>
-      {({ ref, focused }) => {
+      {({ ref, focused, tabIndex }) => {
         
         // ✅ 核心魔法：当焦点停留在该项，且【非鼠标模式】时，触发右侧无感即时预览！
         // 这样手柄玩家上下推摇杆时，右边页面会跟着变，但焦点还在左边。
@@ -34,6 +34,8 @@ export const NavItem: React.FC<NavItemProps> = ({
         return (
           <button
             ref={ref as React.RefObject<HTMLButtonElement>} // 对接 FocusItem 传来的 ref
+            tabIndex={tabIndex}
+            aria-current={isActive ? 'page' : undefined}
             onClick={() => {
               // 鼠标点击时，同时触发预览和选中深入
               if (onPreview) onPreview();
@@ -45,7 +47,7 @@ export const NavItem: React.FC<NavItemProps> = ({
               ${focused ? 'ring-2 ring-white ring-inset brightness-110' : ''}
             `}
           >
-            <Icon size={20} className={`mr-3 ${isActive ? 'text-ore-green' : ''}`} />
+            <Icon size={20} className={`mr-3 ${isActive ? 'text-ore-green' : ''}`} aria-hidden="true" />
             <span className="text-lg drop-shadow-sm tracking-wide">{label}</span>
           </button>
         );

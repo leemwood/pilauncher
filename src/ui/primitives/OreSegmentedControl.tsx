@@ -30,21 +30,23 @@ export const OreSegmentedControl: React.FC<OreSegmentedControlProps> = ({
 }) => {
   return (
     <div className={`flex items-start ore-segmented-wrapper ${className}`}>
-      <div className="ore-segmented-track">
+      <div className="ore-segmented-track" role="tablist">
         {tabs.map((tab, idx) => {
           const isActive = activeTab === tab.id;
           const optionFocusKey = focusKeyPrefix ? `${focusKeyPrefix}-${idx}` : undefined;
 
-          const renderButton = (ref?: any, focused: boolean = false) => (
+          const renderButton = (ref?: any, focused: boolean = false, tabIndex: number = -1) => (
             <button
               ref={ref}
               onClick={() => onChange(tab.id)}
+              role="tab"
+              aria-selected={isActive}
               className={`
                 ore-segmented-tab
                 ${isActive ? 'active' : ''}
                 ${focused ? 'is-focused' : ''}
               `}
-              tabIndex={-1}
+              tabIndex={tabIndex}
             >
               {tab.icon && (
                 <span className={`mr-2 flex-shrink-0 ${isActive ? 'opacity-100' : 'opacity-70'}`}>
@@ -56,7 +58,7 @@ export const OreSegmentedControl: React.FC<OreSegmentedControlProps> = ({
           );
 
           if (!focusable) {
-            return <React.Fragment key={tab.id}>{renderButton()}</React.Fragment>;
+            return <React.Fragment key={tab.id}>{renderButton(undefined, false, -1)}</React.Fragment>;
           }
 
           return (
@@ -66,7 +68,7 @@ export const OreSegmentedControl: React.FC<OreSegmentedControlProps> = ({
               onArrowPress={onArrowPress}
               onEnter={() => onChange(tab.id)}
             >
-              {({ ref, focused }) => renderButton(ref as any, focused)}
+              {({ ref, focused, tabIndex }) => renderButton(ref as any, focused, tabIndex)}
             </FocusItem>
           );
         })}

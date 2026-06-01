@@ -128,7 +128,7 @@ export const ResourceCard = React.memo(({
         if (isNearBottom && hasMore && canLoadMore()) onLoadMore();
       }}
     >
-      {({ ref, focused }) => {
+      {({ ref, focused, tabIndex }) => {
         const focusRef = ref as React.MutableRefObject<HTMLDivElement | null>;
         const setCardNode = (node: HTMLDivElement | null) => {
           cardRef.current = node;
@@ -164,8 +164,8 @@ export const ResourceCard = React.memo(({
               event.stopPropagation();
               onToggleSelection?.(project);
             }}
-            role="button"
-            tabIndex={-1}
+            role="listitem"
+            tabIndex={tabIndex}
             aria-label={t('download.actions.openProject', {
               defaultValue: `Open ${project.title}`,
               project: project.title
