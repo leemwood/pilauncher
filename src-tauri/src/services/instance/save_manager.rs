@@ -936,8 +936,42 @@ impl SaveManagerService {
         }
     }
 
+    fn is_session_locked(save_dir: &Path) -> bool {
+        let lock_file = save_dir.join("session.lock");
+        if !lock_file.exists() {
+            return false;
+        }
+        #[cfg(target_os = "windows")]
+        {
+            use std::fs::OpenOptions;
+            match OpenOptions::new().write(true).open(&lock_file) {
+                Ok(_) => false,
+                Err(e) => {
+                    e.kind() == std::io::ErrorKind::PermissionDenied || e.raw_os_error() == Some(32)
+                }
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            if let Ok(meta) = fs::metadata(&lock_file) {
+                if let Ok(modified) = meta.modified() {
+                    if let Ok(elapsed) = modified.elapsed() {
+                        if elapsed.as_secs() < 5 {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        }
+    }
+
     fn assess_backup_safety(save_dir: &Path, policy: &SaveBackupPolicy) -> bool {
         if Self::is_game_process_running() {
+            return false;
+        }
+
+        if Self::is_session_locked(save_dir) {
             return false;
         }
 
@@ -1949,6 +1983,16 @@ impl SaveManagerService {
     ) -> Result<SaveRestoreCheckResult, String> {
         let record = Self::find_backup_record(app, instance_id, backup_id)?;
         Self::verify_backup_record_payloads(&record, true)?;
+
+        if record.meta.backup_mode == "differential" {
+            let base_id = record.meta.base_backup_id.as_deref().ok_or_else(|| {
+                "differential backup is missing base backup id".to_string()
+            })?;
+            let base_record = Self::find_backup_record(app, instance_id, base_id)
+                .map_err(|_| format!("differential base backup is missing: {}", base_id))?;
+            Self::verify_backup_record_payloads(&base_record, false)?;
+        }
+
         Self::build_restore_check(app, instance_id, &record.meta)
     }
 
@@ -2109,16 +2153,65 @@ impl SaveManagerService {
                     )?;
                 }
 
-                Self::restore_snapshot_dir_with_rollback(
-                    &temp_configs_root.join("config"),
-                    &game_dir.join("config"),
-                    &rollback_configs_root.join("config"),
-                )?;
-                Self::restore_snapshot_dir_with_rollback(
-                    &temp_configs_root.join("defaultconfigs"),
-                    &game_dir.join("defaultconfigs"),
-                    &rollback_configs_root.join("defaultconfigs"),
-                )?;
+                let temp_config = temp_configs_root.join("config");
+                let temp_defaultconfigs = temp_configs_root.join("defaultconfigs");
+                let dst_config = game_dir.join("config");
+                let dst_defaultconfigs = game_dir.join("defaultconfigs");
+                let rollback_config = rollback_configs_root.join("config");
+                let rollback_defaultconfigs = rollback_configs_root.join("defaultconfigs");
+
+                if rollback_config.exists() {
+                    Self::remove_dir_if_exists(&rollback_config)?;
+                }
+                if rollback_defaultconfigs.exists() {
+                    Self::remove_dir_if_exists(&rollback_defaultconfigs)?;
+                }
+
+                let config_existed = dst_config.exists();
+                let defaultconfigs_existed = dst_defaultconfigs.exists();
+
+                // Phase 1: Move current directories to rollback
+                if config_existed {
+                    Self::move_dir_with_fallback(&dst_config, &rollback_config)?;
+                }
+                if defaultconfigs_existed {
+                    if let Err(e) = Self::move_dir_with_fallback(&dst_defaultconfigs, &rollback_defaultconfigs) {
+                        if config_existed {
+                            let _ = Self::move_dir_with_fallback(&rollback_config, &dst_config);
+                        }
+                        return Err(e);
+                    }
+                }
+
+                // Phase 2: Move new directories to destination
+                let swap_result = (|| -> Result<(), String> {
+                    if temp_config.exists() {
+                        Self::move_dir_with_fallback(&temp_config, &dst_config)?;
+                    } else if config_existed {
+                        fs::create_dir_all(&dst_config).map_err(|error| error.to_string())?;
+                    }
+
+                    if temp_defaultconfigs.exists() {
+                        Self::move_dir_with_fallback(&temp_defaultconfigs, &dst_defaultconfigs)?;
+                    } else if defaultconfigs_existed {
+                        fs::create_dir_all(&dst_defaultconfigs).map_err(|error| error.to_string())?;
+                    }
+                    Ok(())
+                })();
+
+                if let Err(swap_error) = swap_result {
+                    let _ = Self::remove_dir_if_exists(&dst_config);
+                    let _ = Self::remove_dir_if_exists(&dst_defaultconfigs);
+
+                    if config_existed {
+                        let _ = Self::move_dir_with_fallback(&rollback_config, &dst_config);
+                    }
+                    if defaultconfigs_existed {
+                        let _ = Self::move_dir_with_fallback(&rollback_defaultconfigs, &dst_defaultconfigs);
+                    }
+                    return Err(swap_error);
+                }
+
                 Ok(())
             })();
 

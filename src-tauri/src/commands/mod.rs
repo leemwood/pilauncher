@@ -27,6 +27,7 @@ pub mod terracotta;
 pub mod translation_cmd;
 pub mod update_cmd;
 pub mod wiki_cmd;
+pub mod version_cmd;
 
 use tauri::{Builder, Runtime};
 
@@ -240,5 +241,7 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         terracotta::join_p2p_room,
         terracotta::stop_p2p_session,
         terracotta::set_p2p_idle,
+        version_cmd::get_local_versions,
+        version_cmd::delete_local_version,
     ])
 }

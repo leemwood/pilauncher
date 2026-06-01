@@ -1,7 +1,7 @@
 // src-tauri/src/lib.rs
 
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 pub mod commands;
 pub mod domain;
@@ -117,6 +117,39 @@ pub fn run() {
                 app.handle().clone(),
                 pool.clone(),
             );
+
+            // 监听游戏退出事件，并异步安全地触发自动备份
+            use tauri::Listener;
+            let app_handle = app.handle().clone();
+            app.handle().listen_any("game-exit", move |event| {
+                if let Ok(payload) = serde_json::from_str::<serde_json::Value>(event.payload()) {
+                    if let Some(instance_id) = payload["instanceId"].as_str() {
+                        let backup_app = app_handle.clone();
+                        let backup_instance_id = instance_id.to_string();
+                        tauri::async_runtime::spawn_blocking(move || {
+                            match crate::services::instance::save_manager::SaveManagerService::backup_recent_save_on_game_exit(
+                                &backup_app,
+                                &backup_instance_id,
+                            ) {
+                                Ok(backups) if !backups.is_empty() => {
+                                    let message = format!(
+                                        "[SaveBackup] auto_exit completed for {} save(s)",
+                                        backups.len()
+                                    );
+                                    println!("{}", message);
+                                    let _ = backup_app.emit("game-log", message);
+                                }
+                                Ok(_) => {}
+                                Err(error) => {
+                                    let message = format!("[SaveBackup] auto_exit skipped or failed: {}", error);
+                                    eprintln!("{}", message);
+                                    let _ = backup_app.emit("game-log", message);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
 
             // Non-critical LAN and gamepad services are started by the frontend after the
             // first rendered frame via start_deferred_services.

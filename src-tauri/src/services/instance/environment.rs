@@ -64,98 +64,114 @@ impl InstanceEnvironmentService {
 
         let cancel_guard = DeploymentCancelGuard::new(instance_id);
         let cancel = Arc::clone(&cancel_guard.token);
-        Self::emit(
-            app,
-            instance_id,
-            "VANILLA_CORE",
-            0,
-            100,
-            format!("Preparing Minecraft {} environment...", game_version),
-        );
-
-        crate::services::downloader::core_installer::install_vanilla_core(
-            app,
-            instance_id,
-            game_version,
-            &runtime_dir,
-            &cancel,
-        )
-        .await?;
-
-        if cancel.load(Ordering::Relaxed) {
-            return Err(AppError::Cancelled);
-        }
-
-        crate::services::downloader::dependencies::download_dependencies(
-            app,
-            instance_id,
-            game_version,
-            &runtime_dir,
-            &cancel,
-        )
-        .await?;
-
-        if loader_type != "vanilla" {
+        let result = async {
             Self::emit(
                 app,
                 instance_id,
-                "LOADER_CORE",
+                "VANILLA_CORE",
                 0,
                 100,
-                format!(
-                    "Installing {} {} environment...",
-                    display_loader_type(&loader_type),
-                    loader_version
-                ),
+                format!("Preparing Minecraft {} environment...", game_version),
             );
 
-            crate::services::downloader::loader_installer::install_loader(
+            crate::services::downloader::core_installer::install_vanilla_core(
                 app,
                 instance_id,
                 game_version,
-                &loader_type,
-                &loader_version,
                 &runtime_dir,
                 &cancel,
             )
             .await?;
+
+            if cancel.load(Ordering::Relaxed) {
+                return Err(AppError::Cancelled);
+            }
+
+            crate::services::downloader::dependencies::download_dependencies(
+                app,
+                instance_id,
+                game_version,
+                &runtime_dir,
+                &cancel,
+            )
+            .await?;
+
+            if loader_type != "vanilla" {
+                Self::emit(
+                    app,
+                    instance_id,
+                    "LOADER_CORE",
+                    0,
+                    100,
+                    format!(
+                        "Installing {} {} environment...",
+                        display_loader_type(&loader_type),
+                        loader_version
+                    ),
+                );
+
+                crate::services::downloader::loader_installer::install_loader(
+                    app,
+                    instance_id,
+                    game_version,
+                    &loader_type,
+                    &loader_version,
+                    &runtime_dir,
+                    &cancel,
+                )
+                .await?;
+            }
+
+            config.mc_version = game_version.to_string();
+            config.loader.r#type = loader_type.clone();
+            config.loader.version = loader_version.clone();
+
+            let manifest_payload = CreateInstancePayload {
+                name: config.name.clone(),
+                folder_name: config.id.clone(),
+                game_version: config.mc_version.clone(),
+                loader_type: config.loader.r#type.clone(),
+                loader_version: Some(config.loader.version.clone()),
+                save_path: String::new(),
+                cover_image: None,
+                server_binding: config.server_binding.clone(),
+            };
+
+            crate::services::instance::manifest_builder::build_and_save_manifest(
+                &manifest_payload,
+                &runtime_dir,
+                &instance_root,
+            )?;
+
+            InstanceBindingService::write_instance_config(app, instance_id, &config)
+                .map_err(AppError::Generic)?;
+            InstanceBindingService::upsert_instance(&db.pool, &config).await?;
+
+            Self::emit(
+                app,
+                instance_id,
+                "DONE",
+                100,
+                100,
+                "Instance environment updated successfully.".to_string(),
+            );
+
+            Ok(())
+        }
+        .await;
+
+        if result.is_err() {
+            let runtime_temp = runtime_dir.join("temp");
+            if runtime_temp.exists() {
+                let _ = std::fs::remove_dir_all(&runtime_temp);
+                eprintln!(
+                    "[Environment] Cleaned up temporary directory on failure: {:?}",
+                    runtime_temp
+                );
+            }
         }
 
-        config.mc_version = game_version.to_string();
-        config.loader.r#type = loader_type.clone();
-        config.loader.version = loader_version.clone();
-
-        let manifest_payload = CreateInstancePayload {
-            name: config.name.clone(),
-            folder_name: config.id.clone(),
-            game_version: config.mc_version.clone(),
-            loader_type: config.loader.r#type.clone(),
-            loader_version: Some(config.loader.version.clone()),
-            save_path: String::new(),
-            cover_image: None,
-            server_binding: config.server_binding.clone(),
-        };
-
-        crate::services::instance::manifest_builder::build_and_save_manifest(
-            &manifest_payload,
-            &runtime_dir,
-            &instance_root,
-        )?;
-
-        InstanceBindingService::write_instance_config(app, instance_id, &config)
-            .map_err(AppError::Generic)?;
-        InstanceBindingService::upsert_instance(&db.pool, &config).await?;
-
-        Self::emit(
-            app,
-            instance_id,
-            "DONE",
-            100,
-            100,
-            "Instance environment updated successfully.".to_string(),
-        );
-
-        Ok(())
+        result
     }
 
     fn emit<R: Runtime>(

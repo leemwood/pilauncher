@@ -220,9 +220,9 @@ async fn send_from_candidates(
                 return Err(AppError::Cancelled);
             }
 
-            match client.get(url).send().await {
-                Ok(response) if response.status().is_success() => return Ok(response),
-                Ok(response) => {
+            match tokio::time::timeout(Duration::from_secs(15), client.get(url).send()).await {
+                Ok(Ok(response)) if response.status().is_success() => return Ok(response),
+                Ok(Ok(response)) => {
                     errors.push(format!(
                         "[attempt {}] {} -> {}",
                         round,
@@ -230,8 +230,11 @@ async fn send_from_candidates(
                         response.status()
                     ));
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     errors.push(format!("[attempt {}] {} -> {}", round, url, err));
+                }
+                Err(_) => {
+                    errors.push(format!("[attempt {}] {} -> timeout (15s)", round, url));
                 }
             }
         }

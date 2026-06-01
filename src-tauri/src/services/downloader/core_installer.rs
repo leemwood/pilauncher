@@ -53,8 +53,8 @@ async fn fetch_manifest_with_retry(
 
     for attempt in 1..=attempts {
         for manifest_url in manifest_urls {
-            match client.get(manifest_url).send().await {
-                Ok(resp) if resp.status().is_success() => {
+            match tokio::time::timeout(Duration::from_secs(15), client.get(manifest_url).send()).await {
+                Ok(Ok(resp)) if resp.status().is_success() => {
                     let manifest_text = resp.text().await?;
                     if let Some(parent) = manifest_path.parent() {
                         let _ = fs::create_dir_all(parent);
@@ -62,18 +62,21 @@ async fn fetch_manifest_with_retry(
                     let _ = fs::write(manifest_path, &manifest_text);
                     return Ok(manifest_text);
                 }
-                Ok(resp) if resp.status().as_u16() == 429 || resp.status().is_server_error() => {
+                Ok(Ok(resp)) if resp.status().as_u16() == 429 || resp.status().is_server_error() => {
                     last_error = Some(format!("{} from {}", resp.status(), manifest_url));
                 }
-                Ok(resp) => {
+                Ok(Ok(resp)) => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::Other,
                         format!("Failed to fetch version list: {}", resp.status()),
                     )
                     .into());
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     last_error = Some(format!("{} from {}", err, manifest_url));
+                }
+                Err(_) => {
+                    last_error = Some(format!("Timeout (15s) from {}", manifest_url));
                 }
             }
         }
@@ -108,10 +111,11 @@ async fn fetch_text_from_candidates(
                 return Err(AppError::Cancelled);
             }
 
-            match client.get(url).send().await {
-                Ok(resp) if resp.status().is_success() => return Ok(resp.text().await?),
-                Ok(resp) => last_error = Some(format!("{} from {}", resp.status(), url)),
-                Err(err) => last_error = Some(format!("{} from {}", err, url)),
+            match tokio::time::timeout(Duration::from_secs(15), client.get(url).send()).await {
+                Ok(Ok(resp)) if resp.status().is_success() => return Ok(resp.text().await?),
+                Ok(Ok(resp)) => last_error = Some(format!("{} from {}", resp.status(), url)),
+                Ok(Err(err)) => last_error = Some(format!("{} from {}", err, url)),
+                Err(_) => last_error = Some(format!("Timeout (15s) from {}", url)),
             }
         }
 

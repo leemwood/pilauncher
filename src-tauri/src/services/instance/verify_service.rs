@@ -303,6 +303,7 @@ pub async fn verify_instance_runtime<R: Runtime>(
 
     let mut all_issues = Vec::new();
     let mut sample_issues = Vec::new();
+    let mut has_critical_failure = false;
 
     let mc_version = config.mc_version.trim().to_string();
     let core_dir = runtime_dir.join("versions").join(&mc_version);
@@ -316,6 +317,7 @@ pub async fn verify_instance_runtime<R: Runtime>(
             &mut sample_issues,
             format!("Missing core version json: {}", core_json_path.display()),
         );
+        has_critical_failure = true;
     } else {
         match fs::read_to_string(&core_json_path)
             .ok()
@@ -331,6 +333,7 @@ pub async fn verify_instance_runtime<R: Runtime>(
                         core_json_path.display()
                     ),
                 );
+                has_critical_failure = true;
             }
         }
     }
@@ -353,6 +356,7 @@ pub async fn verify_instance_runtime<R: Runtime>(
                     loader_json_path.display()
                 ),
             );
+            has_critical_failure = true;
         } else {
             match fs::read_to_string(&loader_json_path)
                 .ok()
@@ -368,6 +372,7 @@ pub async fn verify_instance_runtime<R: Runtime>(
                             loader_json_path.display()
                         ),
                     );
+                    has_critical_failure = true;
                 }
             }
         }
@@ -432,6 +437,8 @@ pub async fn verify_instance_runtime<R: Runtime>(
             format!("Verifying {}", label),
         );
 
+        let is_asset = label.starts_with("asset ") || label.starts_with("assets-index-");
+
         if !target_path.exists() {
             push_verify_issue(
                 &mut all_issues,
@@ -440,6 +447,9 @@ pub async fn verify_instance_runtime<R: Runtime>(
             );
             missing_file_count += 1;
             total_missing_size += *size;
+            if !is_asset {
+                has_critical_failure = true;
+            }
             continue;
         }
 
@@ -459,6 +469,9 @@ pub async fn verify_instance_runtime<R: Runtime>(
                         );
                         missing_file_count += 1;
                         total_missing_size += *size;
+                        if !is_asset {
+                            has_critical_failure = true;
+                        }
                     }
                 }
                 Err(error) => {
@@ -469,6 +482,9 @@ pub async fn verify_instance_runtime<R: Runtime>(
                     );
                     missing_file_count += 1;
                     total_missing_size += *size;
+                    if !is_asset {
+                        has_critical_failure = true;
+                    }
                 }
             }
         }
@@ -500,6 +516,7 @@ pub async fn verify_instance_runtime<R: Runtime>(
         repair: (!all_issues.is_empty()).then(|| build_runtime_repair(instance_id, &config)),
         total_missing_size,
         missing_file_count,
+        has_critical_failure,
     })
 }
 

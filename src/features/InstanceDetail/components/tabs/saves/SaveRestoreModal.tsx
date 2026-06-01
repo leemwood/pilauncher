@@ -183,6 +183,14 @@ const localizeRestoreError = (t: TFunction, errorMessage: string) => {
     });
   }
 
+  const baseMissingMatch = normalized.match(/^differential base backup is missing: (.+)$/i);
+  if (baseMissingMatch) {
+    return t('saves.restoreModal.errors.differentialBaseMissing', {
+      baseId: baseMissingMatch[1],
+      defaultValue: `差异备份的基础全量包已丢失或损坏 (ID: ${baseMissingMatch[1]})。无法恢复此差异备份。`,
+    });
+  }
+
   return normalized;
 };
 

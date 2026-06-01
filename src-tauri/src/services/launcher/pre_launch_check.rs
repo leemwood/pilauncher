@@ -394,10 +394,20 @@ impl PreLaunchCheckService {
 
         let runtime_repair = runtime_check.repair.clone();
         if runtime_check.needs_repair {
+            let status = if runtime_check.has_critical_failure {
+                PreLaunchCheckStatus::Failed
+            } else {
+                PreLaunchCheckStatus::Warning
+            };
+            let message = if runtime_check.has_critical_failure {
+                "游戏运行库不完整或文件校验失败".to_string()
+            } else {
+                "部分非关键运行库文件缺失（不影响游戏启动）".to_string()
+            };
             checks.push(PreLaunchCheckItem {
                 kind: "integrity".to_string(),
-                status: PreLaunchCheckStatus::Failed,
-                message: "游戏运行库不完整或文件校验失败".to_string(),
+                status,
+                message,
                 details: runtime_check.issues,
             });
         } else {

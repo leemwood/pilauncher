@@ -542,7 +542,8 @@
       },
       "errors": {
         "verifyFailed": "无法完成恢复校验：{{error}}",
-        "backupNotFound": "未找到该备份快照。"
+        "backupNotFound": "未找到该备份快照。",
+        "differentialBaseMissing": "差异备份的基础全量包已丢失或损坏 (ID: {{baseId}})。无法恢复此差异备份。"
       }
     }
   },
@@ -1132,6 +1133,24 @@
         "saveBackupsUnchanged": "无需更新",
         "verified": "通过",
         "unverified": "未通过"
+      },
+      "manageVersions": {
+        "label": "本地版本核心管理",
+        "description": "查看并清理本地已下载的 Minecraft 游戏核心和加载器核心文件。",
+        "btn": "管理版本核心",
+        "modalTitle": "版本核心管理",
+        "searchPlaceholder": "搜索版本号、加载器或名称...",
+        "deleteConfirmTitle": "删除版本核心",
+        "deleteConfirmHeadline": "确定要删除该版本核心吗？",
+        "deleteConfirmDesc": "这会彻底删除该核心文件夹下的文件（包括 json 和 jar），删除后，使用该核心的实例需要重新下载此核心才能运行。",
+        "deleteConfirmAffect": "此操作会影响以下 {{count}} 个关联实例：",
+        "deleteConfirmAffectNone": "当前无关联实例，可以安全删除。",
+        "minecraftTab": "Minecraft 核心",
+        "loaderTab": "加载器核心",
+        "totalSize": "占用空间",
+        "associatedInstancesCount": "关联实例: {{count}} 个",
+        "empty": "暂无已下载的核心",
+        "emptySearch": "未搜索到匹配的核心"
       }
     },
     "about": {

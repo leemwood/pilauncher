@@ -104,6 +104,8 @@ pub struct VerifyInstanceRuntimeResult {
     pub repair: Option<MissingRuntime>,
     pub total_missing_size: u64,
     pub missing_file_count: usize,
+    #[serde(default)]
+    pub has_critical_failure: bool,
 }
 
 #[derive(Debug, Serialize, Clone)]

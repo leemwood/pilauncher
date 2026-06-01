@@ -229,6 +229,30 @@ impl InstanceCreationService {
                     );
                 }
 
+                // Clean up instances/.tmp if it is empty
+                let tmp_parent = instances_dir.join(".tmp");
+                if tmp_parent.exists() {
+                    if let Ok(mut entries) = fs::read_dir(&tmp_parent) {
+                        if entries.next().is_none() {
+                            let _ = fs::remove_dir(&tmp_parent);
+                            eprintln!(
+                                "[Deployment] Removed empty temporary parent directory: {:?}",
+                                tmp_parent
+                            );
+                        }
+                    }
+                }
+
+                // Clean up runtime/temp if it exists
+                let runtime_temp = global_mc_root.join("temp");
+                if runtime_temp.exists() {
+                    let _ = fs::remove_dir_all(&runtime_temp);
+                    eprintln!(
+                        "[Deployment] Removed runtime temporary download directory: {:?}",
+                        runtime_temp
+                    );
+                }
+
                 if !vanilla_version_existed && vanilla_version_dir.exists() {
                     let _ = fs::remove_dir_all(&vanilla_version_dir);
                     eprintln!(

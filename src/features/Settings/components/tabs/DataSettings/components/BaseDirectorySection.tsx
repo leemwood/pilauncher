@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Database, Edit2, FileX, LogOut, Trash2, FolderKanban } from 'lucide-react';
+import { Database, Edit2, FileX, LogOut, Trash2, FolderKanban, Layers } from 'lucide-react';
 
 import { FormRow } from '../../../../../../ui/layout/FormRow';
 import { SettingsSection } from '../../../../../../ui/layout/SettingsSection';
@@ -14,6 +14,7 @@ interface BaseDirectorySectionProps {
   onOpenCleanLogs: () => void;
   onOpenRemoteLogs: () => void;
   onOpenManageInstances: () => void;
+  onOpenManageVersions: () => void;
   onArrowPress: ArrowPressHandler;
 }
 
@@ -24,6 +25,7 @@ export const BaseDirectorySection: React.FC<BaseDirectorySectionProps> = ({
   onOpenCleanLogs,
   onOpenRemoteLogs,
   onOpenManageInstances,
+  onOpenManageVersions,
   onArrowPress
 }) => {
   const { t } = useTranslation();
@@ -111,6 +113,23 @@ export const BaseDirectorySection: React.FC<BaseDirectorySectionProps> = ({
             className="w-[240px] justify-center whitespace-nowrap"
           >
             <FolderKanban size={16} className="mr-1.5" /> {t('settings.data.manageInstances.btn', '管理本地实例')}
+          </OreButton>
+        }
+      />
+
+      <FormRow
+        label={t('settings.data.manageVersions.label', '本地版本核心管理')}
+        description={t('settings.data.manageVersions.description', '查看并清理本地已下载的 Minecraft 游戏核心和加载器核心文件。')}
+        vertical={false}
+        control={
+          <OreButton
+            variant="secondary"
+            onClick={onOpenManageVersions}
+            focusKey="settings-data-manage-versions"
+            onArrowPress={onArrowPress}
+            className="w-[240px] justify-center whitespace-nowrap"
+          >
+            <Layers size={16} className="mr-1.5" /> {t('settings.data.manageVersions.btn', '管理版本核心')}
           </OreButton>
         }
       />

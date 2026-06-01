@@ -660,30 +660,6 @@ Module Path Entries: {}\n\
             serde_json::json!({ "code": code, "instanceId": instance_id }),
         );
 
-        let backup_app = app.clone();
-        let backup_instance_id = instance_id.to_string();
-        tauri::async_runtime::spawn_blocking(move || {
-            match crate::services::instance::save_manager::SaveManagerService::backup_recent_save_on_game_exit(
-                &backup_app,
-                &backup_instance_id,
-            ) {
-                Ok(backups) if !backups.is_empty() => {
-                    let message = format!(
-                        "[SaveBackup] auto_exit completed for {} save(s)",
-                        backups.len()
-                    );
-                    println!("{}", message);
-                    let _ = backup_app.emit("game-log", message);
-                }
-                Ok(_) => {}
-                Err(error) => {
-                    let message = format!("[SaveBackup] auto_exit skipped or failed: {}", error);
-                    eprintln!("{}", message);
-                    let _ = backup_app.emit("game-log", message);
-                }
-            }
-        });
-
         Ok(())
     }
 }

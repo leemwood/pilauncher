@@ -542,7 +542,8 @@
       },
       "errors": {
         "verifyFailed": "無法完成恢復校驗：{{error}}",
-        "backupNotFound": "未找到該備份快照。"
+        "backupNotFound": "未找到該備份快照。",
+        "differentialBaseMissing": "差異備份的基礎全量包已丟失或損壞 (ID: {{baseId}})。無法恢復此差異備份。"
       }
     }
   },

@@ -229,6 +229,11 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
                 [backup.game.loader, backup.game.loaderVersion].filter(Boolean).join(' ').trim() ||
                 '未知 Loader';
               const isDeleting = deletingBackupId === backup.backupId;
+              const hasDependents =
+                backup.backupMode === 'full' &&
+                backups.some(
+                  (b) => b.backupMode === 'differential' && b.baseBackupId === backup.backupId
+                );
 
               return (
                 <article key={backup.backupId} className="ore-backup-list-modal__card">
@@ -267,6 +272,11 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
                           <span className="ore-backup-list-modal__tag ore-backup-list-modal__tag--safe">
                             <ShieldCheck size={13} />
                             安全快照
+                          </span>
+                        )}
+                        {hasDependents && (
+                          <span className="ore-backup-list-modal__tag font-semibold" style={{ borderColor: 'var(--ore-danger, #ff6b6b)', color: 'var(--ore-danger, #ff6b6b)', backgroundColor: 'rgba(255, 107, 107, 0.1)' }}>
+                            有差异备份依赖此备份 (无法直接删除)
                           </span>
                         )}
                       </div>
@@ -322,7 +332,7 @@ export const BackupListModal: React.FC<BackupListModalProps> = ({
                           getBackupActionFocusKey(backup.backupId, 'delete')
                         )
                       }
-                      disabled={isBusy || isDeleting}
+                      disabled={isBusy || isDeleting || hasDependents}
                     >
                       {isDeleting ? (
                         <Loader2 size={16} className="mr-2 animate-spin" />

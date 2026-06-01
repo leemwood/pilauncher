@@ -23,6 +23,7 @@ import { WebDavSection } from './components/WebDavSection';
 import { WebDavSettingsModal } from './components/WebDavSettingsModal';
 import { WebDavManageModal } from './components/WebDavManageModal';
 import { ManageInstancesModal } from './components/ManageInstancesModal';
+import { ManageVersionsModal } from './components/ManageVersionsModal';
 import { TranslationSection } from './components/TranslationSection';
 import { TranslationSettingsModal } from './components/TranslationSettingsModal';
 import { useCoreDirectory } from './hooks/useCoreDirectory';
@@ -49,6 +50,7 @@ export const DataSettings: React.FC = () => {
   const [removeDirTarget, setRemoveDirTarget] = useState<string | null>(null);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [isInstancesManageOpen, setIsInstancesManageOpen] = useState(false);
+  const [isVersionsManageOpen, setIsVersionsManageOpen] = useState(false);
   const [isTranslationOpen, setIsTranslationOpen] = useState(false);
 
   useEffect(() => {
@@ -88,6 +90,7 @@ export const DataSettings: React.FC = () => {
       'settings-data-clean-logs',
       'settings-data-remote-logs',
       'settings-data-manage-instances',
+      'settings-data-manage-versions',
       'settings-data-webdav',
       'settings-data-webdav-manage',
       'settings-data-webdav-auto-sync',
@@ -106,6 +109,7 @@ export const DataSettings: React.FC = () => {
     !webDavSync.isOpen &&
     !isManageOpen &&
     !isInstancesManageOpen &&
+    !isVersionsManageOpen &&
     !isTranslationOpen;
 
   const { handleLinearArrow } = useLinearNavigation(
@@ -214,6 +218,14 @@ export const DataSettings: React.FC = () => {
         }}
       />
 
+      <ManageVersionsModal
+        isOpen={isVersionsManageOpen}
+        onClose={() => {
+          setIsVersionsManageOpen(false);
+          setTimeout(() => setFocus('settings-data-manage-versions'), 50);
+        }}
+      />
+
       <TranslationSettingsModal
         isOpen={isTranslationOpen}
         onClose={() => {
@@ -252,6 +264,7 @@ export const DataSettings: React.FC = () => {
         onOpenCleanLogs={logCleaner.openConfirm}
         onOpenRemoteLogs={remoteLogs.open}
         onOpenManageInstances={() => setIsInstancesManageOpen(true)}
+        onOpenManageVersions={() => setIsVersionsManageOpen(true)}
         onArrowPress={handleLinearArrow}
       />
 
