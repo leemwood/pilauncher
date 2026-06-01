@@ -57,6 +57,7 @@ export interface AppearanceSettings {
   customLogoScale: number;
   hiddenNavTabs: string[];
   skipExitConfirm: boolean;
+  theme: 'light' | 'dark' | 'system';
 }
 
 export interface JavaSettings {
@@ -171,6 +172,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     customLogoScale: 100,
     hiddenNavTabs: [],
     skipExitConfirm: false,
+    theme: 'system',
   },
   java: {
     autoDetect: true,

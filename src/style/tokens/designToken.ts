@@ -195,6 +195,25 @@ export const OreTokens = {
       metaText: 'rgba(255, 255, 255, 0.3)',
     },
     resourceCard: {
+      bg: '#C6C8CB',
+      bgHover: '#D7DADF',
+      bgFocused: '#DDE0E3',
+      borderSelected: '#1D4D13',
+      textTitle: '#000000',
+      textAuthor: '#4A4C50',
+      textAuthorHover: '#3C8527',
+      textSummary: '#242528',
+      textMeta: '#161719',
+      textTimestamp: '#231A0D',
+      iconBg: '#48494A',
+      iconDepth: '#313233',
+      iconHighlight: 'rgba(255, 255, 255, 0.15)',
+      envBg: '#313233',
+      envBorder: '#1E1E1F',
+      envHighlight: 'rgba(255, 255, 255, 0.12)',
+      overlaySelected: 'rgba(29, 77, 19, 0.32)',
+      shadowInstalled: '#1D4D13',
+      shadowUninstalled: '#58585A',
       summaryText: '#242528',
       metaText: '#161719',
       timestampText: '#231A0D',
@@ -635,19 +654,27 @@ type DesignTokenTree = {
 export const injectDesignTokens = (themeObj: DesignTokenTree = OreTokens) => {
   if (typeof document === 'undefined') return;
 
-  const root = document.documentElement;
-
+  let css = ':root {\n';
   const flattenAndInject = (obj: DesignTokenTree, prefix: string) => {
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'object' && value !== null) {
         flattenAndInject(value as DesignTokenTree, `${prefix}-${key}`);
       } else {
-        root.style.setProperty(`${prefix}-${key}`, String(value));
+        css += `  ${prefix}-${key}: ${String(value)};\n`;
       }
     }
   };
 
   flattenAndInject(themeObj, '--ore');
+  css += '}';
+
+  let styleTag = document.getElementById('ore-design-tokens');
+  if (!styleTag) {
+    styleTag = document.createElement('style');
+    styleTag.id = 'ore-design-tokens';
+    document.head.appendChild(styleTag);
+  }
+  styleTag.textContent = css;
 };
 
 // ✅ 自动触发一次注入，确保 CSS 变量在模块加载时即存在

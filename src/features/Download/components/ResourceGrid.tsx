@@ -53,7 +53,6 @@ const ResourceCardSkeleton = () => {
   return (
     <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60 animate-pulse">
       <div className="absolute inset-y-0 left-0 w-1.5 bg-[#48494A]/20" />
-      <div className="absolute inset-x-0 top-0 h-[0.25rem] bg-white/10" />
 
       <div className="flex w-full items-stretch gap-[0.875rem] p-[0.875rem] pr-[1rem]">
         <div className="flex w-[4.75rem] shrink-0 flex-col items-center justify-between">

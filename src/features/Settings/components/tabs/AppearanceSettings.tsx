@@ -178,8 +178,17 @@ export const AppearanceSettings: React.FC = () => {
     return [...base, ...sysOpts];
   }, [systemFonts, t]);
 
+  const themeOptions = useMemo(
+    () => [
+      { label: t('settings.appearance.themeOptions.light', '浅色'), value: 'light' },
+      { label: t('settings.appearance.themeOptions.dark', '深色'), value: 'dark' },
+      { label: t('settings.appearance.themeOptions.system', '跟随系统'), value: 'system' }
+    ],
+    [t]
+  );
+
   const focusOrder = useMemo(() => {
-    const keys: string[] = [];
+    const keys: string[] = ['settings-appearance-theme'];
 
     if (appearance.backgroundImage) {
       keys.push('btn-bg-change', 'btn-bg-remove');
@@ -222,6 +231,21 @@ export const AppearanceSettings: React.FC = () => {
   return (
     <SettingsPageLayout adaptiveScale>
       <SettingsSection title={t('settings.appearance.sections.background', '静态背景')} icon={<ImageIcon size={18} />}>
+        <FormRow
+          className="relative z-[60]"
+          label={t('settings.appearance.theme', '界面主题')}
+          description={t('settings.appearance.themeDesc', '切换启动器在浅色模式、深色模式或跟随系统默认主题之间的显示效果。')}
+          control={
+            <OreDropdown
+              focusKey="settings-appearance-theme"
+              onArrowPress={handleLinearArrow}
+              options={themeOptions}
+              value={appearance.theme || 'system'}
+              onChange={(val) => updateAppearanceSetting('theme', val as any)}
+              className="w-56 shrink-0"
+            />
+          }
+        />
         <div className="p-6">
           <div className="group relative flex h-56 w-full flex-col items-center justify-center overflow-hidden border-2 border-dashed border-ore-gray-border bg-[#141415] transition-colors">
             {bgPreviewUrl ? (

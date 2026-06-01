@@ -752,8 +752,15 @@
       }
     },
     "appearance": {
+      "theme": "界面主题",
+      "themeDesc": "切换启动器在浅色模式、深色模式或跟随系统默认主题之间的显示效果。",
+      "themeOptions": {
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统"
+      },
       "sections": {
-        "background": "静态背景",
+        "background": "主题与背景",
         "dynamicBackground": "动态背景",
         "typography": "排版与特效",
         "navigation": "导航与行为"

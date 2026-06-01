@@ -22,6 +22,7 @@ import { useDownloadStore } from '../store/useDownloadStore';
 import { useLauncherStore } from '../store/useLauncherStore';
 import { FocusBoundary } from '../ui/focus/FocusBoundary';
 import { useInputAction } from '../ui/focus/InputDriver';
+import { focusManager } from '../ui/focus/FocusManager';
 
 const DOWNLOAD_ACTION_BAR_FOCUS_PREFIX = 'resource-download-actions';
 const DOWNLOAD_GRID_FOCUS_PREFIX = 'download-grid-item-';
@@ -245,6 +246,28 @@ const ResourceDownloadPage: React.FC = () => {
     didInitialFocusRef.current = true;
     setTimeout(() => setFocus('download-search-input'), 100);
   }, [isEnvLoaded, selectedProject]);
+
+  // Restore focus to downloads tab components when returning to the downloads page tab
+  useEffect(() => {
+    if (currentGlobalTab !== 'downloads') return;
+    if (selectedProject || isFavoriteModalOpen || isBatchInstanceModalOpen) return;
+
+    const timer = setTimeout(() => {
+      const currentFocus = getCurrentFocusKey();
+      // If focus is lost, at root, or not on downloads page, restore it using FocusManager
+      if (
+        !currentFocus ||
+        currentFocus === 'SN:ROOT' ||
+        (!currentFocus.startsWith('download-') &&
+          !currentFocus.startsWith('filter-') &&
+          !currentFocus.startsWith('resource-download-actions'))
+      ) {
+        focusManager.restoreFocus('resource-download-page', 'download-search-input');
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [currentGlobalTab, selectedProject, isFavoriteModalOpen, isBatchInstanceModalOpen]);
 
   const handleStartDownload = useCallback(async (
     version: OreProjectVersion,

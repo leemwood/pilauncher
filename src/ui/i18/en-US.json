@@ -747,6 +747,13 @@
       }
     },
     "appearance": {
+      "theme": "Theme",
+      "themeDesc": "Switch launcher theme between Light, Dark, or follow System default.",
+      "themeOptions": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
       "sections": {
         "background": "Background & Theme",
         "dynamicBackground": "Dynamic Background",

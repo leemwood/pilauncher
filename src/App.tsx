@@ -149,6 +149,36 @@ const App: React.FC = () => {
     document.documentElement.style.setProperty('--ore-global-font', `"${currentFont}"`);
   }, [appearance?.fontFamily]);
 
+  useLayoutEffect(() => {
+    const theme = appearance?.theme || 'system';
+    const root = document.documentElement;
+
+    const applyTheme = (isDark: boolean) => {
+      if (isDark) {
+        root.classList.add('dark');
+        root.classList.remove('light');
+        root.style.colorScheme = 'dark';
+      } else {
+        root.classList.add('light');
+        root.classList.remove('dark');
+        root.style.colorScheme = 'light';
+      }
+    };
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      applyTheme(mediaQuery.matches);
+
+      const listener = (e: MediaQueryListEvent) => {
+        applyTheme(e.matches);
+      };
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
+    } else {
+      applyTheme(theme === 'dark');
+    }
+  }, [appearance?.theme]);
+
   useEffect(() => {
     const language = general?.language || 'zh-CN';
     if (i18n.language !== language) {

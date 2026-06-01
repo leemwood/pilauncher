@@ -106,8 +106,8 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
           className={[
             'group relative flex w-full overflow-hidden border-[0.125rem] border-[var(--ore-color-border-primary-default)] text-left outline-none transition-none',
             focused
-              ? 'z-20 bg-[var(--ore-color-background-neutral-soft)] brightness-[1.01]'
-              : 'bg-[var(--ore-color-background-neutral-muted)] hover:bg-[var(--ore-color-background-neutral-subtle)] hover:brightness-[1.01]',
+              ? 'z-20 bg-[var(--ore-library-resourceCard-bgFocused)] brightness-[1.01]'
+              : 'bg-[var(--ore-library-resourceCard-bg)] hover:bg-[var(--ore-library-resourceCard-bgHover)] hover:brightness-[1.01]',
             contextMenuActive ? '!border-white ring-2 ring-white/70' : '',
             compact ? 'min-h-[7.75rem]' : 'min-h-[8.5rem]',
           ].join(' ')}
@@ -115,12 +115,11 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
             contain: 'layout paint',
             boxShadow: item.hasUpdate
               ? 'inset 0 -0.25rem var(--ore-library-resourceCard-updateDepth), 0 0 0.5rem rgba(0,0,0,0.12)'
-              : 'inset 0 -0.25rem var(--ore-color-border-neutral-subtle), 0 0 0.5rem rgba(0,0,0,0.10)',
+              : 'inset 0 -0.25rem var(--ore-library-resourceCard-shadowUninstalled), 0 0 0.5rem rgba(0,0,0,0.10)',
           }}
           onClick={() => onOpen?.(item)}
           onContextMenu={(event) => onContextMenu?.(event, item)}
         >
-      <div className="absolute inset-x-0 top-0 h-1 bg-white/25" />
       {isTrackerItemReady && (
         <div className="absolute right-2.5 top-2.5 z-20 inline-flex h-6 items-center gap-1 border-2 border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-success-default)] px-2 font-minecraft text-[length:var(--ore-typography-size-micro)] uppercase leading-none tracking-[0.14em] text-[var(--ore-color-text-onLight-soft)] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-2px_0_var(--ore-color-background-primary-default),0_4px_8px_rgba(0,0,0,0.28)]">
           <CheckCircle2 className="h-3 w-3" strokeWidth={3} />
@@ -167,16 +166,16 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <div className="min-w-0 truncate font-minecraft text-[length:var(--ore-typography-size-xl)] font-bold leading-[var(--ore-typography-lineHeight-headingCompact)] text-black">
-                {item.title}
+          <div className="flex min-w-0 flex-1 flex-col justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <div className="min-w-0 truncate font-minecraft text-[length:var(--ore-typography-size-xl)] font-bold leading-[var(--ore-typography-lineHeight-headingCompact)] text-[var(--ore-library-resourceCard-textTitle)]">
+                  {item.title}
+                </div>
+                <div className="min-w-0 truncate text-[length:var(--ore-typography-size-sm)] font-bold leading-none text-[var(--ore-library-resourceCard-textAuthor)]">
+                  {t('libraryPage.item.byAuthor', { author: authorLabel })}
+                </div>
               </div>
-              <div className="min-w-0 truncate text-[length:var(--ore-typography-size-sm)] font-bold leading-none text-[var(--ore-color-text-onLight-muted)]">
-                {t('libraryPage.item.byAuthor', { author: authorLabel })}
-              </div>
-            </div>
 
             <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
               {item.hasUpdate && (

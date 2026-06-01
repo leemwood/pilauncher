@@ -74,3 +74,53 @@ html, body {
   background: #4A5872;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --ore-library-resourceCard-bg: #494949;
+    --ore-library-resourceCard-bgHover: #555555;
+    --ore-library-resourceCard-bgFocused: #5E5E5E;
+    --ore-library-resourceCard-borderSelected: #6CC349;
+    --ore-library-resourceCard-textTitle: #F2F2F2;
+    --ore-library-resourceCard-textAuthor: #D0D1D4;
+    --ore-library-resourceCard-textAuthorHover: #8FED6B;
+    --ore-library-resourceCard-textSummary: #D0D1D4;
+    --ore-library-resourceCard-textMeta: #C6C8CB;
+    --ore-library-resourceCard-textTimestamp: #D7CF9A;
+    --ore-library-resourceCard-iconBg: #1E1E1F;
+    --ore-library-resourceCard-iconDepth: #111214;
+    --ore-library-resourceCard-iconHighlight: rgba(255, 255, 255, 0.05);
+    --ore-library-resourceCard-envBg: #1E1E1F;
+    --ore-library-resourceCard-envBorder: #111214;
+    --ore-library-resourceCard-envHighlight: rgba(255, 255, 255, 0.06);
+    --ore-library-resourceCard-overlaySelected: rgba(108, 195, 73, 0.12);
+    --ore-library-resourceCard-shadowInstalled: #3C8527;
+    --ore-library-resourceCard-shadowUninstalled: #2E2E2E;
+    --ore-library-resourceCard-infoChipBg: #9EB5E6;
+    --ore-library-resourceCard-infoChipDepth: #6C83B3;
+  }
+}
+
+:root.dark, :root[class~="dark"], .dark {
+  --ore-library-resourceCard-bg: #494949;
+  --ore-library-resourceCard-bgHover: #555555;
+  --ore-library-resourceCard-bgFocused: #5E5E5E;
+  --ore-library-resourceCard-borderSelected: #6CC349;
+  --ore-library-resourceCard-textTitle: #F2F2F2;
+  --ore-library-resourceCard-textAuthor: #D0D1D4;
+  --ore-library-resourceCard-textAuthorHover: #8FED6B;
+  --ore-library-resourceCard-textSummary: #D0D1D4;
+  --ore-library-resourceCard-textMeta: #C6C8CB;
+  --ore-library-resourceCard-textTimestamp: #D7CF9A;
+  --ore-library-resourceCard-iconBg: #1E1E1F;
+  --ore-library-resourceCard-iconDepth: #111214;
+  --ore-library-resourceCard-iconHighlight: rgba(255, 255, 255, 0.05);
+  --ore-library-resourceCard-envBg: #1E1E1F;
+  --ore-library-resourceCard-envBorder: #111214;
+  --ore-library-resourceCard-envHighlight: rgba(255, 255, 255, 0.06);
+  --ore-library-resourceCard-overlaySelected: rgba(108, 195, 73, 0.12);
+  --ore-library-resourceCard-shadowInstalled: #3C8527;
+  --ore-library-resourceCard-shadowUninstalled: #2E2E2E;
+  --ore-library-resourceCard-infoChipBg: #9EB5E6;
+  --ore-library-resourceCard-infoChipDepth: #6C83B3;
+}
+
