@@ -1773,6 +1773,25 @@
     }
   },
   "instanceDetail": {
+    "game": {
+      "keymapTitle": "Key Bindings Layout",
+      "keymapDesc": "Manage key assignments in options.txt, and view mapping and conflicts.",
+      "searchPlaceholder": "Search key name, key code or description...",
+      "conflict": "Conflict",
+      "noConflict": "No Conflict",
+      "editBtn": "Change Key",
+      "pressKey": "Press any key...",
+      "pressKeyDesc": "Press a key on your keyboard, or select a mouse button below.",
+      "mouseLeft": "Left Click",
+      "mouseRight": "Right Click",
+      "mouseMiddle": "Middle Click",
+      "keyNotFound": "Config file not found",
+      "keyNotFoundDesc": "options.txt configuration file is not found, possibly because this instance hasn't been launched yet.",
+      "initDefault": "Initialize Default Keys",
+      "resetBtn": "Restore Default Keys",
+      "successInit": "Default key bindings initialized successfully",
+      "successSave": "Key bindings saved successfully"
+    },
     "basic": {
       "info": {
         "title": "Basic Information",
@@ -2125,7 +2144,7 @@
     "tabs": {
       "overview": "Overview",
       "basic": "Settings",
-      "java": "Java",
+      "java": "Game",
       "saves": "Saves",
       "mods": "Mods",
       "resourcepacks": "Resource Packs",

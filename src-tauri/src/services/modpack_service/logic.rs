@@ -98,7 +98,7 @@ pub fn build_instance_config(
         third_party_path: None,
         server_binding: None,
         auto_join_server: None,
-        tags: None,
+        tags: Some(vec!["modpack".to_string()]),
         jvm_args: None,
         window_width: None,
         window_height: None,

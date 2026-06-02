@@ -6,3 +6,5 @@ pub mod mod_cmd;
 pub mod resource_cmd;
 pub mod save_cmd;
 pub mod snapshot_cmd;
+pub mod keymap_cmd;
+

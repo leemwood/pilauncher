@@ -153,7 +153,7 @@ export const DownloadManager: React.FC = () => {
     if (newTasks.length > 0) {
       setNewTaskPulseKey((key) => key + 1);
       const toastMessage = newTasks.length === 1
-        ? `已添加下载任务：${newTasks[0].title}`
+        ? `已添加下载任务：\n${newTasks[0].title}`
         : `已添加 ${newTasks.length} 个下载任务`;
       addToast('success', toastMessage, 2400);
     }

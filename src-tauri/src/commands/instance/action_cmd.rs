@@ -129,6 +129,10 @@ pub async fn get_instance_detail<R: Runtime>(
                 let window_height: Option<i64> = row.get("window_height");
                 let is_favorite: i64 = row.get::<Option<i64>, _>("is_favorite").unwrap_or(0);
 
+                let tags = InstanceTagService::get_instance_tags(&db.pool, &id)
+                    .await
+                    .unwrap_or_default();
+
                 let config = InstanceConfig {
                     id: id.clone(),
                     name,
@@ -159,7 +163,7 @@ pub async fn get_instance_detail<R: Runtime>(
                     third_party_path: None,
                     server_binding: None,
                     auto_join_server: None,
-                    tags: None,
+                    tags: Some(tags),
                     jvm_args,
                     window_width: window_width.map(|w| w as u32),
                     window_height: window_height.map(|h| h as u32),

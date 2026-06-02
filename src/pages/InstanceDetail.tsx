@@ -35,7 +35,7 @@ import { ExportPanel } from '../features/InstanceDetail/components/tabs/export';
 const TABS: { id: DetailTab; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: '概览', icon: LayoutTemplate },
   { id: 'basic', label: '基础', icon: Settings },
-  { id: 'java', label: 'Java', icon: Coffee },
+  { id: 'java', label: '游戏', icon: Coffee },
   { id: 'saves', label: '存档', icon: FolderOpen },
   { id: 'mods', label: 'MOD', icon: Blocks },
   { id: 'resourcepacks', label: '资源包', icon: Package },
@@ -268,7 +268,6 @@ const InstanceDetail: React.FC = () => {
                 isInitializing={isInitializing}
                 onUpdateName={handleUpdateName}
                 onUpdateCover={handleUpdateCover}
-                onUpdateEnvironment={handleUpdateEnvironment}
                 onUpdateCustomButtons={handleUpdateCustomButtons}
                 onUpdateTags={handleUpdateTags}
                 onUpdateServerBinding={handleUpdateServerBinding}
@@ -285,7 +284,13 @@ const InstanceDetail: React.FC = () => {
 
           <div className={activeTab === 'java' ? 'w-full h-full flex flex-col min-h-0' : 'hidden'}>
             <FocusBoundary id="tab-boundary-java" isActive={activeTab === 'java'} trapFocus className="w-full h-full">
-              <JavaPanel instanceId={instanceId} isActive={activeTab === 'java'} />
+              <JavaPanel
+                instanceId={instanceId}
+                isActive={activeTab === 'java'}
+                data={data}
+                isInitializing={isInitializing}
+                onUpdateEnvironment={handleUpdateEnvironment}
+              />
             </FocusBoundary>
           </div>
 

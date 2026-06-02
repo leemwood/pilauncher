@@ -1485,6 +1485,30 @@ impl ModManagerService {
             .unwrap_or_default()
             .as_secs() as i64;
 
+        let mut final_icon_url = icon_url.to_string();
+
+        if icon_url.starts_with("http://") || icon_url.starts_with("https://") {
+            if let Ok(shared_mods_dir) = Self::get_shared_mods_dir(app) {
+                let icons_base_dir = shared_mods_dir.join("icons");
+                let bucket_dir = Self::get_or_create_available_bucket(&icons_base_dir);
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(5))
+                    .build()
+                    .unwrap_or_default();
+                if let Some(abs_path_str) = Self::download_icon_to_bucket(
+                    &client,
+                    icon_url,
+                    &bucket_dir,
+                    cache_key,
+                ).await {
+                    let abs_path = std::path::Path::new(&abs_path_str);
+                    if let Ok(rel) = abs_path.strip_prefix(&shared_mods_dir) {
+                        final_icon_url = rel.to_string_lossy().replace('\\', "/");
+                    }
+                }
+            }
+        }
+
         sqlx::query::<sqlx::Sqlite>(
             r#"
             INSERT INTO global_mod_cache (cache_key, name, description, icon_url, updated_at)
@@ -1499,7 +1523,7 @@ impl ModManagerService {
         .bind(cache_key)
         .bind(name)
         .bind(desc)
-        .bind(icon_url)
+        .bind(&final_icon_url)
         .bind(now)
         .execute(&db.pool)
         .await

@@ -1778,6 +1778,25 @@
     }
   },
   "instanceDetail": {
+    "game": {
+      "keymapTitle": "按键布局管理",
+      "keymapDesc": "管理游戏 options.txt 中的按键设置，显示冲突与映射情况。",
+      "searchPlaceholder": "搜索按键名称、键名或描述...",
+      "conflict": "冲突",
+      "noConflict": "无冲突",
+      "editBtn": "更改绑定",
+      "pressKey": "请按下任意按键...",
+      "pressKeyDesc": "按下键盘上的按键，或点击下方按钮绑定鼠标键。",
+      "mouseLeft": "鼠标左键",
+      "mouseRight": "鼠标右键",
+      "mouseMiddle": "鼠标中键",
+      "keyNotFound": "未找到配置文件",
+      "keyNotFoundDesc": "未检测到 options.txt 配置文件，可能因为该实例尚未运行过。",
+      "initDefault": "初始化默认按键",
+      "resetBtn": "恢复默认按键",
+      "successInit": "默认按键初始化成功",
+      "successSave": "按键保存成功"
+    },
     "basic": {
       "info": {
         "title": "基本信息",
@@ -2130,7 +2149,7 @@
     "tabs": {
       "overview": "概览",
       "basic": "基础",
-      "java": "Java",
+      "java": "游戏",
       "saves": "存档",
       "mods": "MOD",
       "resourcepacks": "资源包",

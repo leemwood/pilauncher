@@ -10,6 +10,11 @@ import { SettingsPageLayout } from '../../../../ui/layout/SettingsPageLayout';
 import { RuntimeSettingsForm } from '../../../runtime/components/RuntimeSettingsForm';
 import type { RuntimeConfig } from '../../../runtime/types';
 
+import type { InstanceDetailData } from '../../../../hooks/pages/InstanceDetail/useInstanceDetail';
+import type { InstanceEnvironmentUpdate } from './BasicPanel/schemas/basicPanelSchemas';
+import { EnvironmentSection } from './BasicPanel/components/EnvironmentSection';
+import { KeymapSection } from './KeymapSection';
+
 interface RawInstanceDetail {
   game_version?: string;
   gameVersion?: string;
@@ -18,9 +23,20 @@ interface RawInstanceDetail {
   version?: string;
 }
 
-export const JavaPanel: React.FC<{ instanceId: string; isActive?: boolean }> = ({
+interface JavaPanelProps {
+  instanceId: string;
+  isActive?: boolean;
+  data: InstanceDetailData;
+  isInitializing: boolean;
+  onUpdateEnvironment: (update: InstanceEnvironmentUpdate) => Promise<void>;
+}
+
+export const JavaPanel: React.FC<JavaPanelProps> = ({
   instanceId,
-  isActive = false
+  isActive = false,
+  data,
+  isInitializing,
+  onUpdateEnvironment,
 }) => {
   const { t } = useTranslation();
   const [config, setConfig] = useState<RuntimeConfig | null>(null);
@@ -28,6 +44,10 @@ export const JavaPanel: React.FC<{ instanceId: string; isActive?: boolean }> = (
   const [recommendedJavaMajor, setRecommendedJavaMajor] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Environment update saving state
+  const [isEnvSaving, setIsEnvSaving] = useState(false);
+  const [envSuccess, setEnvSuccess] = useState(false);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -84,6 +104,11 @@ export const JavaPanel: React.FC<{ instanceId: string; isActive?: boolean }> = (
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const triggerEnvSuccess = () => {
+    setEnvSuccess(true);
+    setTimeout(() => setEnvSuccess(false), 2000);
   };
 
   if (!config) {
@@ -144,25 +169,40 @@ export const JavaPanel: React.FC<{ instanceId: string; isActive?: boolean }> = (
         </FocusItem>
 
         <div className="flex justify-end h-6 mb-2 pr-6 font-minecraft transition-opacity duration-300">
-          {isSaving && (
+          {(isSaving || isEnvSaving) && (
             <span className="text-ore-text-muted text-sm flex items-center">
-              <Loader2 size={14} className="animate-spin mr-1.5" /> {t('instanceDetail.java.savingLocal', '正在保存到本地...')}
+              <Loader2 size={14} className="animate-spin mr-1.5" /> {t('instanceDetail.java.savingLocal', '正在保存...')}
             </span>
           )}
-          {saveSuccess && !isSaving && (
+          {(saveSuccess || envSuccess) && !isSaving && !isEnvSaving && (
             <span className="text-ore-green text-sm flex items-center drop-shadow-[0_0_5px_rgba(56,133,39,0.5)]">
               <CheckCircle2 size={14} className="mr-1.5" /> {t('instanceDetail.java.autoSaveSuccess', '自动保存成功')}
             </span>
           )}
         </div>
 
-        <RuntimeSettingsForm
-          mode="instance"
-          config={config}
-          onChange={handleConfigChange}
-          mcVersion={mcVersion}
-          recommendedJavaMajor={recommendedJavaMajor}
-        />
+        <div className="space-y-[clamp(1.5rem,2vw,2rem)] pb-8">
+          <EnvironmentSection
+            currentGameVersion={data.version}
+            currentLoaderType={data.loader}
+            currentLoaderVersion={data.loaderVersion}
+            isInitializing={isInitializing}
+            onUpdateEnvironment={onUpdateEnvironment}
+            onSuccess={triggerEnvSuccess}
+            isGlobalSaving={isEnvSaving}
+            setIsGlobalSaving={setIsEnvSaving}
+          />
+
+          <RuntimeSettingsForm
+            mode="instance"
+            config={config}
+            onChange={handleConfigChange}
+            mcVersion={mcVersion}
+            recommendedJavaMajor={recommendedJavaMajor}
+          />
+
+          <KeymapSection instanceId={instanceId} />
+        </div>
       </div>
     </SettingsPageLayout>
   );

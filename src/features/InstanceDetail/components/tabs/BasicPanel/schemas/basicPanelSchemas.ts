@@ -18,7 +18,6 @@ export interface BasicPanelProps {
   isInitializing: boolean;
   onUpdateName: (newName: string) => Promise<void>;
   onUpdateCover: () => Promise<void>;
-  onUpdateEnvironment: (update: InstanceEnvironmentUpdate) => Promise<void>;
   onUpdateCustomButtons: (buttons: CustomButton[]) => Promise<void>;
   onUpdateTags: (tags: string[]) => Promise<void>;
   onUpdateServerBinding: (binding: ServerBindingInfo | null) => Promise<void>;

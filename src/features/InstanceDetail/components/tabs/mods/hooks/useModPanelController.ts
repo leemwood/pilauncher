@@ -337,7 +337,7 @@ export const useModPanelController = (instanceId: string) => {
       addToast('success', t('modPanel.installVersionSuccess', {
         action: actionLabel,
         name: mod.name || mod.fileName,
-        defaultValue: `已${actionLabel} ${mod.name || mod.fileName}。`
+        defaultValue: `已${actionLabel}：\n${mod.name || mod.fileName}`
       }));
     } catch (error) {
       console.error(error);
@@ -345,7 +345,7 @@ export const useModPanelController = (instanceId: string) => {
       addToast('error', t('modPanel.installVersionFailed', {
         action: actionLabel,
         error: message,
-        defaultValue: `${actionLabel}失败: ${message}`
+        defaultValue: `${actionLabel}失败：\n${message}`
       }));
     }
   }, [addToast, getInstallActionLabel, installModVersion, t, upgradeMod]);

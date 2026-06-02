@@ -257,6 +257,16 @@ export const installTrackerToInstance = async (
 
       enqueueResourceTask(version, instanceId);
       await modService.downloadResource(version.download_url, version.file_name, instanceId, 'mods');
+
+      const trackerProject = tracker.projects.find((p) => p.projectId === projectId);
+      const name = trackerProject?.title || '';
+      const iconUrl = trackerProject?.iconUrl || '';
+      const cacheKey = version.file_name.replace(/\.disabled$/, '').replace(/\.jar$/, '');
+      if (name) {
+        await modService.updateModCache(cacheKey, name, '', iconUrl)
+          .catch((err) => console.error('Failed to update mod cache:', err));
+      }
+
       await modService.updateModManifest(
         instanceId,
         version.file_name,

@@ -274,6 +274,7 @@ export const InstanceModDownloadView: React.FC<{
   const pendingDepIdsRef = React.useRef<Set<string>>(new Set());
   const lastListFocusBeforeActionBarRef = React.useRef<string>('download-grid-item-0');
   const lastFocusBeforeModalRef = React.useRef<string>('inst-filter-search');
+  const projectDetailsCache = React.useRef<Map<string, any>>(new Map());
 
   const isHintVisible = resultsScrollTop > 48;
   const targetMc = resolvedMcVersion || resolveInstanceGameVersion(instanceConfig);
@@ -448,6 +449,21 @@ export const InstanceModDownloadView: React.FC<{
 
       if (resourceTab === 'mod') {
         const projectId = explicitProjectId || selectedProject?.id || '';
+        let cachedDetail = projectId ? projectDetailsCache.current.get(projectId) : null;
+        if (!cachedDetail && projectId && selectedProject && projectId === selectedProject.id) {
+          cachedDetail = selectedProject;
+        }
+
+        if (projectId && cachedDetail) {
+          const cacheKey = version.file_name.replace(/\.disabled$/, '').replace(/\.jar$/, '');
+          await modService.updateModCache(
+            cacheKey,
+            cachedDetail.title || cachedDetail.name || '',
+            cachedDetail.description || cachedDetail.summary || '',
+            cachedDetail.icon_url || cachedDetail.logo || ''
+          ).catch((err) => console.error('Failed to update mod cache:', err));
+        }
+
         if (projectId) {
           await modService.updateModManifest(
             targetInstanceId,
@@ -484,10 +500,12 @@ export const InstanceModDownloadView: React.FC<{
         try {
           if (activeSource === 'curseforge') {
             const detail = await getCurseForgeProjectDetails(dependencyId);
+            projectDetailsCache.current.set(dependencyId, detail);
             return { id: dependencyId, name: detail.title };
           }
 
           const detail = await getProjectDetails(dependencyId);
+          projectDetailsCache.current.set(dependencyId, detail);
           return { id: dependencyId, name: detail.title };
         } catch {
           return { id: dependencyId, name: `未知前置 (${dependencyId})` };
@@ -697,6 +715,13 @@ export const InstanceModDownloadView: React.FC<{
     const targets = [...selectedProjects];
     if (targets.length === 0) return;
 
+    targets.forEach((project) => {
+      const key = project.id || (project as any).project_id;
+      if (key) {
+        projectDetailsCache.current.set(key, project);
+      }
+    });
+
     setIsCheckingDeps(true);
     setIsBatchDependency(true);
     setBatchCount(targets.length);
@@ -853,7 +878,7 @@ export const InstanceModDownloadView: React.FC<{
           onScrollTopChange={setResultsScrollTop}
           onClickAuthor={(author) => {
             setCategory('');
-            setQuery(author);
+            setQuery(author, true);
           }}
           selectedProjectId={selectedProjectIdForTransition}
         />

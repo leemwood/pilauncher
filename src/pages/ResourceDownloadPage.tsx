@@ -486,7 +486,7 @@ const ResourceDownloadPage: React.FC = () => {
         getProjectKey={getProjectKey}
         onClickAuthor={(author) => {
           setCategory('');
-          setQuery(author);
+          setQuery(author, true);
         }}
         selectedProjectId={selectedProjectIdForTransition}
       />

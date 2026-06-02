@@ -7,7 +7,6 @@ import { SettingsPageLayout } from '../../../../../ui/layout/SettingsPageLayout'
 import { FocusItem } from '../../../../../ui/focus/FocusItem';
 
 import { BasicInfoSection } from './components/BasicInfoSection';
-import { EnvironmentSection } from './components/EnvironmentSection';
 import { CustomLinksSection } from './components/CustomLinksSection';
 import { TagManagementSection } from './components/TagManagementSection';
 import { ServerBindingSection } from './components/ServerBindingSection';
@@ -21,7 +20,6 @@ export const BasicPanel: React.FC<BasicPanelProps> = ({
   isInitializing,
   onUpdateName,
   onUpdateCover,
-  onUpdateEnvironment,
   onUpdateCustomButtons,
   onUpdateTags,
   onUpdateServerBinding,
@@ -74,16 +72,7 @@ export const BasicPanel: React.FC<BasicPanelProps> = ({
           setIsGlobalSaving={setIsSaving}
         />
 
-        <EnvironmentSection
-          currentGameVersion={data.version}
-          currentLoaderType={data.loader}
-          currentLoaderVersion={data.loaderVersion}
-          isInitializing={isInitializing}
-          onUpdateEnvironment={onUpdateEnvironment}
-          onSuccess={triggerSuccess}
-          isGlobalSaving={isSaving}
-          setIsGlobalSaving={setIsSaving}
-        />
+        {/* EnvironmentSection was moved to JavaPanel (renamed as Game) */}
 
         <CustomLinksSection
           initialButtons={data.customButtons}

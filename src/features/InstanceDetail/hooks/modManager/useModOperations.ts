@@ -91,9 +91,20 @@ export const useModOperations = ({
     action: ModVersionInstallAction = 'upgrade'
   ) => {
     const source = mod.manifestEntry?.source;
-    const platform = (source?.platform === 'modrinth' || source?.platform === 'curseforge'
-      ? source.platform
-      : '') as ModPlatformId | '';
+    let platform = '' as ModPlatformId | '';
+    if (version?.download_url) {
+      const url = version.download_url.toLowerCase();
+      if (url.includes('modrinth') || url.includes('cdn.modrinth.com')) {
+        platform = 'modrinth';
+      } else if (url.includes('curse') || url.includes('forgecdn')) {
+        platform = 'curseforge';
+      }
+    }
+    if (!platform && source?.platform) {
+      platform = (source.platform === 'modrinth' || source.platform === 'curseforge'
+        ? source.platform
+        : '') as ModPlatformId | '';
+    }
     const projectId = version?.project_id || source?.projectId || '';
     const targetVersionId = version?.id || mod.updateFileId || '';
     const targetDownloadUrl = version?.download_url || mod.updateDownloadUrl || '';
@@ -132,6 +143,16 @@ export const useModOperations = ({
 
     try {
       await modService.downloadResource(targetDownloadUrl, targetFileName, instanceId, 'mods');
+
+      const name = mod.name || mod.networkInfo?.title || '';
+      const description = mod.description || mod.networkInfo?.description || '';
+      const iconUrl = mod.networkIconUrl || mod.networkInfo?.icon_url || '';
+      const cacheKey = targetFileName.replace(/\.disabled$/, '').replace(/\.jar$/, '');
+      if (name) {
+        await modService.updateModCache(cacheKey, name, description, iconUrl)
+          .catch((err) => console.error('Failed to update mod cache:', err));
+      }
+
       await modService.updateModManifest(
         instanceId,
         targetFileName,

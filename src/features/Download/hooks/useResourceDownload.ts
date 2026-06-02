@@ -120,7 +120,15 @@ export const useResourceDownload = (
     instanceId ? modService.getManifestModsSnapshot(instanceId) ?? [] : []
   ));
 
-  const [query, setQuery] = useState(() => (isCacheValid ? globalCache!.query : ''));
+  const [committedQuery, setCommittedQuery] = useState(() => (isCacheValid ? globalCache!.query : ''));
+  const [localQuery, setLocalQuery] = useState(() => (isCacheValid ? globalCache!.query : ''));
+
+  const setQuery = useCallback((newQuery: string, commit = false) => {
+    setLocalQuery(newQuery);
+    if (commit) {
+      setCommittedQuery(newQuery);
+    }
+  }, []);
   const [mcVersion, setMcVersion] = useState(() => (isCacheValid ? globalCache!.mcVersion : ''));
   const [loaderType, setLoaderType] = useState(() => (isCacheValid ? globalCache!.loaderType : ''));
   const [category, setCategory] = useState(() => (isCacheValid ? globalCache!.category : ''));
@@ -358,7 +366,7 @@ export const useResourceDownload = (
     if (!validValues.has(mcVersion) && source === 'curseforge') setMcVersion('');
   }, [lockInstanceEnvironment, mcVersion, mcVersionOptions, source]);
 
-  const executeSearch = useCallback(async (currentOffset: number, isLoadMore = false) => {
+  const executeSearch = useCallback(async (currentOffset: number, isLoadMore = false, queryOverride?: string) => {
     if (!isEnvLoaded) return;
 
     if (isLoadMore) {
@@ -368,10 +376,12 @@ export const useResourceDownload = (
       setResults([]);
     }
 
+    const searchQuery = queryOverride !== undefined ? queryOverride : committedQuery;
+
     try {
       const data = source === 'curseforge'
         ? await searchCurseForge({
-            query,
+            query: searchQuery,
             category,
             sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
             projectType: activeTab,
@@ -381,7 +391,7 @@ export const useResourceDownload = (
             limit: 20
           })
         : await searchModrinth({
-            query,
+            query: searchQuery,
             category,
             sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
             projectType: activeTab,
@@ -403,7 +413,7 @@ export const useResourceDownload = (
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [activeTab, category, effectiveLoaderType, effectiveMcVersion, isEnvLoaded, query, sort, source]);
+  }, [activeTab, category, effectiveLoaderType, effectiveMcVersion, isEnvLoaded, committedQuery, sort, source]);
 
   useEffect(() => {
     if (!isEnvLoaded) return;
@@ -427,7 +437,7 @@ export const useResourceDownload = (
         instanceId,
         instanceConfig,
         activeTab,
-        query,
+        query: committedQuery,
         mcVersion,
         loaderType,
         category,
@@ -438,15 +448,18 @@ export const useResourceDownload = (
         hasMore
       };
     }
-  }, [activeTab, category, hasMore, instanceConfig, instanceId, isEnvLoaded, loaderType, mcVersion, offset, query, results, sort, source]);
+  }, [activeTab, category, hasMore, instanceConfig, instanceId, isEnvLoaded, loaderType, mcVersion, offset, committedQuery, results, sort, source]);
 
-  const handleSearchClick = () => {
+  const handleSearchClick = useCallback((customQuery?: string) => {
+    const q = customQuery !== undefined ? customQuery : localQuery;
+    setCommittedQuery(q);
     setOffset(0);
-    void executeSearch(0, false);
-  };
+    void executeSearch(0, false, q);
+  }, [localQuery, executeSearch]);
 
   const handleResetClick = () => {
-    setQuery('');
+    setLocalQuery('');
+    setCommittedQuery('');
     setCategory('');
     setSort('relevance');
 
@@ -461,7 +474,7 @@ export const useResourceDownload = (
     setOffset(0);
     setResults([]);
     setTimeout(() => {
-      void executeSearch(0, false);
+      void executeSearch(0, false, '');
     }, 50);
   };
 
@@ -478,7 +491,7 @@ export const useResourceDownload = (
   return {
     activeTab,
     setActiveTab,
-    query,
+    query: localQuery,
     setQuery,
     mcVersion,
     setMcVersion,

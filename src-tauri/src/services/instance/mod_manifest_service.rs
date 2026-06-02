@@ -97,7 +97,25 @@ impl ModManifestService {
 
         Ok(manifest)
     }
+}
 
+fn check_is_modpack(manifest_path: &Path) -> bool {
+    if let Some(parent) = manifest_path.parent() {
+        let config_path = parent.join("instance.json");
+        if config_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(tags) = config.get("tags").and_then(|t| t.as_array()) {
+                        return tags.iter().any(|t| t.as_str() == Some("modpack"));
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+impl ModManifestService {
     pub fn load_from_mods_dir(
         mods_dir: &Path,
         manifest_path: &Path,
@@ -121,6 +139,20 @@ impl ModManifestService {
         file_id: Option<String>,
         version: Option<String>,
     ) -> Result<(), String> {
+        let is_modpack = check_is_modpack(manifest_path);
+        let has_platform = platform.as_deref().map(|p| !p.trim().is_empty()).unwrap_or(false);
+        let should_lock = (is_modpack || source_kind == ModSourceKind::LauncherDownload) && has_platform;
+        let locked_settings = if should_lock {
+            platform.as_ref().map(|p| ModMetadataSettings {
+                metadata_platform: Some(p.clone()),
+                update_platform: Some(p.clone()),
+                metadata_locked: true,
+                update_locked: true,
+            })
+        } else {
+            None
+        };
+
         let file_state = build_file_state(target_path)?;
         let hash = compute_file_hash(target_path)?;
         let mut entry = build_manifest_entry(
@@ -130,6 +162,9 @@ impl ModManifestService {
         );
         if version.is_some() {
             entry.version = version;
+        }
+        if locked_settings.is_some() {
+            entry.metadata_settings = locked_settings;
         }
 
         let file_name = target_path
@@ -552,6 +587,125 @@ mod tests {
                 .and_then(|settings| settings.metadata_platform.as_deref()),
             Some("modrinth")
         );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn test_check_is_modpack() {
+        let dir = create_temp_dir("mod-check-is-modpack");
+        let manifest_path = dir.join("mod_manifest.json");
+
+        // 1. instance.json does not exist
+        assert!(!check_is_modpack(&manifest_path));
+
+        // 2. instance.json exists but has no tags
+        let config_path = dir.join("instance.json");
+        fs::write(&config_path, "{}").unwrap();
+        assert!(!check_is_modpack(&manifest_path));
+
+        // 3. instance.json has tags but not "modpack"
+        fs::write(&config_path, r#"{"tags": ["vanilla", "forge"]}"#).unwrap();
+        assert!(!check_is_modpack(&manifest_path));
+
+        // 4. instance.json has tag "modpack"
+        fs::write(&config_path, r#"{"tags": ["vanilla", "modpack", "forge"]}"#).unwrap();
+        assert!(check_is_modpack(&manifest_path));
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn test_upsert_downloaded_mod_locking_behavior() {
+        let dir = create_temp_dir("mod-upsert-locking");
+        let manifest_path = dir.join("mod_manifest.json");
+        let jar_path = dir.join("test_mod.jar");
+        fs::write(&jar_path, "dummy jar content").unwrap();
+
+        // Helper to write an instance.json with specified tags
+        let set_tags = |tags: &[&str]| {
+            let tags_json = serde_json::to_string(tags).unwrap();
+            let content = format!(r#"{{"tags": {}}}"#, tags_json);
+            fs::write(dir.join("instance.json"), content).unwrap();
+        };
+
+        // Case 1: Not a modpack, ExternalImport, has platform. Expected: NOT locked.
+        set_tags(&["forge"]);
+        ModManifestService::upsert_downloaded_mod(
+            &manifest_path,
+            &jar_path,
+            ModSourceKind::ExternalImport,
+            Some("modrinth".to_string()),
+            Some("proj123".to_string()),
+            Some("file123".to_string()),
+            Some("1.0.0".to_string()),
+        ).unwrap();
+
+        let content = fs::read_to_string(&manifest_path).unwrap();
+        let parsed: ModManifest = serde_json::from_str(&content).unwrap();
+        let entry = parsed.get("test_mod.jar").unwrap();
+        assert!(entry.metadata_settings.is_none());
+
+        // Case 2: Not a modpack, LauncherDownload, has platform. Expected: LOCKED.
+        set_tags(&["forge"]);
+        ModManifestService::upsert_downloaded_mod(
+            &manifest_path,
+            &jar_path,
+            ModSourceKind::LauncherDownload,
+            Some("curseforge".to_string()),
+            Some("proj456".to_string()),
+            Some("file456".to_string()),
+            Some("1.0.1".to_string()),
+        ).unwrap();
+
+        let content = fs::read_to_string(&manifest_path).unwrap();
+        let parsed: ModManifest = serde_json::from_str(&content).unwrap();
+        let entry = parsed.get("test_mod.jar").unwrap();
+        let settings = entry.metadata_settings.as_ref().unwrap();
+        assert_eq!(settings.metadata_platform.as_deref(), Some("curseforge"));
+        assert_eq!(settings.update_platform.as_deref(), Some("curseforge"));
+        assert!(settings.metadata_locked);
+        assert!(settings.update_locked);
+
+        // Case 3: Is a modpack, ExternalImport, has platform. Expected: LOCKED.
+        set_tags(&["modpack"]);
+        ModManifestService::upsert_downloaded_mod(
+            &manifest_path,
+            &jar_path,
+            ModSourceKind::ExternalImport,
+            Some("modrinth".to_string()),
+            Some("proj789".to_string()),
+            Some("file789".to_string()),
+            Some("1.0.2".to_string()),
+        ).unwrap();
+
+        let content = fs::read_to_string(&manifest_path).unwrap();
+        let parsed: ModManifest = serde_json::from_str(&content).unwrap();
+        let entry = parsed.get("test_mod.jar").unwrap();
+        let settings = entry.metadata_settings.as_ref().unwrap();
+        assert_eq!(settings.metadata_platform.as_deref(), Some("modrinth"));
+        assert_eq!(settings.update_platform.as_deref(), Some("modrinth"));
+        assert!(settings.metadata_locked);
+        assert!(settings.update_locked);
+
+        // Case 4: Is a modpack, ExternalImport, NO platform (None). Expected: NOT locked.
+        set_tags(&["modpack"]);
+        let jar_path2 = dir.join("test_mod2.jar");
+        fs::write(&jar_path2, "dummy jar content 2").unwrap();
+        ModManifestService::upsert_downloaded_mod(
+            &manifest_path,
+            &jar_path2,
+            ModSourceKind::ExternalImport,
+            None,
+            None,
+            None,
+            None,
+        ).unwrap();
+
+        let content = fs::read_to_string(&manifest_path).unwrap();
+        let parsed: ModManifest = serde_json::from_str(&content).unwrap();
+        let entry2 = parsed.get("test_mod2.jar").unwrap();
+        assert!(entry2.metadata_settings.is_none());
 
         let _ = fs::remove_dir_all(dir);
     }

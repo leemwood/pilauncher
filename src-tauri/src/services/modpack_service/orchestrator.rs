@@ -2,6 +2,7 @@ use crate::domain::event::DownloadProgressEvent;
 use crate::domain::mod_manifest::{
     build_file_state, build_manifest_entry, build_manifest_source, compute_file_hash,
     mod_manifest_key, upsert_mod_manifest_entry, ModManifestEntry, ModSourceKind,
+    ModMetadataSettings,
 };
 use crate::services::config_service::ConfigService;
 use crate::services::deployment_cancel::is_cancelled;
@@ -143,7 +144,17 @@ fn finalize_imported_mod_manifest(
     std::fs::create_dir_all(&mods_dir).map_err(|e| e.to_string())?;
 
     let manifest_path = instance_root.join("mod_manifest.json");
-    for (file_name, entry) in manifest_entries {
+    for (file_name, mut entry) in manifest_entries {
+        if let Some(p) = &entry.source.platform {
+            if !p.trim().is_empty() {
+                entry.metadata_settings = Some(ModMetadataSettings {
+                    metadata_platform: Some(p.clone()),
+                    update_platform: Some(p.clone()),
+                    metadata_locked: true,
+                    update_locked: true,
+                });
+            }
+        }
         upsert_mod_manifest_entry(&manifest_path, &file_name, &entry)?;
     }
 

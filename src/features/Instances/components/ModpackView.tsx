@@ -87,7 +87,7 @@ export const ModpackView: React.FC = () => {
         onSelectProject={setSelectedProject}
         onClickAuthor={(author) => {
           downloadState.setCategory('');
-          downloadState.setQuery(author);
+          downloadState.setQuery(author, true);
         }}
       />
 
