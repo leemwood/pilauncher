@@ -1,5 +1,7 @@
 // /src/ui/layout/FormRow.tsx
-import React from 'react';
+import React, { useContext, useRef } from 'react';
+import { motion } from 'motion/react';
+import { SettingsStaggerContext } from './SettingsPageLayout';
 
 interface FormRowProps {
   label: React.ReactNode; // ✅ 核心修复：将 string 改为 React.ReactNode，支持传入图标和复杂的 DOM 结构
@@ -41,12 +43,31 @@ export const FormRow: React.FC<FormRowProps> = ({
       }
     : {};
 
+  const stagger = useContext(SettingsStaggerContext);
+  const delayRef = useRef<number | null>(null);
+  if (delayRef.current === null) {
+    delayRef.current = stagger ? stagger.getDelay() : 0;
+  }
+  const delay = delayRef.current;
+
   // ==========================================
   // 布局 A: 强制上下换行 (专为滑动条等宽控件设计)
   // ==========================================
   if (vertical) {
     return (
-      <div onClick={onClick} className={`flex flex-col ${baseClasses}`} {...clickableProps}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          type: 'spring',
+          stiffness: 380,
+          damping: 30,
+          delay: delay
+        }}
+        onClick={onClick}
+        className={`flex flex-col ${baseClasses}`}
+        {...clickableProps}
+      >
         {/* 上半部：文字说明 */}
         <div className="flex flex-col w-full mb-4 mt-1">
           <div id={labelId} className="text-white font-minecraft text-lg mb-1.5 drop-shadow-sm flex items-center">
@@ -63,7 +84,7 @@ export const FormRow: React.FC<FormRowProps> = ({
         <div className="w-full flex items-center justify-start">
           {clonedControl}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -71,7 +92,19 @@ export const FormRow: React.FC<FormRowProps> = ({
   // 布局 B: 默认的左右对齐 (用于开关、下拉框等)
   // ==========================================
   return (
-    <div onClick={onClick} className={`flex flex-col lg:flex-row lg:items-start justify-between ${baseClasses}`} {...clickableProps}>
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{
+        type: 'spring',
+        stiffness: 380,
+        damping: 30,
+        delay: delay
+      }}
+      onClick={onClick}
+      className={`flex flex-col lg:flex-row lg:items-start justify-between ${baseClasses}`}
+      {...clickableProps}
+    >
       {/* 左侧文字 */}
       <div className="flex flex-col flex-1 pr-6 mb-5 lg:mb-0 mt-1">
         <div id={labelId} className="text-white font-minecraft text-lg mb-1.5 drop-shadow-sm flex items-center">
@@ -88,6 +121,6 @@ export const FormRow: React.FC<FormRowProps> = ({
       <div className={`flex-shrink-0 flex items-center justify-end min-w-[120px] lg:mt-1 ${controlClassName}`}>
         {clonedControl}
       </div>
-    </div>
+    </motion.div>
   );
 };

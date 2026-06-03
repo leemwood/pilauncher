@@ -1,6 +1,6 @@
 // /src/pages/Settings.tsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
 import { Settings as SettingsIcon, Monitor, Gamepad2, Coffee, Download, Users, Archive, Wrench, Info } from 'lucide-react';
 import { doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
 
@@ -30,8 +30,6 @@ export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('general');
   const [pressingLT, setPressingLT] = useState(false);
   const [pressingRT, setPressingRT] = useState(false);
-  // Track slide direction: +1 = slide left (going forward), -1 = slide right (going back)
-  const slideDirRef = useRef<1 | -1>(1);
   const activeBoundaryId = useMemo(() => `settings-page-boundary:${activeTab}`, [activeTab]);
 
   const createTabLabel = useCallback((icon: React.ReactNode, label: string) => (
@@ -52,11 +50,7 @@ export const Settings: React.FC = () => {
     { value: 'about',      label: createTabLabel(<Info className="h-4 w-4 shrink-0" />, t('settings.tabs.about')) },
   ], [createTabLabel, t]);
 
-  const slideVariants = {
-    enter: (dir: number) => ({ opacity: 0, x: dir * 36 }),
-    center: { opacity: 1, x: 0 },
-    exit: (dir: number) => ({ opacity: 0, x: dir * -36 }),
-  };
+
 
   const tabFallbackFocusKeys = useMemo<Record<string, string | undefined>>(() => ({
     general:    'settings-device-name',
@@ -89,7 +83,6 @@ export const Settings: React.FC = () => {
 
   const handleSwitchTab = useCallback((direction: -1 | 1) => {
     if (isTextEntryActive()) return;
-    slideDirRef.current = direction;
 
     if (direction === -1) {
       setPressingLT(true);
@@ -105,11 +98,8 @@ export const Settings: React.FC = () => {
   }, [activeTab, isTextEntryActive, SETTINGS_TABS]);
 
   const handleTabSelect = useCallback((value: string) => {
-    const currentIndex = SETTINGS_TABS.findIndex(t => t.value === activeTab);
-    const nextIndex = SETTINGS_TABS.findIndex(t => t.value === value);
-    slideDirRef.current = nextIndex >= currentIndex ? 1 : -1;
     setActiveTab(value);
-  }, [activeTab, SETTINGS_TABS]);
+  }, []);
 
   useInputAction('PAGE_LEFT',  () => handleSwitchTab(-1));
   useInputAction('PAGE_RIGHT', () => handleSwitchTab(1));
@@ -180,22 +170,9 @@ export const Settings: React.FC = () => {
       </div>
 
       <div className="flex-1 w-full overflow-hidden relative">
-        <AnimatePresence mode="wait" custom={slideDirRef.current}>
-          <motion.div
-            key={activeTab}
-            custom={slideDirRef.current}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute inset-0"
-          >
-            <Suspense fallback={<div className="absolute inset-0" />}>
-              {renderContent()}
-            </Suspense>
-          </motion.div>
-        </AnimatePresence>
+        <Suspense fallback={<div className="absolute inset-0" />}>
+          {renderContent()}
+        </Suspense>
       </div>
     </FocusBoundary>
   );

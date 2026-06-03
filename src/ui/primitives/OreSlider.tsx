@@ -135,12 +135,12 @@ export const OreSlider: React.FC<OreSliderProps> = ({
             <div className="ore-slider-track">
               <motion.div 
                 className={`ore-slider-fill ${fillColorClass}`}
-                animate={{ width: `${percentage}%` }}
+                animate={{ width: `${Math.round(percentage)}%` }}
                 transition={isDragging ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 30 }}
                 style={{ transition: 'none' }}
               />
             </div>
-
+ 
             {/* 物理滑块 */}
             <motion.div 
               className={`
@@ -148,7 +148,7 @@ export const OreSlider: React.FC<OreSliderProps> = ({
                 ${thumbColorClass}
                 ${isDragging ? 'active' : ''}
               `}
-              animate={{ left: `${percentage}%` }}
+              animate={{ left: `${Math.round(percentage)}%` }}
               transition={isDragging ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 30 }}
               style={{ transition: 'none', x: '-50%', y: '-50%' }}
               whileHover={disabled ? undefined : { scale: 1.15 }}

@@ -14,7 +14,7 @@ export const FloatingButton = ({ isOpen, onClick, activeCount, hasTasks, progres
   progress: number;
   pulseKey: number;
 }) => {
-  const dashOffset = RING_CIRCUMFERENCE - (progress / 100) * RING_CIRCUMFERENCE;
+  const dashOffset = Math.round(RING_CIRCUMFERENCE - (progress / 100) * RING_CIRCUMFERENCE);
 
   return (
     <AnimatePresence>
@@ -31,8 +31,8 @@ export const FloatingButton = ({ isOpen, onClick, activeCount, hasTasks, progres
                 boxShadow: pulseKey > 0
                   ? [
                       '0 0 0 rgba(108,195,73,0)',
-                      '0 0 2rem rgba(108,195,73,0.78)',
-                      '0 0 0.85rem rgba(108,195,73,0.32)'
+                      '0 0 32px rgba(108,195,73,0.78)',
+                      '0 0 14px rgba(108,195,73,0.32)'
                     ]
                   : '0 0 0 rgba(108,195,73,0)'
               }}

@@ -106,9 +106,23 @@ export const ProjectDescriptionModal: React.FC<ProjectDescriptionModalProps> = (
   const galleryUrls = details?.gallery_urls ?? project.gallery_urls ?? [];
   const hasGallery = galleryUrls.length > 0;
 
+  const [viewportHeight, setViewportHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 800);
+  const [baseFontSize, setBaseFontSize] = useState(16);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const updateDimensions = () => {
+      setViewportHeight(window.innerHeight);
+      setBaseFontSize(parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    };
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, [isOpen]);
+
   const scrollAreaHeight = isGalleryCollapsed
-    ? 'min(35rem, 58vh)'
-    : 'min(16rem, 26vh)';
+    ? Math.round(Math.min(35 * baseFontSize, viewportHeight * 0.58))
+    : Math.round(Math.min(16 * baseFontSize, viewportHeight * 0.26));
 
   // Reset states when modal is opened for a different project
   useEffect(() => {
@@ -412,13 +426,13 @@ export const ProjectDescriptionModal: React.FC<ProjectDescriptionModalProps> = (
         {/* Screenshot Carousel */}
         {hasGallery && (
           <motion.div
-            initial={{ height: 'auto', opacity: 1, marginBottom: '0.875rem' }}
+            initial={{ height: 'auto', opacity: 1, marginBottom: Math.round(0.875 * baseFontSize) }}
             animate={{
               height: isGalleryCollapsed ? 0 : 'auto',
               opacity: isGalleryCollapsed ? 0 : 1,
-              marginBottom: isGalleryCollapsed ? 0 : '0.875rem',
-              borderWidth: isGalleryCollapsed ? 0 : '0.125rem',
-              padding: isGalleryCollapsed ? 0 : '0.5rem',
+              marginBottom: isGalleryCollapsed ? 0 : Math.round(0.875 * baseFontSize),
+              borderWidth: isGalleryCollapsed ? 0 : Math.round(0.125 * baseFontSize),
+              padding: isGalleryCollapsed ? 0 : Math.round(0.5 * baseFontSize),
             }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
             className="relative flex flex-col items-center border-[#1E1E1F] bg-[#1a1a1c] rounded-[2px] overflow-hidden"

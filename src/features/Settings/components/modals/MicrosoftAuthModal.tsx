@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { invoke } from '@tauri-apps/api/core';
-import { Copy, Loader2, SmartphoneNfc } from 'lucide-react';
+import { Copy, SmartphoneNfc } from 'lucide-react';
+import { motion } from 'motion/react';
 
 import { OreButton } from '../../../../ui/primitives/OreButton';
 import { OreModal } from '../../../../ui/primitives/OreModal';
@@ -20,6 +21,69 @@ interface MicrosoftAuthModalProps {
 
 const COPY_BUTTON_FOCUS_KEY = 'ms-auth-copy';
 const CLOSE_BUTTON_FOCUS_KEY = 'ms-auth-close';
+
+// SVG 变色交替加载动画
+const ColorChangingSpinner = ({ size = 40 }: { size?: number }) => {
+  return (
+    <motion.svg
+      width={size}
+      height={size}
+      viewBox="0 0 50 50"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, ease: 'linear', repeat: Infinity }}
+      className="mb-4"
+    >
+      <motion.circle
+        cx="25"
+        cy="25"
+        r="20"
+        fill="none"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray="90, 150"
+        animate={{
+          stroke: ['#6cc349', '#3b82f6', '#eab308', '#ef4444', '#6cc349']
+        }}
+        transition={{
+          duration: 4,
+          ease: 'easeInOut',
+          repeat: Infinity
+        }}
+      />
+    </motion.svg>
+  );
+};
+
+const ColorChangingSpinnerSmall = ({ size = 16 }: { size?: number }) => {
+  return (
+    <motion.svg
+      width={size}
+      height={size}
+      viewBox="0 0 50 50"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, ease: 'linear', repeat: Infinity }}
+      className="mr-2"
+    >
+      <motion.circle
+        cx="25"
+        cy="25"
+        r="20"
+        fill="none"
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray="90, 150"
+        animate={{
+          stroke: ['#6cc349', '#3b82f6', '#eab308', '#ef4444', '#6cc349']
+        }}
+        transition={{
+          duration: 4,
+          ease: 'easeInOut',
+          repeat: Infinity
+        }}
+      />
+    </motion.svg>
+  );
+};
 
 export const MicrosoftAuthModal: React.FC<MicrosoftAuthModalProps> = ({
   isOpen,
@@ -97,7 +161,7 @@ export const MicrosoftAuthModal: React.FC<MicrosoftAuthModalProps> = ({
       <div className="flex flex-col items-center px-8 py-6">
         {isLoading || !deviceCodeInfo ? (
           <div className="flex flex-col items-center justify-center py-10">
-            <Loader2 size={40} className="mb-4 animate-spin text-ore-green" />
+            <ColorChangingSpinner />
             <p className="font-minecraft text-white text-[1.1rem]">{t('settings.account.microsoft.requesting')}</p>
           </div>
         ) : (
@@ -107,7 +171,12 @@ export const MicrosoftAuthModal: React.FC<MicrosoftAuthModalProps> = ({
             </p>
 
             {qrDataUrl && (
-              <div className="group relative mb-5 border-4 border-[#141415] bg-white p-2 shadow-[0_0_20px_rgba(255,255,255,0.05)] rounded-sm">
+              <motion.div
+                initial={{ scale: 0.82, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                className="group relative mb-5 border-4 border-[#141415] bg-white p-2 shadow-[0_0_20px_rgba(255,255,255,0.05)] rounded-sm"
+              >
                 <div className="absolute -right-3 -top-3 rounded-full bg-ore-green p-1.5 text-black shadow-lg">
                   <SmartphoneNfc size={18} />
                 </div>
@@ -116,18 +185,34 @@ export const MicrosoftAuthModal: React.FC<MicrosoftAuthModalProps> = ({
                   alt="Microsoft Login QR Code"
                   className="h-36 w-36 md:h-40 md:w-40"
                   style={{ imageRendering: 'pixelated' }}
+                  draggable={false}
                 />
-              </div>
+              </motion.div>
             )}
 
-            <div className="relative mb-6 flex w-full max-w-[18.75rem] flex-col items-center border-[2px] border-[#2A2A2C] bg-[#141415] px-8 py-3 shadow-inner">
+            {/* 代码展示区：暗度呼吸闪烁 (Ambient Glow Pulse) */}
+            <motion.div
+              animate={{
+                boxShadow: [
+                  'inset 0 0 10px rgba(0,0,0,0.85), 0 0 8px rgba(108,195,73,0.12)',
+                  'inset 0 0 10px rgba(0,0,0,0.85), 0 0 22px rgba(108,195,73,0.42)',
+                  'inset 0 0 10px rgba(0,0,0,0.85), 0 0 8px rgba(108,195,73,0.12)'
+                ]
+              }}
+              transition={{
+                duration: 2.8,
+                repeat: Infinity,
+                ease: 'easeInOut'
+              }}
+              className="relative mb-6 flex w-full max-w-[18.75rem] flex-col items-center border-[2px] border-[#2A2A2C] bg-[#141415] px-8 py-3 shadow-inner"
+            >
               <span className="absolute -top-3.5 whitespace-nowrap bg-[#1E1E1F] px-2 text-center text-[1.05rem] font-minecraft text-ore-text-muted">
                 {t('settings.account.microsoft.codeLabel')}
               </span>
               <span className="mt-1 select-all font-minecraft text-3xl tracking-widest text-white">
                 {deviceCodeInfo.user_code}
               </span>
-            </div>
+            </motion.div>
 
             <div className="flex w-full gap-3">
               <OreButton
@@ -148,8 +233,9 @@ export const MicrosoftAuthModal: React.FC<MicrosoftAuthModalProps> = ({
               </OreButton>
             </div>
 
-            <div className={`mt-5 flex items-center text-[1.1rem] font-minecraft ${loginStatusMsg.includes(t('settings.account.microsoft.failedMarker')) ? 'text-red-400' : 'text-ore-text-muted'}`}>
-              {!loginStatusMsg.includes(t('settings.account.microsoft.failedMarker')) && <Loader2 size={16} className="mr-2 animate-spin" />}
+            {/* 底部状态指示区 */}
+            <div className={`mt-5 flex items-center whitespace-nowrap text-[1.1rem] font-minecraft ${loginStatusMsg.includes(t('settings.account.microsoft.failedMarker')) ? 'text-red-400' : 'text-ore-text-muted'}`}>
+              {!loginStatusMsg.includes(t('settings.account.microsoft.failedMarker')) && <ColorChangingSpinnerSmall />}
               {loginStatusMsg}
             </div>
           </>
