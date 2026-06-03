@@ -1,6 +1,6 @@
 // src/features/Settings/components/tabs/AS/DonorSkinModal.tsx
 import React, { useEffect, useRef } from 'react';
-import { SkinViewer, IdleAnimation } from 'skinview3d';
+import { SkinEngine } from '../../../../home/engine/SkinEngine';
 import * as THREE from 'three';
 import { OreModal } from '../../../../../ui/primitives/OreModal';
 import { Crown } from 'lucide-react';
@@ -69,38 +69,64 @@ function createBlockyCrown(): THREE.Group {
 }
 
 export const DonorSkinModal: React.FC<DonorSkinModalProps> = ({ isOpen, onClose, donor }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const viewerRef = useRef<SkinViewer | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen || !donor || !canvasRef.current) return;
+    if (!isOpen || !donor || !containerRef.current) return;
 
-    const viewer = new SkinViewer({
-      canvas: canvasRef.current,
-      width: 280,
-      height: 400,
-      skin: `https://minotar.net/skin/${donor.mcUuid}`,
+    const engine = SkinEngine.getOrCreate({ enableRandomIdle: true, targetFps: 60, idleFps: 30 });
+    const container = containerRef.current;
+
+    // Set engine canvas sizes and mount to container
+    engine.setSize(280, 400);
+    container.appendChild(engine.canvas);
+
+    // Load donor skin
+    const skinUrl = `https://minotar.net/skin/${donor.mcUuid}.png`;
+    void engine.loadSkin(`donor-${donor.mcUuid}`, skinUrl, 'classic').then(() => {
+      // Add crown to the head if gold tier
+      const amount = donor.amount || 0;
+      if (amount >= 100 && engine.raw.playerWrapper) {
+        const headNode = engine.raw.playerWrapper.getObjectByName('Head');
+        if (headNode) {
+          // Remove old crown if any
+          const oldCrown = headNode.getObjectByName('donor-crown');
+          if (oldCrown) headNode.remove(oldCrown);
+
+          const crown = createBlockyCrown();
+          crown.scale.setScalar(0.0625); // Scale down 1/16 to match GLTF head scale
+          crown.position.y = 0.25;      // Translate pivot from center to neck
+          headNode.add(crown);
+        }
+      }
     });
 
-    viewer.animation = new IdleAnimation();
-    viewer.autoRotate = true;
-    viewer.autoRotateSpeed = 0.8;
-    viewer.controls.enableZoom = false;
-    viewer.zoom = 0.9;
-    viewer.fov = 50;
+    engine.startRenderLoop();
 
-    // 为金色赞助者添加皇冠
-    const amount = donor.amount || 0;
-    if (amount >= 100) {
-      const crown = createBlockyCrown();
-      viewer.playerObject.skin.head.add(crown as any);
+    // Auto rotate using playerWrapper
+    let rotateTimerId: ReturnType<typeof setInterval>;
+    if (engine.raw.playerWrapper) {
+      rotateTimerId = setInterval(() => {
+        if (!engine.isUserRotating) {
+          engine.raw.playerWrapper.rotation.y += 0.015;
+        }
+      }, 16);
     }
 
-    viewerRef.current = viewer;
-
     return () => {
-      viewer.dispose();
-      viewerRef.current = null;
+      if (rotateTimerId) clearInterval(rotateTimerId);
+      engine.stopRenderLoop();
+      if (container.contains(engine.canvas)) {
+        container.removeChild(engine.canvas);
+      }
+      // Remove crown from head
+      if (engine.raw.playerWrapper) {
+        const headNode = engine.raw.playerWrapper.getObjectByName('Head');
+        if (headNode) {
+          const oldCrown = headNode.getObjectByName('donor-crown');
+          if (oldCrown) headNode.remove(oldCrown);
+        }
+      }
     };
   }, [isOpen, donor]);
 
@@ -120,15 +146,14 @@ export const DonorSkinModal: React.FC<DonorSkinModalProps> = ({ isOpen, onClose,
       <div className="flex flex-col items-center gap-4 py-2">
         {/* 3D 皮肤查看器 */}
         <div
-          className={`relative rounded-lg overflow-hidden cursor-grab active:cursor-grabbing ${
+          ref={containerRef}
+          className={`relative rounded-lg overflow-hidden cursor-grab active:cursor-grabbing w-[280px] h-[400px] ${
             isGold
               ? 'ring-2 ring-[#FFD700]/60 shadow-[0_0_24px_rgba(255,215,0,0.25)]'
               : 'ring-1 ring-white/10'
           }`}
           style={{ background: 'radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%)' }}
-        >
-          <canvas ref={canvasRef} className="block" />
-        </div>
+        />
 
         {/* Tier 标识 */}
         {isGold && (

@@ -29,9 +29,10 @@ interface OreAssetRowProps {
 const renderMetaBadge = (item: React.ReactNode, index: number) => (
   <span
     key={index}
-    className="border-[2px] px-2 py-0.5 text-[#111111]"
+    className="border-[2px] px-2 py-0.5"
     style={{
-      backgroundColor: index === 0 ? 'rgba(255, 255, 255, 0.52)' : 'rgba(255, 255, 255, 0.44)',
+      color: 'var(--ore-downloadDetail-badgeText)',
+      backgroundColor: index === 0 ? 'var(--ore-downloadDetail-badgeBg0)' : 'var(--ore-downloadDetail-badgeBg1)',
       borderColor: 'var(--ore-downloadDetail-divider)'
     }}
   >
@@ -123,14 +124,20 @@ export const OreAssetRow: React.FC<OreAssetRowProps> = ({
 
         <div className="flex min-w-0 flex-1 flex-col justify-center pr-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`truncate font-minecraft text-[17px] font-bold leading-5 ${isRowActive ? 'text-black' : 'text-[#1E1E1F]'} ${titleClassName}`}>
+            <span
+              className={`truncate font-minecraft text-[17px] font-bold leading-5 ${titleClassName}`}
+              style={{ color: 'var(--ore-downloadDetail-rowText)' }}
+            >
               {title}
             </span>
             {badges}
           </div>
 
           {description && (
-            <div className={`mt-1 truncate text-[13px] leading-snug text-[#2A2A2C] ${descriptionClassName}`}>
+            <div
+              className={`mt-1 truncate text-[13px] leading-snug ${descriptionClassName}`}
+              style={{ color: 'var(--ore-downloadDetail-rowMutedText)' }}
+            >
               {description}
             </div>
           )}

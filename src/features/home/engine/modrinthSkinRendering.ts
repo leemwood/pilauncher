@@ -73,6 +73,8 @@ export function applyPlayerTexture(model: THREE.Object3D, texture: THREE.Texture
     const mesh = child as THREE.Mesh;
     if (!mesh.isMesh) return;
 
+    const isSkinLayer = mesh.name.endsWith('_Layer');
+
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const material of materials) {
       if (!(material instanceof THREE.MeshStandardMaterial) || material.name === 'cape') continue;
@@ -89,6 +91,9 @@ export function applyPlayerTexture(model: THREE.Object3D, texture: THREE.Texture
       material.side = THREE.DoubleSide;
       material.alphaTest = ALPHA_TEST_THRESHOLD;
       material.alphaToCoverage = true;
+      material.polygonOffset = isSkinLayer;
+      material.polygonOffsetFactor = isSkinLayer ? -1 : 0;
+      material.polygonOffsetUnits = isSkinLayer ? -1 : 0;
       material.needsUpdate = true;
     }
   });
@@ -131,10 +136,28 @@ export function cloneModelScene(scene: THREE.Object3D): THREE.Object3D {
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh || !mesh.material) return;
 
+    const isSkinLayer = mesh.name.endsWith('_Layer');
+
     mesh.geometry = mesh.geometry.clone();
     mesh.material = Array.isArray(mesh.material)
-      ? mesh.material.map((material) => material.clone())
-      : mesh.material.clone();
+      ? mesh.material.map((material) => {
+          const clonedMat = material.clone();
+          if (clonedMat instanceof THREE.MeshStandardMaterial) {
+            clonedMat.polygonOffset = isSkinLayer;
+            clonedMat.polygonOffsetFactor = isSkinLayer ? -1 : 0;
+            clonedMat.polygonOffsetUnits = isSkinLayer ? -1 : 0;
+          }
+          return clonedMat;
+        })
+      : (() => {
+          const clonedMat = mesh.material.clone();
+          if (clonedMat instanceof THREE.MeshStandardMaterial) {
+            clonedMat.polygonOffset = isSkinLayer;
+            clonedMat.polygonOffsetFactor = isSkinLayer ? -1 : 0;
+            clonedMat.polygonOffsetUnits = isSkinLayer ? -1 : 0;
+          }
+          return clonedMat;
+        })();
   });
   return clone;
 }
@@ -152,3 +175,78 @@ export function disposeObjectTree(root: THREE.Object3D): void {
     }
   });
 }
+
+interface WebGLShader {
+  uniforms: { [uniform: string]: any };
+  vertexShader: string;
+  fragmentShader: string;
+}
+
+type DamageFlashMaterial = THREE.MeshStandardMaterial & {
+  userData: THREE.MeshStandardMaterial['userData'] & {
+    damageFlashShader?: WebGLShader;
+    damageFlashShaderInstalled?: boolean;
+  };
+};
+
+const DAMAGE_FLASH_COLOR = new THREE.Color(0xbd2f2f);
+const DAMAGE_FLASH_SHADER_KEY = 'skin-preview-damage-flash';
+
+function installDamageFlashShader(material: THREE.MeshStandardMaterial, intensity: number) {
+  const damageMaterial = material as DamageFlashMaterial;
+
+  if (damageMaterial.userData.damageFlashShaderInstalled) {
+    return;
+  }
+
+  const previousOnBeforeCompile = material.onBeforeCompile.bind(material);
+  const previousCustomProgramCacheKey = material.customProgramCacheKey.bind(material);
+
+  material.onBeforeCompile = (shader, renderer) => {
+    previousOnBeforeCompile(shader, renderer);
+
+    shader.uniforms.uDamageFlashIntensity = { value: intensity };
+    shader.uniforms.uDamageFlashColor = { value: DAMAGE_FLASH_COLOR };
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      '#include <common>\nuniform float uDamageFlashIntensity;\nuniform vec3 uDamageFlashColor;',
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      'gl_FragColor.rgb = mix(gl_FragColor.rgb, uDamageFlashColor, uDamageFlashIntensity * gl_FragColor.a);\n#include <dithering_fragment>',
+    );
+
+    damageMaterial.userData.damageFlashShader = shader;
+  };
+
+  material.customProgramCacheKey = () =>
+    `${previousCustomProgramCacheKey()}|${DAMAGE_FLASH_SHADER_KEY}`;
+  damageMaterial.userData.damageFlashShaderInstalled = true;
+  material.needsUpdate = true;
+}
+
+function syncDamageFlashMaterial(material: THREE.MeshStandardMaterial, intensity: number) {
+  installDamageFlashShader(material, intensity);
+
+  const shader = (material as DamageFlashMaterial).userData.damageFlashShader;
+  if (shader) {
+    shader.uniforms.uDamageFlashIntensity.value = intensity;
+  }
+}
+
+export function syncDamageFlashShader(scene: THREE.Object3D | null, intensity: number) {
+  if (!scene) return;
+
+  scene.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    materials.forEach((material) => {
+      if (!(material instanceof THREE.MeshStandardMaterial) || material.name === 'cape') return;
+
+      syncDamageFlashMaterial(material, intensity);
+    });
+  });
+}
+

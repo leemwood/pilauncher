@@ -110,6 +110,9 @@ html, body {
     --ore-downloadDetail-idleAccent: #1E1E1F;
     --ore-downloadDetail-installedAccent: #3C8527;
     --ore-downloadDetail-chipShadow: inset 0 -2px 0 #2E2E2E;
+    --ore-downloadDetail-badgeBg0: rgba(0, 0, 0, 0.25);
+    --ore-downloadDetail-badgeBg1: rgba(0, 0, 0, 0.18);
+    --ore-downloadDetail-badgeText: #C6C8CB;
   }
 }
 
@@ -148,5 +151,8 @@ html, body {
   --ore-downloadDetail-idleAccent: #1E1E1F;
   --ore-downloadDetail-installedAccent: #3C8527;
   --ore-downloadDetail-chipShadow: inset 0 -2px 0 #2E2E2E;
+  --ore-downloadDetail-badgeBg0: rgba(0, 0, 0, 0.25);
+  --ore-downloadDetail-badgeBg1: rgba(0, 0, 0, 0.18);
+  --ore-downloadDetail-badgeText: #C6C8CB;
 }
 

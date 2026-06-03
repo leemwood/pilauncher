@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { Loader2, AlertTriangle, Search, Keyboard, RotateCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertTriangle, Search, Keyboard, RotateCw, CheckCircle2, Settings, Save, Download, Upload, Trash2 } from 'lucide-react';
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 
 import { SettingsSection } from '../../../../ui/layout/SettingsSection';
 import { OreButton } from '../../../../ui/primitives/OreButton';
@@ -9,6 +10,8 @@ import { OreModal } from '../../../../ui/primitives/OreModal';
 import { FocusItem } from '../../../../ui/focus/FocusItem';
 import { OreOverlayScrollArea } from '../../../../ui/primitives/OreOverlayScrollArea';
 import { useToastStore } from '../../../../store/useToastStore';
+import { OreConfirmDialog } from '../../../../ui/primitives/OreConfirmDialog';
+import { OreToggleButton } from '../../../../ui/primitives/OreToggleButton';
 
 // @ts-ignore
 import keyboardLayoutJson from '../../../../assets/keyboard/keyboard-layout.json';
@@ -210,6 +213,21 @@ interface KeyBind {
   key: string;
 }
 
+interface KeyboardProfile {
+  name: string;
+  author: string;
+  createdAt: string;
+  updatedAt: string;
+  description: string;
+  version: string;
+  keybindings: KeyBind[];
+}
+
+interface KeyboardProfileListItem {
+  filename: string;
+  profile: KeyboardProfile;
+}
+
 interface KeymapSectionProps {
   instanceId: string;
 }
@@ -281,6 +299,40 @@ export const KeymapSection: React.FC<KeymapSectionProps> = ({ instanceId }) => {
 
   // Selected Key Filter State
   const [selectedKeyFilter, setSelectedKeyFilter] = useState<string | null>(null);
+
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [presetProfiles, setPresetProfiles] = useState<KeyboardProfileListItem[]>([]);
+  const [userProfiles, setUserProfiles] = useState<KeyboardProfileListItem[]>([]);
+
+  const [hasBackup, setHasBackup] = useState(false);
+  const [isConfirmApplyOpen, setIsConfirmApplyOpen] = useState(false);
+  const [pendingProfileToApply, setPendingProfileToApply] = useState<KeyboardProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<'apply' | 'manage'>('apply');
+
+  const checkBackupStatus = async () => {
+    try {
+      const exists = await invoke<boolean>('has_options_backup', { instanceId });
+      setHasBackup(exists);
+    } catch (err) {
+      console.error('检查备份状态失败:', err);
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    setSaving(true);
+    try {
+      await invoke('restore_instance_options_backup', { instanceId });
+      addToast('success', '已成功恢复最初备份的按键配置！', 3000);
+      void loadKeybindings();
+      setIsConfigModalOpen(false);
+    } catch (err) {
+      console.error('恢复备份失败:', err);
+      addToast('error', '恢复备份失败，请检查文件是否损坏', 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   interface KeyboardLocData {
     metadata: {
@@ -583,8 +635,10 @@ export const KeymapSection: React.FC<KeymapSectionProps> = ({ instanceId }) => {
   const handleResetToDefault = async () => {
     setSaving(true);
     try {
+      await invoke('backup_instance_options_file', { instanceId });
+      await checkBackupStatus();
       await invoke('initialize_default_keybindings', { instanceId });
-      addToast('success', t('instanceDetail.game.successInit', '默认按键已恢复为默认设置'), 2400);
+      addToast('success', t('instanceDetail.game.successInit', '默认按键已恢复为默认设置，原 options.txt 已备份！'), 2400);
       void loadKeybindings();
     } catch (err) {
       console.error('恢复默认按键配置失败:', err);
@@ -738,6 +792,134 @@ export const KeymapSection: React.FC<KeymapSectionProps> = ({ instanceId }) => {
     }
   };
 
+  const loadProfiles = async () => {
+    try {
+      const presets = await invoke<KeyboardProfileListItem[]>('list_presets');
+      const users = await invoke<KeyboardProfileListItem[]>('list_user_profiles');
+      setPresetProfiles(presets);
+      setUserProfiles(users);
+    } catch (err) {
+      console.error('加载按键配置模板失败:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isConfigModalOpen) {
+      void loadProfiles();
+      void checkBackupStatus();
+    }
+  }, [isConfigModalOpen]);
+
+  const handleSaveCurrentAsProfile = async () => {
+    const name = newProfileName.trim() || `配置_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_${Math.floor(100 + Math.random() * 900)}`;
+    const filename = name;
+    const profile: KeyboardProfile = {
+      name,
+      author: '用户',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      description: '用户自定义备份的按键配置。',
+      version: '1.0.0',
+      keybindings: [...keybindings],
+    };
+
+    setSaving(true);
+    try {
+      await invoke('save_user_profile', { filename, profile });
+      setNewProfileName('');
+      addToast('success', `配置模板 "${name}" 保存成功！`, 2400);
+      await loadProfiles();
+    } catch (err) {
+      console.error('保存配置模板失败:', err);
+      addToast('error', '保存配置模板失败', 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApplyProfile = async (profile: KeyboardProfile) => {
+    setSaving(true);
+    try {
+      await invoke('backup_instance_options_file', { instanceId });
+      await checkBackupStatus();
+      await invoke('save_instance_keybindings', { instanceId, keybindings: profile.keybindings });
+      setKeybindings(profile.keybindings);
+      addToast('success', `成功应用配置模板 "${profile.name}"，原 options.txt 已备份！`, 3000);
+      setIsConfigModalOpen(false);
+    } catch (err) {
+      console.error('应用配置模板失败:', err);
+      addToast('error', '应用配置模板失败，请检查配置文件是否可写入', 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async (filename: string) => {
+    try {
+      await invoke('delete_user_profile', { filename });
+      addToast('success', '已删除该配置模板', 2000);
+      await loadProfiles();
+    } catch (err) {
+      console.error('删除配置模板失败:', err);
+      addToast('error', '删除配置模板失败', 3000);
+    }
+  };
+
+  const handleExportProfileToFile = async (profile: KeyboardProfile) => {
+    try {
+      const path = await saveDialog({
+        defaultPath: `${profile.name}.json`,
+        filters: [{ name: 'PiLauncher Keymap Profile', extensions: ['json'] }]
+      });
+      if (!path) return;
+
+      await invoke('write_keybindings_file', { path, keybindings: profile.keybindings });
+      addToast('success', `成功导出配置文件到: ${path}`, 3000);
+    } catch (err) {
+      console.error('导出配置文件失败:', err);
+      addToast('error', '导出配置文件失败', 3000);
+    }
+  };
+
+  const handleImportProfileFromFile = async () => {
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        filters: [
+          { name: '按键配置文件', extensions: ['json', 'txt'] }
+        ]
+      });
+      const path = Array.isArray(selected) ? selected[0] : selected;
+      if (!path) return;
+
+      const importedBinds = await invoke<KeyBind[]>('read_keybindings_file', { path });
+      if (!importedBinds || importedBinds.length === 0) {
+        addToast('error', '文件中没有包含有效的按键绑定项', 3000);
+        return;
+      }
+
+      const filename = path.split(/[/\\]/).pop() || '未命名导入配置';
+      const name = filename.replace(/\.(json|txt)$/i, '');
+
+      const profile: KeyboardProfile = {
+        name: `导入-${name}`,
+        author: '外部导入',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        description: `从文件 ${filename} 导入的按键配置。`,
+        version: '1.0.0',
+        keybindings: importedBinds,
+      };
+
+      await invoke('save_user_profile', { filename: `import-${name}`, profile });
+      addToast('success', `成功导入配置模板: ${name}`, 2400);
+      await loadProfiles();
+    } catch (err) {
+      console.error('导入配置文件失败:', err);
+      addToast('error', `导入失败: ${err}`, 3000);
+    }
+  };
+
   if (loading) {
     return (
       <SettingsSection title={t('instanceDetail.game.keymapTitle', '按键布局管理')} icon={<Keyboard size="1.125rem" />}>
@@ -773,47 +955,6 @@ export const KeymapSection: React.FC<KeymapSectionProps> = ({ instanceId }) => {
   return (
     <SettingsSection title={t('instanceDetail.game.keymapTitle', '按键布局管理')} icon={<Keyboard size="1.125rem" />}>
       <div className="flex flex-col w-full font-minecraft relative px-[1.5rem] py-[1.25rem]">
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-[0.75rem] mb-[1.25rem]">
-          <div className="flex items-center gap-[0.75rem] flex-1 min-w-[20rem]">
-            <div className="relative flex-1">
-              <Search size="1.125rem" className="absolute left-[0.75rem] top-1/2 -translate-y-1/2 text-ore-text-muted pointer-events-none" />
-              <input
-                type="text"
-                placeholder={t('instanceDetail.game.searchPlaceholder', '搜索按键名称、键名或描述...')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#141415] border-[0.125rem] border-ore-gray-border hover:border-white/50 focus:border-ore-green pl-[2.5rem] pr-[1rem] py-[0.5rem] text-[1.125rem] text-white outline-none rounded-[2px] transition-all"
-              />
-            </div>
-            
-            {selectedKeyFilter && (
-              <div className="flex items-center gap-[0.375rem] bg-[#23301F] border border-ore-green/30 px-[0.75rem] py-[0.5rem] rounded-[2px] shrink-0 animate-fade-in">
-                <span className="text-[1.0625rem] text-[#8e8e93]">筛选:</span>
-                <span className="text-[1.0625rem] font-bold text-ore-green">{getFriendlyKeyName(selectedKeyFilter)}</span>
-                <button
-                  onClick={() => setSelectedKeyFilter(null)}
-                  className="text-[0.9375rem] text-[#8e8e93] hover:text-white ml-[0.375rem] focus:outline-none transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-[0.75rem]">
-            <OreButton
-              focusKey="keybind-btn-reset"
-              variant="secondary"
-              onClick={handleResetToDefault}
-              disabled={saving}
-              className="flex items-center gap-[0.375rem]"
-            >
-              <RotateCw size="1rem" className={saving ? 'animate-spin' : ''} />
-              <span className="text-[1.0625rem]">{t('instanceDetail.game.resetBtn', '恢复默认按键')}</span>
-            </OreButton>
-          </div>
-        </div>
 
         {/* Keyboard Layout Preview */}
         <div className="keyboard-preview-container w-full border-[0.125rem] border-ore-gray-border bg-[#141415] rounded-[2px] p-[0.75rem] mb-[1.25rem] relative z-30 select-none">
@@ -963,6 +1104,47 @@ export const KeymapSection: React.FC<KeymapSectionProps> = ({ instanceId }) => {
           {renderTooltip()}
         </div>
 
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-[0.75rem] mb-[1.25rem]">
+          <div className="flex items-center gap-[0.75rem] flex-1 min-w-[20rem]">
+            <div className="relative flex-1">
+              <Search size="1.125rem" className="absolute left-[0.75rem] top-1/2 -translate-y-1/2 text-ore-text-muted pointer-events-none" />
+              <input
+                type="text"
+                placeholder={t('instanceDetail.game.searchPlaceholder', '搜索按键名称、键名或描述...')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#141415] border-[0.125rem] border-ore-gray-border hover:border-white/50 focus:border-ore-green pl-[2.5rem] pr-[1rem] py-[0.5rem] text-[1.125rem] text-white outline-none rounded-[2px] transition-all"
+              />
+            </div>
+            
+            {selectedKeyFilter && (
+              <div className="flex items-center gap-[0.375rem] bg-[#23301F] border border-ore-green/30 px-[0.75rem] py-[0.5rem] rounded-[2px] shrink-0 animate-fade-in">
+                <span className="text-[1.0625rem] text-[#8e8e93]">筛选:</span>
+                <span className="text-[1.0625rem] font-bold text-ore-green">{getFriendlyKeyName(selectedKeyFilter)}</span>
+                <button
+                  onClick={() => setSelectedKeyFilter(null)}
+                  className="text-[0.9375rem] text-[#8e8e93] hover:text-white ml-[0.375rem] focus:outline-none transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-[0.75rem]">
+            <OreButton
+              focusKey="keybind-btn-config-open"
+              variant="secondary"
+              onClick={() => setIsConfigModalOpen(true)}
+              className="flex items-center gap-[0.375rem]"
+            >
+              <Settings size="1rem" />
+              <span className="text-[1.0625rem]">按钮配置</span>
+            </OreButton>
+          </div>
+        </div>
+
         {/* Bindings Table */}
         <div className="border-[0.125rem] border-ore-gray-border bg-[#141415] rounded-[2px] overflow-hidden flex flex-col h-[30rem]">
           {/* Table Header with Sorting */}
@@ -1058,43 +1240,47 @@ export const KeymapSection: React.FC<KeymapSectionProps> = ({ instanceId }) => {
           isOpen={true}
           onClose={() => setEditingBind(null)}
           title={t('instanceDetail.game.editBtn', '更改按键绑定')}
-          className="w-[min(26rem,94vw)] z-[9999]"
+          className="w-[min(29rem,94vw)] z-[9999]"
           contentClassName="p-[1.5rem] text-center font-minecraft"
           actions={
-            <div className="flex w-full flex-col gap-[0.75rem] px-[0.5rem] pb-[0.25rem]">
-              <div className="grid grid-cols-3 gap-[0.75rem]">
+            <div className="flex w-full flex-col gap-[0.75rem] px-[0.25rem] pb-[0.25rem]">
+              <div className="grid grid-cols-3 gap-[0.625rem]">
                 <OreButton
                   focusKey="mouse-btn-left"
                   variant="secondary"
+                  size="full"
                   onClick={() => bindMouse('key.mouse.left')}
-                  className="w-full py-[0.625rem]"
+                  className="!min-w-0 px-[0.5rem] py-[0.5rem]"
                 >
-                  <span className="text-[1.0625rem]">{t('instanceDetail.game.mouseLeft', '鼠标左键')}</span>
+                  <span className="text-[1rem] truncate">{t('instanceDetail.game.mouseLeft', '鼠标左键')}</span>
                 </OreButton>
                 <OreButton
                   focusKey="mouse-btn-right"
                   variant="secondary"
+                  size="full"
                   onClick={() => bindMouse('key.mouse.right')}
-                  className="w-full py-[0.625rem]"
+                  className="!min-w-0 px-[0.5rem] py-[0.5rem]"
                 >
-                  <span className="text-[1.0625rem]">{t('instanceDetail.game.mouseRight', '鼠标右键')}</span>
+                  <span className="text-[1rem] truncate">{t('instanceDetail.game.mouseRight', '鼠标右键')}</span>
                 </OreButton>
                 <OreButton
                   focusKey="mouse-btn-middle"
                   variant="secondary"
+                  size="full"
                   onClick={() => bindMouse('key.mouse.middle')}
-                  className="w-full py-[0.625rem]"
+                  className="!min-w-0 px-[0.5rem] py-[0.5rem]"
                 >
-                  <span className="text-[1.0625rem]">{t('instanceDetail.game.mouseMiddle', '鼠标中键')}</span>
+                  <span className="text-[1rem] truncate">{t('instanceDetail.game.mouseMiddle', '鼠标中键')}</span>
                 </OreButton>
               </div>
               <OreButton
                 focusKey="edit-btn-cancel"
                 variant="primary"
+                size="full"
                 onClick={() => setEditingBind(null)}
-                className="w-full py-[0.625rem]"
+                className="mt-[0.25rem]"
               >
-                <span className="text-[1.125rem]">{t('common.cancel', '取消')}</span>
+                <span className="text-[1.0625rem]">{t('common.cancel', '取消')}</span>
               </OreButton>
             </div>
           }
@@ -1113,6 +1299,302 @@ export const KeymapSection: React.FC<KeymapSectionProps> = ({ instanceId }) => {
           </div>
         </OreModal>
       )}
+
+      {/* Configuration Management Modal */}
+      {isConfigModalOpen && (
+        <OreModal
+          isOpen={true}
+          onClose={() => setIsConfigModalOpen(false)}
+          title="按钮配置管理"
+          className="w-[min(42rem,96vw)] z-[9999]"
+          contentClassName="p-[1.5rem] text-center font-minecraft"
+          actions={
+            <OreButton
+              focusKey="btn-close-config-modal"
+              variant="primary"
+              size="full"
+              onClick={() => setIsConfigModalOpen(false)}
+              className="w-full flex items-center justify-center"
+            >
+              <span className="text-[1.0625rem]">返回主界面</span>
+            </OreButton>
+          }
+        >
+          <div className="flex flex-col gap-[1.25rem] text-left font-minecraft">
+            {/* Toggle Button for Tabs */}
+            <OreToggleButton
+              options={[
+                { label: '应用配置', value: 'apply' },
+                { label: '管理配置', value: 'manage' },
+              ]}
+              value={activeTab}
+              onChange={(val) => setActiveTab(val as 'apply' | 'manage')}
+              size="md"
+              focusKeyPrefix="btn-config-tab"
+              className="w-full"
+            />
+
+            <div className="h-[22rem] min-h-[22rem] flex flex-col">
+              {activeTab === 'apply' ? (
+                /* Tab 1: Apply Configurations List */
+                <div className="border-[0.125rem] border-ore-gray-border bg-[#141415] rounded-[2px] overflow-hidden flex flex-col h-full">
+                  <div className="grid grid-cols-[2fr_1.2fr] bg-[#1E1E1F] border-b-[0.125rem] border-ore-gray-border px-[1rem] py-[0.625rem] text-[1.0625rem] uppercase tracking-[0.08em] text-ore-text-muted font-bold">
+                    <span>按键配置模板</span>
+                    <span className="text-right">操作</span>
+                  </div>
+
+                  <OreOverlayScrollArea className="flex-1 min-h-[14rem]" contentClassName="divide-y-[0.125rem] divide-ore-gray-border/40">
+                    {/* 1. Community Presets */}
+                    <div className="bg-black/10 px-[1rem] py-[0.5rem] text-[0.875rem] text-ore-green font-bold uppercase tracking-wider select-none">
+                      社区推荐配置
+                    </div>
+                    {presetProfiles.length === 0 ? (
+                      <div className="text-center py-[1.5rem] text-ore-text-muted text-[0.9375rem] font-bold">
+                        暂无推荐预设
+                      </div>
+                    ) : (
+                      presetProfiles.map((item) => {
+                        const preset = item.profile;
+                        return (
+                          <div key={item.filename} className="grid grid-cols-[2fr_1.2fr] items-center px-[1rem] py-[0.75rem] hover:bg-white/5 transition-colors">
+                            <div className="flex flex-col min-w-0 pr-[1rem]">
+                              <span className="text-[1.0625rem] font-bold text-white truncate">{preset.name}</span>
+                              <span className="text-[0.875rem] text-ore-text-muted truncate mt-[0.125rem]">
+                                {preset.description || `版本 ${preset.version} • 由 ${preset.author} 创建`}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-end gap-[0.5rem]">
+                              <OreButton
+                                focusKey={`apply-preset-${item.filename}`}
+                                variant="secondary"
+                                size="auto"
+                                onClick={() => {
+                                  setPendingProfileToApply(preset);
+                                  setIsConfirmApplyOpen(true);
+                                }}
+                              >
+                                <span className="text-[0.9375rem]">使用配置</span>
+                              </OreButton>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+
+                    {/* 2. Local Saved Profiles */}
+                    <div className="bg-black/10 px-[1rem] py-[0.5rem] text-[0.875rem] text-[#8e8e93] font-bold uppercase tracking-wider select-none">
+                      本地备份的配置
+                    </div>
+                    {userProfiles.length === 0 ? (
+                      <div className="text-center py-[2.5rem] text-ore-text-muted text-[1rem] font-bold">
+                        暂无本地保存的配置模板
+                      </div>
+                    ) : (
+                      userProfiles.map((item) => {
+                        const profile = item.profile;
+                        return (
+                          <div key={item.filename} className="grid grid-cols-[2fr_1.2fr] items-center px-[1rem] py-[0.75rem] hover:bg-white/5 transition-colors">
+                            <div className="flex flex-col min-w-0 pr-[1rem]">
+                              <span className="text-[1.0625rem] font-bold text-white truncate">{profile.name}</span>
+                              <span className="text-[0.875rem] text-ore-text-muted truncate mt-[0.125rem]">
+                                更新于: {new Date(profile.updatedAt).toLocaleString()} • {profile.keybindings.length} 项绑定
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-end gap-[0.5rem]">
+                              <OreButton
+                                focusKey={`apply-local-${item.filename}`}
+                                variant="secondary"
+                                size="auto"
+                                onClick={() => {
+                                  setPendingProfileToApply(profile);
+                                  setIsConfirmApplyOpen(true);
+                                }}
+                              >
+                                <span className="text-[0.9375rem]">应用</span>
+                              </OreButton>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </OreOverlayScrollArea>
+                </div>
+              ) : (
+                /* Tab 2: Configurations Management Section */
+                <div className="flex flex-col gap-[1.25rem] h-full overflow-y-auto pr-[0.25rem] custom-scrollbar">
+                  {/* 1. Save Current Configuration */}
+                  <div className="border-[0.125rem] border-ore-gray-border bg-black/20 p-[1.125rem] rounded-[2px] flex flex-col gap-[0.75rem] hover:bg-black/35 transition-colors">
+                    <div className="text-[1.125rem] font-bold text-white flex items-center gap-[0.5rem]">
+                      <Save size="1.125rem" className="text-ore-green" />
+                      <span>保存当前按键配置</span>
+                    </div>
+                    <p className="text-[0.9375rem] text-[#8e8e93] leading-relaxed">
+                      将当前运行实例 of 按键映射保存为本地模板，方便一键应用或导出为备份文件。
+                    </p>
+                    <div className="flex gap-[0.75rem] items-center mt-[0.25rem]">
+                      <input
+                        type="text"
+                        placeholder="输入配置模板名称..."
+                        value={newProfileName}
+                        onChange={(e) => setNewProfileName(e.target.value)}
+                        className="flex-1 bg-[#141415] border-[0.125rem] border-ore-gray-border hover:border-white/50 focus:border-ore-green px-[0.75rem] py-[0.5rem] text-[1.0625rem] text-white outline-none rounded-[2px] transition-all"
+                      />
+                      <OreButton
+                        focusKey="btn-save-current-profile"
+                        variant="primary"
+                        size="auto"
+                        onClick={handleSaveCurrentAsProfile}
+                      >
+                        <span className="text-[1.0625rem]">保存模板</span>
+                      </OreButton>
+                    </div>
+                  </div>
+
+                  {/* 2. Import & Recovery Actions Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-[1rem]">
+                    {/* Import Card */}
+                    <div className="border-[0.125rem] border-ore-gray-border bg-black/20 p-[1.125rem] rounded-[2px] flex flex-col justify-between gap-[0.75rem] hover:bg-black/35 transition-colors">
+                      <div className="flex flex-col gap-[0.5rem]">
+                        <div className="text-[1.125rem] font-bold text-white flex items-center gap-[0.5rem]">
+                          <Download size="1.125rem" className="text-ore-green" />
+                          <span>导入外部配置</span>
+                        </div>
+                        <p className="text-[0.9375rem] text-ore-text-muted leading-relaxed">
+                          支持从外部 options.txt 或 JSON 文件导入。
+                        </p>
+                      </div>
+                      <OreButton
+                        focusKey="btn-import-profile-file-tab2"
+                        variant="secondary"
+                        size="full"
+                        onClick={handleImportProfileFromFile}
+                        className="mt-[0.5rem] flex items-center gap-[0.5rem] justify-center"
+                      >
+                        <Download size="1rem" />
+                        <span className="text-[1.0625rem]">导入配置文件</span>
+                      </OreButton>
+                    </div>
+
+                    {/* Restore / Reset Card */}
+                    <div className="border-[0.125rem] border-ore-gray-border bg-black/20 p-[1.125rem] rounded-[2px] flex flex-col justify-between gap-[0.75rem] hover:bg-black/35 transition-colors">
+                      <div className="flex flex-col gap-[0.5rem]">
+                        <div className="text-[1.125rem] font-bold text-white flex items-center gap-[0.5rem]">
+                          <RotateCw size="1.125rem" className="text-ore-green" />
+                          <span>恢复与默认</span>
+                        </div>
+                        <p className="text-[0.9375rem] text-ore-text-muted leading-relaxed">
+                          {hasBackup ? '您可以恢复最初自动备份的按键配置。' : '无可用备份。可选择恢复官方默认设置。'}
+                        </p>
+                      </div>
+                      <div className="flex gap-[0.5rem] mt-[0.5rem] w-full">
+                        {hasBackup && (
+                          <OreButton
+                            focusKey="btn-restore-backup-tab2"
+                            variant="secondary"
+                            size="full"
+                            onClick={handleRestoreBackup}
+                            disabled={saving}
+                            className="flex-1 !min-w-0 flex items-center gap-[0.5rem] justify-center"
+                          >
+                            <RotateCw size="1rem" />
+                            <span className="text-[1.0625rem]">恢复备份</span>
+                          </OreButton>
+                        )}
+                        <OreButton
+                          focusKey="btn-reset-to-default-tab2"
+                          variant="secondary"
+                          size="full"
+                          onClick={() => {
+                            setPendingProfileToApply(null);
+                            setIsConfirmApplyOpen(true);
+                          }}
+                          disabled={saving}
+                          className="flex-1 !min-w-0 flex items-center gap-[0.5rem] justify-center"
+                        >
+                          <RotateCw size="1rem" />
+                          <span className="text-[1.0625rem]">官方默认</span>
+                        </OreButton>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. User Saved Profiles Management List */}
+                  <div className="border-[0.125rem] border-ore-gray-border bg-[#141415] rounded-[2px] overflow-hidden flex flex-col min-h-[12rem]">
+                    <div className="bg-[#1E1E1F] border-b-[0.125rem] border-ore-gray-border px-[1rem] py-[0.625rem] text-[1rem] uppercase tracking-[0.08em] text-ore-text-muted font-bold">
+                      本地备份的配置管理 (导出与删除)
+                    </div>
+                    {userProfiles.length === 0 ? (
+                      <div className="text-center py-[2.5rem] text-ore-text-muted text-[1rem] font-bold flex-1 flex items-center justify-center">
+                        暂无本地保存的配置模板
+                      </div>
+                    ) : (
+                      <div className="divide-y-[0.125rem] divide-ore-gray-border/40">
+                        {userProfiles.map((item) => {
+                          const profile = item.profile;
+                          return (
+                            <div key={item.filename} className="grid grid-cols-[2fr_1.2fr] items-center px-[1rem] py-[0.75rem] hover:bg-white/5 transition-colors">
+                              <div className="flex flex-col min-w-0 pr-[1rem]">
+                                <span className="text-[1.0625rem] font-bold text-white truncate">{profile.name}</span>
+                                <span className="text-[0.875rem] text-ore-text-muted truncate mt-[0.125rem]">
+                                  更新于: {new Date(profile.updatedAt).toLocaleString()} • {profile.keybindings.length} 项绑定
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-end gap-[0.5rem]">
+                                <OreButton
+                                  focusKey={`export-local-manage-${item.filename}`}
+                                  variant="ghost"
+                                  size="auto"
+                                  onClick={() => handleExportProfileToFile(profile)}
+                                  className="p-[0.375rem] text-ore-green border-ore-green/30"
+                                >
+                                  <Upload size="0.875rem" />
+                                </OreButton>
+                                <OreButton
+                                  focusKey={`delete-local-manage-${item.filename}`}
+                                  variant="danger"
+                                  size="auto"
+                                  onClick={() => handleDeleteProfile(item.filename)}
+                                  className="p-[0.375rem]"
+                                >
+                                  <Trash2 size="0.875rem" />
+                                </OreButton>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </OreModal>
+      )}
+
+      <OreConfirmDialog
+        isOpen={isConfirmApplyOpen}
+        onClose={() => {
+          setIsConfirmApplyOpen(false);
+          setPendingProfileToApply(null);
+        }}
+        onConfirm={async () => {
+          if (pendingProfileToApply) {
+            await handleApplyProfile(pendingProfileToApply);
+          } else {
+            await handleResetToDefault();
+          }
+          setIsConfirmApplyOpen(false);
+          setPendingProfileToApply(null);
+        }}
+        title="确认覆盖按键配置"
+        headline={pendingProfileToApply ? `确定要应用配置 "${pendingProfileToApply.name}" 吗？` : "确定要恢复官方默认按键配置吗？"}
+        description="这将会覆盖您当前实例的按键映射。系统会自动备份您最初的 options.txt 配置文件，您随时可以点击“恢复最初备份”还原配置。"
+        confirmLabel="确认覆盖"
+        cancelLabel="取消"
+        confirmVariant="primary"
+        tone="warning"
+      />
     </SettingsSection>
   );
 };

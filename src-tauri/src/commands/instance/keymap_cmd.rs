@@ -294,6 +294,333 @@ fn get_default_zh_cn_localization() -> KeyboardLocalization {
     }
 }
 
+#[tauri::command]
+pub async fn read_keybindings_file(path: String) -> Result<Vec<KeyBind>, String> {
+    let path_buf = std::path::PathBuf::from(path);
+    if !path_buf.exists() {
+        return Err("文件不存在".to_string());
+    }
+
+    let content = std::fs::read_to_string(&path_buf)
+        .map_err(|e| format!("读取文件失败: {}", e))?;
+
+    // Try parsing as JSON first
+    if let Ok(keybindings) = serde_json::from_str::<Vec<KeyBind>>(&content) {
+        return Ok(keybindings);
+    }
+
+    // Fallback to parsing as options.txt
+    let mut keybindings = Vec::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("key_") {
+            if let Some(pos) = line.find(':') {
+                let name = line[4..pos].to_string();
+                let key = line[pos + 1..].to_string();
+                keybindings.push(KeyBind { name, key });
+            }
+        }
+    }
+
+    if keybindings.is_empty() {
+        return Err("无法解析文件中的按键配置（支持 options.txt 或 JSON 导出格式）".to_string());
+    }
+
+    Ok(keybindings)
+}
+
+#[tauri::command]
+pub async fn write_keybindings_file(path: String, keybindings: Vec<KeyBind>) -> Result<(), String> {
+    let path_buf = std::path::PathBuf::from(path);
+    let parent = path_buf.parent().ok_or_else(|| "无法获取文件所在目录".to_string())?;
+    if !parent.exists() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("创建文件所在目录失败: {}", e))?;
+    }
+
+    let content = serde_json::to_string_pretty(&keybindings)
+        .map_err(|e| format!("序列化配置失败: {}", e))?;
+
+    std::fs::write(&path_buf, content)
+        .map_err(|e| format!("写入文件失败: {}", e))?;
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyboardProfile {
+    pub name: String,
+    pub author: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub description: String,
+    pub version: String,
+    pub keybindings: Vec<KeyBind>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyboardProfileListItem {
+    pub filename: String,
+    pub profile: KeyboardProfile,
+}
+
+#[tauri::command]
+pub async fn list_presets<R: Runtime>(app: AppHandle<R>) -> Result<Vec<KeyboardProfileListItem>, String> {
+    let base_path_str = match crate::services::config_service::ConfigService::get_base_path(&app) {
+        Ok(Some(p)) => p,
+        _ => return Err("未配置基础数据目录".to_string()),
+    };
+
+    let preset_dir = std::path::PathBuf::from(base_path_str)
+        .join("config")
+        .join("keyboard")
+        .join("preset");
+
+    ensure_default_presets(&preset_dir)?;
+
+    let mut list = Vec::new();
+    if preset_dir.exists() {
+        let entries = fs::read_dir(&preset_dir).map_err(|e| format!("读取预设目录失败: {}", e))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+                let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                let content = fs::read_to_string(&path).map_err(|e| format!("读取文件失败: {}", e))?;
+                if let Ok(profile) = serde_json::from_str::<KeyboardProfile>(&content) {
+                    list.push(KeyboardProfileListItem { filename, profile });
+                }
+            }
+        }
+    }
+
+    list.sort_by(|a, b| a.filename.cmp(&b.filename));
+    Ok(list)
+}
+
+fn ensure_default_presets(preset_dir: &std::path::Path) -> Result<(), String> {
+    if !preset_dir.exists() {
+        std::fs::create_dir_all(preset_dir)
+            .map_err(|e| format!("创建 preset 目录失败: {}", e))?;
+    }
+
+    let preset_file = preset_dir.join("preset-01.json");
+    if !preset_file.exists() {
+        let default_profile = KeyboardProfile {
+            name: "官方默认按键配置".to_string(),
+            author: "官方".to_string(),
+            created_at: "2026-06-03T00:00:00Z".to_string(),
+            updated_at: "2026-06-03T00:00:00Z".to_string(),
+            description: "最基础的 Minecraft 官方键盘和鼠标控制方案。".to_string(),
+            version: "1.0.0".to_string(),
+            keybindings: vec![
+                KeyBind { name: "key.forward".to_string(), key: "key.keyboard.w".to_string() },
+                KeyBind { name: "key.left".to_string(), key: "key.keyboard.a".to_string() },
+                KeyBind { name: "key.back".to_string(), key: "key.keyboard.s".to_string() },
+                KeyBind { name: "key.right".to_string(), key: "key.keyboard.d".to_string() },
+                KeyBind { name: "key.jump".to_string(), key: "key.keyboard.space".to_string() },
+                KeyBind { name: "key.sneak".to_string(), key: "key.keyboard.left.shift".to_string() },
+                KeyBind { name: "key.sprint".to_string(), key: "key.keyboard.left.control".to_string() },
+                KeyBind { name: "key.drop".to_string(), key: "key.keyboard.q".to_string() },
+                KeyBind { name: "key.inventory".to_string(), key: "key.keyboard.e".to_string() },
+                KeyBind { name: "key.chat".to_string(), key: "key.keyboard.t".to_string() },
+                KeyBind { name: "key.playerlist".to_string(), key: "key.keyboard.tab".to_string() },
+                KeyBind { name: "key.screenshot".to_string(), key: "key.keyboard.f2".to_string() },
+                KeyBind { name: "key.togglePerspective".to_string(), key: "key.keyboard.f5".to_string() },
+                KeyBind { name: "key.swapHands".to_string(), key: "key.keyboard.f".to_string() },
+                KeyBind { name: "key.use".to_string(), key: "key.mouse.right".to_string() },
+                KeyBind { name: "key.attack".to_string(), key: "key.mouse.left".to_string() },
+                KeyBind { name: "key.pickItem".to_string(), key: "key.mouse.middle".to_string() },
+                KeyBind { name: "key.fullscreen".to_string(), key: "key.keyboard.f11".to_string() },
+            ],
+        };
+
+        let content = serde_json::to_string_pretty(&default_profile)
+            .map_err(|e| format!("序列化默认预设失败: {}", e))?;
+        std::fs::write(&preset_file, content)
+            .map_err(|e| format!("写入默认预设文件失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_user_profiles<R: Runtime>(app: AppHandle<R>) -> Result<Vec<KeyboardProfileListItem>, String> {
+    let base_path_str = match crate::services::config_service::ConfigService::get_base_path(&app) {
+        Ok(Some(p)) => p,
+        _ => return Err("未配置基础数据目录".to_string()),
+    };
+
+    let user_dir = std::path::PathBuf::from(base_path_str)
+        .join("config")
+        .join("keyboard")
+        .join("user");
+
+    if !user_dir.exists() {
+        std::fs::create_dir_all(&user_dir)
+            .map_err(|e| format!("创建 user 目录失败: {}", e))?;
+    }
+
+    let mut list = Vec::new();
+    let entries = fs::read_dir(&user_dir).map_err(|e| format!("读取用户预设目录失败: {}", e))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+            let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+            let content = fs::read_to_string(&path).map_err(|e| format!("读取文件失败: {}", e))?;
+            if let Ok(profile) = serde_json::from_str::<KeyboardProfile>(&content) {
+                list.push(KeyboardProfileListItem { filename, profile });
+            }
+        }
+    }
+
+    list.sort_by(|a, b| b.profile.updated_at.cmp(&a.profile.updated_at));
+    Ok(list)
+}
+
+#[tauri::command]
+pub async fn save_user_profile<R: Runtime>(
+    app: AppHandle<R>,
+    filename: String,
+    profile: KeyboardProfile,
+) -> Result<(), String> {
+    let base_path_str = match crate::services::config_service::ConfigService::get_base_path(&app) {
+        Ok(Some(p)) => p,
+        _ => return Err("未配置基础数据目录".to_string()),
+    };
+
+    let safe_filename = filename.chars().filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_').collect::<String>();
+    if safe_filename.is_empty() {
+        return Err("不合法的配置名称".to_string());
+    }
+
+    let user_dir = std::path::PathBuf::from(base_path_str)
+        .join("config")
+        .join("keyboard")
+        .join("user");
+
+    if !user_dir.exists() {
+        std::fs::create_dir_all(&user_dir).map_err(|e| format!("创建目录失败: {}", e))?;
+    }
+
+    let file_path = user_dir.join(format!("{}.json", safe_filename));
+    let content = serde_json::to_string_pretty(&profile)
+        .map_err(|e| format!("序列化配置失败: {}", e))?;
+
+    std::fs::write(&file_path, content)
+        .map_err(|e| format!("保存配置文件失败: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_user_profile<R: Runtime>(
+    app: AppHandle<R>,
+    filename: String,
+) -> Result<(), String> {
+    let base_path_str = match crate::services::config_service::ConfigService::get_base_path(&app) {
+        Ok(Some(p)) => p,
+        _ => return Err("未配置基础数据目录".to_string()),
+    };
+
+    let safe_filename = filename.chars().filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_').collect::<String>();
+    let file_path = std::path::PathBuf::from(base_path_str)
+        .join("config")
+        .join("keyboard")
+        .join("user")
+        .join(format!("{}.json", safe_filename));
+
+    if file_path.exists() {
+        fs::remove_file(file_path).map_err(|e| format!("删除文件失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn backup_instance_options_file<R: Runtime>(
+    app: AppHandle<R>,
+    instance_id: String,
+) -> Result<(), String> {
+    let config_path = InstanceBindingService::instance_config_path(&app, &instance_id)?;
+    let instance_dir = config_path.parent().ok_or_else(|| "无法获取实例目录".to_string())?;
+
+    let config = InstanceBindingService::load_instance_config(&app, &instance_id)?;
+    let mut game_dir = instance_dir.to_path_buf();
+    if let Some(tp_path) = &config.third_party_path {
+        if !tp_path.is_empty() {
+            let tp_buf = PathBuf::from(tp_path);
+            if tp_buf.exists() {
+                game_dir = tp_buf;
+            }
+        }
+    }
+
+    let options_path = game_dir.join("options.txt");
+    let backup_path = game_dir.join("options.txt.bak");
+    if options_path.exists() && !backup_path.exists() {
+        fs::copy(&options_path, &backup_path)
+            .map_err(|e| format!("备份 options.txt 失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn has_options_backup<R: Runtime>(
+    app: AppHandle<R>,
+    instance_id: String,
+) -> Result<bool, String> {
+    let config_path = InstanceBindingService::instance_config_path(&app, &instance_id)?;
+    let instance_dir = config_path.parent().ok_or_else(|| "无法获取实例目录".to_string())?;
+
+    let config = InstanceBindingService::load_instance_config(&app, &instance_id)?;
+    let mut game_dir = instance_dir.to_path_buf();
+    if let Some(tp_path) = &config.third_party_path {
+        if !tp_path.is_empty() {
+            let tp_buf = PathBuf::from(tp_path);
+            if tp_buf.exists() {
+                game_dir = tp_buf;
+            }
+        }
+    }
+
+    let backup_path = game_dir.join("options.txt.bak");
+    Ok(backup_path.exists())
+}
+
+#[tauri::command]
+pub async fn restore_instance_options_backup<R: Runtime>(
+    app: AppHandle<R>,
+    instance_id: String,
+) -> Result<(), String> {
+    let config_path = InstanceBindingService::instance_config_path(&app, &instance_id)?;
+    let instance_dir = config_path.parent().ok_or_else(|| "无法获取实例目录".to_string())?;
+
+    let config = InstanceBindingService::load_instance_config(&app, &instance_id)?;
+    let mut game_dir = instance_dir.to_path_buf();
+    if let Some(tp_path) = &config.third_party_path {
+        if !tp_path.is_empty() {
+            let tp_buf = PathBuf::from(tp_path);
+            if tp_buf.exists() {
+                game_dir = tp_buf;
+            }
+        }
+    }
+
+    let backup_path = game_dir.join("options.txt.bak");
+    if !backup_path.exists() {
+        return Err("备份文件不存在，无法恢复".to_string());
+    }
+
+    let options_path = game_dir.join("options.txt");
+    fs::copy(&backup_path, &options_path)
+        .map_err(|e| format!("恢复备份失败: {}", e))?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

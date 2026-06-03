@@ -15,7 +15,9 @@ import {
   loadModrinthAnimationSource,
   loadModrinthModel,
   loadModrinthTexture,
+  syncDamageFlashShader,
 } from './modrinthSkinRendering';
+
 
 export type AnimationPreset = 'idle' | 'idle_sub_1' | 'idle_sub_2' | 'idle_sub_3' | 'interact';
 export type AnimationLoopMode = 'repeat' | 'once';
@@ -68,6 +70,21 @@ const CAMERA_TARGET = new THREE.Vector3(0, 0.98, 0);
 const MODEL_SCALE = 0.76;
 const BASE_ANIMATION: AnimationPreset = 'idle';
 const INTERACT_ANIMATION: AnimationPreset = 'interact';
+
+// Click Impulse & Damage Flash constants
+const CLICK_IMPULSE_MAX_ENERGY = 5;
+const CLICK_IMPULSE_ENERGY_PER_CLICK = 1;
+const DAMAGE_FLASH_MIN_CLICKS_PER_SECOND = 2;
+const CLICK_IMPULSE_DECAY_PER_SECOND = DAMAGE_FLASH_MIN_CLICKS_PER_SECOND * CLICK_IMPULSE_ENERGY_PER_CLICK;
+const CLICK_IMPULSE_BASE_SPEED = 18;
+const CLICK_IMPULSE_SPEED_BOOST = 7;
+const CLICK_IMPULSE_OFFSET_X = 0.035;
+const CLICK_IMPULSE_ROTATION_Z = 0.055;
+const CLICK_IMPULSE_SCALE_X = 0.018;
+const CLICK_IMPULSE_SCALE_Y = 0.025;
+const DAMAGE_FLASH_DURATION_SECONDS = 0.2;
+const DAMAGE_FLASH_REPEAT_DELAY_SECONDS = 0.5;
+const DAMAGE_FLASH_MAX_INTENSITY = 0.7;
 
 const defaultRandomIdlePool: RandomIdleEntry[] = [
   { id: 'idle_sub_1', weight: 1 },
@@ -139,6 +156,42 @@ function createSpotlightMaterial(): THREE.ShaderMaterial {
   });
 }
 
+function getVisibleMeshBox(root: THREE.Object3D): THREE.Box3 | null {
+  const parent = root.parent;
+  if (parent) {
+    parent.remove(root);
+  }
+
+  root.updateMatrixWorld(true);
+
+  const result = new THREE.Box3();
+  const meshBox = new THREE.Box3();
+  let found = false;
+
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.geometry || mesh.visible === false) return;
+
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    if (materials.length && materials.every((material) => material.visible === false)) return;
+
+    if (!mesh.geometry.boundingBox) {
+      mesh.geometry.computeBoundingBox();
+    }
+    if (!mesh.geometry.boundingBox) return;
+
+    meshBox.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrixWorld);
+    result.union(meshBox);
+    found = true;
+  });
+
+  if (parent) {
+    parent.add(root);
+  }
+
+  return found && !result.isEmpty() ? result.clone() : null;
+}
+
 export class SkinEngine {
   private static instance: SkinEngine | null = null;
 
@@ -188,6 +241,17 @@ export class SkinEngine {
   private previousPointerX = 0;
   private _disposed = false;
   private previewScale = 1;
+
+  // Click Impulse & Damage Flash variables
+  private clickImpulseEnergy = 0;
+  private clickImpulsePhase = 0;
+  private clickImpulseOffsetX = 0;
+  private clickImpulseRotationZ = 0;
+  private clickImpulseScaleX = 1;
+  private clickImpulseScaleY = 1;
+  private damageFlashIntensity = 0;
+  private damageFlashRemainingSeconds = 0;
+  private damageFlashCooldownSeconds = 0;
 
   private randomIdlePool: RandomIdleEntry[] = [...defaultRandomIdlePool];
   private randomIdleInterval: [number, number];
@@ -311,6 +375,7 @@ export class SkinEngine {
     this.renderer.setSize(safeWidth, safeHeight, false);
     this.camera.aspect = safeWidth / safeHeight;
     this.camera.updateProjectionMatrix();
+    this.updateCameraTarget();
     this.render();
   }
 
@@ -697,11 +762,102 @@ export class SkinEngine {
     }
   }
 
-  private updateCameraTarget(): void {
+  updateCameraTarget(): void {
     if (!this.playerModel) return;
-    this.camera.position.copy(CAMERA_POSITION);
-    this.controls.target.copy(CAMERA_TARGET);
+
+    // Default static camera position as fallback
+    const defaultPosition = CAMERA_POSITION.clone();
+    const defaultTarget = CAMERA_TARGET.clone();
+
+    const box = getVisibleMeshBox(this.playerModel);
+    if (!box) {
+      this.camera.position.copy(defaultPosition);
+      this.controls.target.copy(defaultTarget);
+      this.controls.update();
+      return;
+    }
+
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    box.getCenter(center);
+    box.getSize(size);
+
+    // Apply scale factor to coordinates (unscaled model size is translated by modelWrapper's scale)
+    const scale = MODEL_SCALE * this.previewScale;
+    const scaledCenter = center.clone().multiplyScalar(scale);
+    const scaledSize = size.clone().multiplyScalar(scale);
+
+    // Dynamic vertical target centering, taking into account modelWrapper's y-offset of 0.04
+    const targetY = scaledCenter.y + 0.04;
+
+    // Calculate camera distance based on bounding box size and aspect ratio
+    const fovRad = THREE.MathUtils.degToRad(this.camera.fov);
+    const aspect = this.camera.aspect || 1;
+
+    // We want the box to fit vertically and horizontally with a safety margin (padding)
+    const padding = 1.15; // 15% margin
+    const distY = (scaledSize.y / 2) / Math.tan(fovRad / 2) * padding;
+    const distX = (scaledSize.x / 2) / (Math.tan(fovRad / 2) * aspect) * padding;
+    const distance = Math.max(distY, distX, 3.0); // minimum safe distance 3.0
+
+    // Set position and target (camera points along the negative Z direction relative to front view)
+    this.camera.position.set(0, targetY, -distance);
+    this.controls.target.set(0, targetY, 0);
     this.controls.update();
+  }
+
+  private addClickImpulse(): void {
+    this.clickImpulseEnergy = Math.min(
+      CLICK_IMPULSE_MAX_ENERGY,
+      this.clickImpulseEnergy + CLICK_IMPULSE_ENERGY_PER_CLICK
+    );
+
+    if (this.clickImpulseEnergy >= CLICK_IMPULSE_MAX_ENERGY && this.damageFlashCooldownSeconds <= 0) {
+      this.triggerDamageFlash();
+    }
+  }
+
+  private triggerDamageFlash(): void {
+    this.damageFlashRemainingSeconds = DAMAGE_FLASH_DURATION_SECONDS;
+    this.damageFlashCooldownSeconds = DAMAGE_FLASH_DURATION_SECONDS + DAMAGE_FLASH_REPEAT_DELAY_SECONDS;
+    this.damageFlashIntensity = DAMAGE_FLASH_MAX_INTENSITY;
+  }
+
+  private updateClickImpulse(dt: number): void {
+    const energy = Math.max(0, this.clickImpulseEnergy - CLICK_IMPULSE_DECAY_PER_SECOND * dt);
+    this.clickImpulseEnergy = energy;
+
+    if (energy <= 0) {
+      this.clickImpulseOffsetX = 0;
+      this.clickImpulseRotationZ = 0;
+      this.clickImpulseScaleX = 1;
+      this.clickImpulseScaleY = 1;
+      return;
+    }
+
+    const intensity = energy / CLICK_IMPULSE_MAX_ENERGY;
+    this.clickImpulsePhase += dt * (CLICK_IMPULSE_BASE_SPEED + energy * CLICK_IMPULSE_SPEED_BOOST);
+
+    const shake = Math.sin(this.clickImpulsePhase) * intensity;
+    const squash = Math.abs(Math.sin(this.clickImpulsePhase * 1.7)) * intensity;
+
+    this.clickImpulseOffsetX = shake * CLICK_IMPULSE_OFFSET_X;
+    this.clickImpulseRotationZ = shake * CLICK_IMPULSE_ROTATION_Z;
+    this.clickImpulseScaleX = 1 + squash * CLICK_IMPULSE_SCALE_X;
+    this.clickImpulseScaleY = 1 - squash * CLICK_IMPULSE_SCALE_Y;
+  }
+
+  private updateDamageFlash(dt: number): void {
+    this.damageFlashCooldownSeconds = Math.max(0, this.damageFlashCooldownSeconds - dt);
+
+    if (this.damageFlashRemainingSeconds <= 0) {
+      this.damageFlashIntensity = 0;
+      return;
+    }
+
+    this.damageFlashRemainingSeconds = Math.max(0, this.damageFlashRemainingSeconds - dt);
+    this.damageFlashIntensity =
+      DAMAGE_FLASH_MAX_INTENSITY * (this.damageFlashRemainingSeconds / DAMAGE_FLASH_DURATION_SECONDS);
   }
 
   private renderFrame = (now: number): void => {
@@ -720,6 +876,25 @@ export class SkinEngine {
     const dt = Math.min(elapsed / 1000, 0.1);
     this.lastRenderTime = now - (elapsed % frameIntervalMs);
     this.mixer?.update(dt);
+
+    // Update click impulse and damage flash animations
+    this.updateClickImpulse(dt);
+    this.updateDamageFlash(dt);
+
+    if (this.playerModel) {
+      // Sync damage flash shader intensity
+      syncDamageFlashShader(this.playerModel, this.damageFlashIntensity);
+    }
+
+    // Apply click impulse to modelWrapper
+    this.modelWrapper.position.set(this.clickImpulseOffsetX, 0.04, 0);
+    this.modelWrapper.rotation.z = this.clickImpulseRotationZ;
+    this.modelWrapper.scale.set(
+      MODEL_SCALE * this.previewScale * this.clickImpulseScaleX,
+      MODEL_SCALE * this.previewScale * this.clickImpulseScaleY,
+      MODEL_SCALE * this.previewScale
+    );
+
     this.controls.update();
     this.render();
   };
@@ -755,6 +930,7 @@ export class SkinEngine {
       this._canvas.releasePointerCapture(event.pointerId);
     }
     if (!this.pointerMoved && this.actions.has(INTERACT_ANIMATION)) {
+      this.addClickImpulse();
       this.playTransientAnimation(INTERACT_ANIMATION);
     }
     this.pointerMoved = false;

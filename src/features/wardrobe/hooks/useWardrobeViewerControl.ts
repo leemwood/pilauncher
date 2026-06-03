@@ -31,8 +31,9 @@ export function useWardrobeViewerControl() {
         engine.clearCape();
       }
 
-      engine.raw.controls.target.set(0, 0.98, 0);
-      engine.raw.controls.update();
+      // Automatically compute target and distance based on loaded skin/cape bounding boxes
+      engine.updateCameraTarget();
+
       targetRotationRef.current = section === 'cape' ? 0 : Math.PI;
       engine.raw.playerWrapper.rotation.y = targetRotationRef.current;
     },

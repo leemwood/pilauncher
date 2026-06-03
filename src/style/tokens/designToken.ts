@@ -137,6 +137,9 @@ export const OreTokens = {
     versionMeta: '#24563C',
     imageShadow: 'inset 0 -4px 0 rgba(0, 0, 0, 0.25)',
     chipShadow: 'inset 0 -2px 0 #8C8D90',
+    badgeBg0: 'rgba(255, 255, 255, 0.52)',
+    badgeBg1: 'rgba(255, 255, 255, 0.44)',
+    badgeText: '#111111',
   },
 
   library: {
