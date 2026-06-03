@@ -56,9 +56,44 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         invoke<CollectionItem[]>('get_all_collection_items'),
       ]);
 
+      const updatedCollections = [...collections];
+      const hasShaderTag = collections.some(c => c.type === 'group' && c.name === '光影');
+      const hasResourcepackTag = collections.some(c => c.type === 'group' && c.name === '资源包');
+
+      if (!hasShaderTag) {
+        const shaderTag: Collection = {
+          id: 'tag-shaders',
+          name: '光影',
+          description: '系统内置光影收藏标签',
+          type: 'group',
+          sortOrder: -100,
+          createdAt: Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+        };
+        await invoke('save_collection', { item: shaderTag });
+        updatedCollections.push(shaderTag);
+      }
+
+      if (!hasResourcepackTag) {
+        const resourcepackTag: Collection = {
+          id: 'tag-resourcepacks',
+          name: '资源包',
+          description: '系统内置资源包收藏标签',
+          type: 'group',
+          sortOrder: -99,
+          createdAt: Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+        };
+        await invoke('save_collection', { item: resourcepackTag });
+        updatedCollections.push(resourcepackTag);
+      }
+
       set({
         items,
-        collections,
+        collections: updatedCollections.sort((a, b) => {
+          if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+          return b.createdAt - a.createdAt;
+        }),
         collectionItems,
         initialized: true,
         isLoading: false

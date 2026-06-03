@@ -11,6 +11,7 @@ pub mod java_cmd;
 pub mod lan_cmd;
 pub mod launcher_cmd;
 pub mod library_cmd; // 新增 library_cmd 模块
+pub mod library_resource_cmd;
 pub mod loader_cmd;
 pub mod logshare_cmd;
 pub mod minecraft_cmd;
@@ -220,6 +221,11 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         library_cmd::get_starred_items,
         library_cmd::save_starred_item,
         library_cmd::remove_starred_item,
+        library_resource_cmd::import_local_resource_to_library,
+        library_resource_cmd::get_library_resource_mappings,
+        library_resource_cmd::link_library_resource_to_instances,
+        library_resource_cmd::update_library_resource_file,
+        library_resource_cmd::delete_library_resource,
         library_cmd::get_collections,
         library_cmd::save_collection,
         library_cmd::remove_collection,

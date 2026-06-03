@@ -14,6 +14,9 @@ export const useLibraryResourceDetail = () => {
   const [detailProject, setDetailProject] = useState<ModrinthProject | null>(null);
   const [detailSource, setDetailSource] = useState<DownloadSource>('modrinth');
   const [detailTab, setDetailTab] = useState<DownloadTabType>('mod');
+  const [directInstallInstanceId, setDirectInstallInstanceId] = useState<string | undefined>(undefined);
+  const [searchMcVersion, setSearchMcVersion] = useState<string | undefined>(undefined);
+  const [searchLoader, setSearchLoader] = useState<string | undefined>(undefined);
 
   const openResourceDetail = (item: LibraryResourceViewModel) => {
     const project = toDetailProject(item);
@@ -22,10 +25,31 @@ export const useLibraryResourceDetail = () => {
     setDetailProject(project);
     setDetailSource(project.source as DownloadSource);
     setDetailTab(toDownloadTabType(item.type));
+    setDirectInstallInstanceId(undefined);
+    setSearchMcVersion(undefined);
+    setSearchLoader(undefined);
+  };
+
+  const openResourceDetailWithInstance = (
+    item: LibraryResourceViewModel,
+    instance: { id: string; version: string; loader: string }
+  ) => {
+    const project = toDetailProject(item);
+    if (!project?.source) return;
+
+    setDetailProject(project);
+    setDetailSource(project.source as DownloadSource);
+    setDetailTab(toDownloadTabType(item.type));
+    setDirectInstallInstanceId(instance.id);
+    setSearchMcVersion(instance.version);
+    setSearchLoader(instance.loader);
   };
 
   const closeResourceDetail = () => {
     setDetailProject(null);
+    setDirectInstallInstanceId(undefined);
+    setSearchMcVersion(undefined);
+    setSearchLoader(undefined);
   };
 
   const handleLibraryDetailDownload = async (
@@ -92,7 +116,11 @@ export const useLibraryResourceDetail = () => {
     detailProject,
     detailSource,
     detailTab,
+    directInstallInstanceId,
+    searchMcVersion,
+    searchLoader,
     openResourceDetail,
+    openResourceDetailWithInstance,
     closeResourceDetail,
     handleLibraryDetailDownload,
   };

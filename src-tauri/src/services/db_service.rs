@@ -12,7 +12,7 @@ pub struct AppDatabase {
 pub struct DbService;
 
 impl DbService {
-    const CURRENT_SCHEMA_VERSION: i64 = 4;
+    const CURRENT_SCHEMA_VERSION: i64 = 5;
 
     pub async fn init_db(config_dir: &Path) -> Result<SqlitePool, String> {
         if !config_dir.exists() {
@@ -319,6 +319,11 @@ impl DbService {
             Self::record_migration(pool, 4, "favorite_tombstones").await?;
         }
 
+        if !Self::is_migration_applied(pool, 5).await? {
+            Self::migrate_library_resource_mappings(pool).await?;
+            Self::record_migration(pool, 5, "library_resource_mappings").await?;
+        }
+
         sqlx::query(
             "INSERT OR REPLACE INTO app_meta (key, value)
              VALUES ('schema_version', ?)",
@@ -606,6 +611,38 @@ impl DbService {
                 item_id TEXT PRIMARY KEY,
                 deleted_at INTEGER NOT NULL
             )",
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    async fn migrate_library_resource_mappings(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS library_resource_mappings (
+                id TEXT PRIMARY KEY,
+                resource_id TEXT NOT NULL,
+                instance_id TEXT NOT NULL,
+                resource_type TEXT NOT NULL,
+                target_filename TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                UNIQUE (resource_id, instance_id)
+            )",
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_library_resource_mappings_resource
+             ON library_resource_mappings(resource_id)",
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_library_resource_mappings_instance
+             ON library_resource_mappings(instance_id)",
         )
         .execute(pool)
         .await?;

@@ -200,10 +200,17 @@ impl ResourceService {
             .map_err(|_| "无法获取基础路径".to_string())?
             .ok_or_else(|| "尚未配置基础数据目录".to_string())?;
 
-        let target_dir = PathBuf::from(base_path_str)
-            .join("instances")
-            .join(instance_id)
-            .join(sub_folder);
+        let target_dir = if instance_id == "__library__" {
+            PathBuf::from(base_path_str)
+                .join("shared_mods")
+                .join("library")
+                .join(sub_folder)
+        } else {
+            PathBuf::from(base_path_str)
+                .join("instances")
+                .join(instance_id)
+                .join(sub_folder)
+        };
 
         if !target_dir.exists() {
             tokio::fs::create_dir_all(&target_dir)

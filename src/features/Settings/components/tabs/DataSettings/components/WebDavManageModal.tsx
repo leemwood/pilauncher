@@ -12,7 +12,12 @@ import {
   RotateCcw,
   Shirt,
   Trash2,
+  Star,
+  Package,
+  Sparkles,
+  Palette,
 } from 'lucide-react';
+
 
 import { saveService, createWebDavCommandConfig } from '../../../../../InstanceDetail/logic/saveService';
 import type { WebDavRemoteSaveBackup } from '../../../../../../types/webdav';
@@ -64,8 +69,9 @@ const makeInstanceLabel = (instance: InstanceOption) =>
 export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, onClose }) => {
   const { settings, updateGeneralSetting } = useSettingsStore();
   const webDav = settings.general.webDav;
-  const [activeTab, setActiveTab] = useState<'saves' | 'skins'>('saves');
+  const [activeTab, setActiveTab] = useState<'saves' | 'skins' | 'favorites'>('saves');
   const [remoteBackups, setRemoteBackups] = useState<WebDavRemoteSaveBackup[]>([]);
+  const [starredItems, setStarredItems] = useState<any[]>([]);
   const tabs = useMemo<ToggleOption[]>(
     () => [
       {
@@ -73,7 +79,16 @@ export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, on
         label: (
           <div className="flex items-center justify-center gap-2">
             <HardDrive size={16} />
-            <span>存档备份 ({remoteBackups.length})</span>
+            <span>备份管理 ({remoteBackups.length})</span>
+          </div>
+        ),
+      },
+      {
+        value: 'favorites',
+        label: (
+          <div className="flex items-center justify-center gap-2">
+            <Star size={16} />
+            <span>收藏同步 ({starredItems.length})</span>
           </div>
         ),
       },
@@ -87,7 +102,7 @@ export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, on
         ),
       },
     ],
-    [remoteBackups.length]
+    [remoteBackups.length, starredItems.length]
   );
   const [instances, setInstances] = useState<InstanceOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -142,14 +157,76 @@ export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, on
     }
   }, [config, configured]);
 
+  const [isSyncingFavorites, setIsSyncingFavorites] = useState(false);
+
+  const loadFavorites = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const items = await invoke<any[]>('get_starred_items');
+      setStarredItems(items);
+    } catch (caught) {
+      setError(String(caught));
+      setStarredItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handleSyncFavorites = useCallback(async () => {
+    if (!configured) {
+      setError('尚未配置 WebDAV。');
+      return;
+    }
+    setIsSyncingFavorites(true);
+    setError('');
+    try {
+      const configParam = {
+        baseUrl: webDav.address,
+        username: webDav.username,
+        password: webDav.password,
+        deviceId: settings.general.deviceId,
+        saveBackupMode: webDav.saveBackupMode || 'backup',
+      };
+      const result = await invoke<any>('sync_webdav_favorites', { config: configParam });
+      
+      updateGeneralSetting('webDav', {
+        ...webDav,
+        lastSyncTime: Date.now(),
+      });
+
+      await loadFavorites();
+      
+      alert(
+        `收藏同步成功！\n上传操作数: ${result.uploadedOperations}\n下载操作数: ${result.downloadedOperations}\n合并项数: ${result.mergedFavorites.length}\n总操作数: ${result.totalOperations}`
+      );
+    } catch (caught) {
+      setError(String(caught));
+    } finally {
+      setIsSyncingFavorites(false);
+    }
+  }, [configured, webDav, settings.general.deviceId, updateGeneralSetting, loadFavorites]);
+
+  const handleRefresh = useCallback(async () => {
+    if (activeTab === 'saves') {
+      await loadBackups();
+    } else if (activeTab === 'favorites') {
+      await loadFavorites();
+    }
+  }, [activeTab, loadBackups, loadFavorites]);
+
   useEffect(() => {
     if (!isOpen) return;
     setPendingDownload(null);
     setDownloadMode('local');
     setRestoreConfigs(false);
     void loadInstances();
-    void loadBackups();
-  }, [isOpen, loadBackups, loadInstances]);
+    if (activeTab === 'saves') {
+      void loadBackups();
+    } else if (activeTab === 'favorites') {
+      void loadFavorites();
+    }
+  }, [isOpen, activeTab, loadBackups, loadFavorites, loadInstances]);
 
   const openDownload = useCallback(
     (backup: WebDavRemoteSaveBackup) => {
@@ -227,13 +304,20 @@ export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, on
   );
 
   const focusOrder = useMemo(() => {
-    const tabKeys = ['webdav-manage-tab-0', 'webdav-manage-tab-1', 'webdav-manage-refresh'];
+    const tabKeys = [
+      'webdav-manage-tab-0',
+      'webdav-manage-tab-1',
+      'webdav-manage-tab-2',
+      'webdav-manage-refresh',
+    ];
     const itemKeys =
       activeTab === 'saves'
         ? remoteBackups.flatMap((backup) => [
             `webdav-manage-download-${backup.backupId}`,
             `webdav-manage-delete-${backup.backupId}`,
           ])
+        : activeTab === 'favorites'
+        ? ['webdav-manage-fav-sync']
         : [];
     const downloadKeys = pendingDownload
       ? [
@@ -298,7 +382,7 @@ export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, on
           <OreToggleButton
             options={tabs}
             value={activeTab}
-            onChange={(val) => setActiveTab(val as 'saves' | 'skins')}
+            onChange={(val) => setActiveTab(val as 'saves' | 'skins' | 'favorites')}
             focusKeyPrefix="webdav-manage-tab"
             onArrowPress={handleLinearArrow}
             className="flex-1 ore-tab-nav-toggle"
@@ -307,13 +391,13 @@ export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, on
           />
           <OreButton
             variant="secondary"
-            onClick={loadBackups}
+            onClick={handleRefresh}
             focusKey="webdav-manage-refresh"
             onArrowPress={handleLinearArrow}
-            disabled={isLoading}
+            disabled={isLoading || isSyncingFavorites}
             className="!h-[var(--ore-toggle-height)] !min-h-[var(--ore-toggle-height)] rounded-none !m-0 border-y-0 border-r-0 border-l border-[#1E1E1F] px-4"
           >
-            {isLoading ? <Loader2 size={16} className="mr-2 animate-spin" /> : <RefreshCw size={16} className="mr-2" />}
+            {isLoading || isSyncingFavorites ? <Loader2 size={16} className="mr-2 animate-spin" /> : <RefreshCw size={16} className="mr-2" />}
             刷新
           </OreButton>
         </div>
@@ -325,6 +409,120 @@ export const WebDavManageModal: React.FC<WebDavManageModalProps> = ({ isOpen, on
           {activeTab === 'skins' ? (
             <div className="border-2 border-[#1E1E1F] bg-[#242526] p-6 text-center text-sm text-[#B1B2B5]">
               本次仅接入存档备份管理，皮肤备份管理暂未连接。
+            </div>
+          ) : activeTab === 'favorites' ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 border-2 border-[#1E1E1F] bg-[#242526] p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-minecraft text-sm font-bold text-white">收藏夹同步</h3>
+                    <p className="mt-1 text-xs text-[#B1B2B5]">
+                      同步本地与 WebDAV 云端的收藏数据（包括本地导入的光影与资源包文件）。
+                    </p>
+                  </div>
+                  <OreButton
+                    variant="primary"
+                    onClick={handleSyncFavorites}
+                    disabled={isSyncingFavorites || isLoading || !configured}
+                    focusKey="webdav-manage-fav-sync"
+                    onArrowPress={handleLinearArrow}
+                  >
+                    {isSyncingFavorites ? (
+                      <Loader2 size={14} className="mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw size={14} className="mr-2" />
+                    )}
+                    立即同步
+                  </OreButton>
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-4 border-t border-[#1E1E1F] pt-3 text-xs text-[#B1B2B5]">
+                  <div>
+                    <span className="text-[#8E8F93]">云端元数据路径：</span>
+                    <span className="font-mono text-white">PiLauncherSync/favorites</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8E8F93]">云端物理文件路径：</span>
+                    <span className="font-mono text-white">PiLauncherSync/library</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8E8F93]">本地收藏总数：</span>
+                    <span className="text-white font-bold">{starredItems.length} 项</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8E8F93]">自动同步状态：</span>
+                    <span className={webDav.syncFavorites ? 'text-ore-green font-bold' : 'text-yellow-500'}>
+                      {webDav.syncFavorites ? '已开启' : '未开启'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12 text-ore-green">
+                  <Loader2 size={32} className="animate-spin" />
+                </div>
+              ) : starredItems.length === 0 ? (
+                <div className="border-2 border-[#1E1E1F] bg-[#242526] p-6 text-center text-sm text-[#B1B2B5]">
+                  暂无收藏项。
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="px-1 text-xs font-bold text-[#8E8F93] font-minecraft">收藏项列表</div>
+                  {starredItems.map((item) => {
+                    const isCustom = item.source === 'custom';
+                    const isShader = item.type === 'shader';
+                    const isResourcePack = item.type === 'resourcepack';
+
+                    let icon = <Package size={16} className="text-blue-400" />;
+                    if (isShader) {
+                      icon = <Sparkles size={16} className="text-yellow-400" />;
+                    } else if (isResourcePack) {
+                      icon = <Palette size={16} className="text-pink-400" />;
+                    }
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between border-2 border-[#1E1E1F] bg-[#242526] p-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center border-2 border-[#1E1E1F] bg-black/20">
+                            {icon}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-bold text-white font-minecraft">
+                                {item.title || item.id}
+                              </span>
+                              {isCustom ? (
+                                <span className="shrink-0 bg-[#2b3528]/80 text-ore-green border border-ore-green/30 text-[10px] px-1 py-0.5 rounded font-minecraft">
+                                  本地导入
+                                </span>
+                              ) : (
+                                <span className="shrink-0 bg-blue-950/80 text-blue-300 border border-blue-800/30 text-[10px] px-1 py-0.5 rounded font-minecraft capitalize">
+                                  {item.source}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 text-xs text-[#8E8F93] truncate">
+                              作者: {item.author || '未知'} • 类型: {item.type}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          {isCustom ? (
+                            <span className="text-xs text-ore-green font-minecraft">云端文件已同步</span>
+                          ) : (
+                            <span className="text-xs text-[#B1B2B5] font-minecraft">云端元数据已同步</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : isLoading ? (
             <div className="flex items-center justify-center py-12 text-ore-green">

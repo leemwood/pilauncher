@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { motion } from 'framer-motion';
-import { Eye, Pencil, Tags, Trash2, XCircle } from 'lucide-react';
+import { Columns3, Eye, Pencil, Tags, Trash2, XCircle } from 'lucide-react';
+import { AddLibraryResourceModal } from '../features/Library/components/modals/AddLibraryResourceModal';
+import { ManageLinkageModal } from '../features/Library/components/modals/ManageLinkageModal';
+import { EditLibraryResourceModal } from '../features/Library/components/modals/EditLibraryResourceModal';
 import { useTranslation } from 'react-i18next';
 
 import { useLibraryStore } from '../stores/useLibraryStore';
@@ -34,6 +37,8 @@ import { useLibraryBackup } from '../features/Library/hooks/useLibraryBackup';
 import { useLibraryCollectionOrdering } from '../features/Library/hooks/useLibraryCollectionOrdering';
 import { useLibraryRelations } from '../features/Library/hooks/useLibraryRelations';
 import { useLibraryResourceDetail } from '../features/Library/hooks/useLibraryResourceDetail';
+import { InstanceSelectModal as HomeInstanceSelectModal } from '../features/home/components/InstanceSelectModal';
+import { useInstances } from '../hooks/pages/Instances/useInstances';
 import { useModSetTrackerStore, type ModSetTrackerItemStatus } from '../features/Library/stores/useModSetTrackerStore';
 import { useLauncherStore } from '../store/useLauncherStore';
 import { FocusBoundary } from '../ui/focus/FocusBoundary';
@@ -75,6 +80,7 @@ const LibraryPage: React.FC = () => {
   const starredItems = useLibraryStore((state) => state.items);
   const collectionItems = useLibraryStore((state) => state.collectionItems);
   const removeStarredItem = useLibraryStore((state) => state.removeStarredItem);
+  const initializeLibrary = useLibraryStore((state) => state.initializeLibrary);
   const {
     collections,
     density,
@@ -96,6 +102,9 @@ const LibraryPage: React.FC = () => {
     parentCategoryId,
   } = useLibraryPage();
 
+  const { instances } = useInstances();
+  const [pendingInstanceSelectResource, setPendingInstanceSelectResource] = useState<LibraryResourceViewModel | null>(null);
+
   const [isTrackerModalOpen, setIsTrackerModalOpen] = useState(false);
   const [directInstallTrackerId, setDirectInstallTrackerId] = useState<string | null>(null);
   const [minecraftVersionOptions, setMinecraftVersionOptions] = useState<DropdownOption[]>([]);
@@ -107,6 +116,10 @@ const LibraryPage: React.FC = () => {
   const [isDeletingFavoriteItem, setIsDeletingFavoriteItem] = useState(false);
   const [editingCollectionMetadata, setEditingCollectionMetadata] = useState<Collection | null>(null);
   const [isSavingCollectionMetadata, setIsSavingCollectionMetadata] = useState(false);
+  const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
+  const [selectedLibraryResource, setSelectedLibraryResource] = useState<LibraryResourceViewModel | null>(null);
+  const [isManageLinkageOpen, setIsManageLinkageOpen] = useState(false);
+  const [isEditResourceOpen, setIsEditResourceOpen] = useState(false);
   const didInitialControllerFocusRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<{
     type: 'resource' | 'collection';
@@ -136,7 +149,11 @@ const LibraryPage: React.FC = () => {
     detailProject,
     detailSource,
     detailTab,
+    directInstallInstanceId,
+    searchMcVersion,
+    searchLoader,
     openResourceDetail,
+    openResourceDetailWithInstance,
     closeResourceDetail,
     handleLibraryDetailDownload,
   } = useLibraryResourceDetail();
@@ -209,8 +226,13 @@ const LibraryPage: React.FC = () => {
     return undefined;
   };
 
+  const finalVisibleResources = visibleResources;
+
+  const finalHighlightedItems = useMemo(() => {
+    return finalVisibleResources.filter((item) => item.hasUpdate || item.pinned);
+  }, [finalVisibleResources]);
+
   const hasQuery = searchQuery.trim() !== '' || activeFilter !== 'all';
-  const highlightedItems = visibleResources.filter((item) => item.hasUpdate || item.pinned);
   const isInitialLoading = !initialized && isLoading;
   const activeHeaderView: LibraryHeaderView = selectedGroupId === 'category_modsets' || selectedCollection?.type === 'mod_set'
     ? 'mod_set'
@@ -383,9 +405,17 @@ const LibraryPage: React.FC = () => {
     setContextMenu(null);
   };
 
+  const handleOpenItem = (item: LibraryResourceViewModel) => {
+    if (item.type === 'shader' || item.type === 'resourcepack') {
+      setPendingInstanceSelectResource(item);
+    } else {
+      openResourceDetail(item);
+    }
+  };
+
   const handleOpenDetail = () => {
     if (!contextMenu?.item) return;
-    openResourceDetail(contextMenu.item);
+    handleOpenItem(contextMenu.item);
     setContextMenu(null);
   };
 
@@ -420,13 +450,39 @@ const LibraryPage: React.FC = () => {
   const contextMenuActions: LibraryContextMenuAction[] = [];
   if (contextMenu) {
     if (contextMenu.type === 'resource' && contextMenu.item) {
-      if (toDetailProject(contextMenu.item)) {
+      const resItem = contextMenu.item;
+      if (toDetailProject(resItem)) {
         contextMenuActions.push({
           id: 'detail',
           label: t('libraryPage.context.detail'),
           icon: Eye,
           group: 'primary',
           onSelect: handleOpenDetail,
+        });
+      }
+
+      if (resItem.type === 'shader' || resItem.type === 'resourcepack') {
+        contextMenuActions.push({
+          id: 'link-instances',
+          label: '导入/应用到实例',
+          icon: Columns3,
+          group: 'primary',
+          onSelect: () => {
+            setSelectedLibraryResource(resItem);
+            setIsManageLinkageOpen(true);
+            setContextMenu(null);
+          }
+        });
+        contextMenuActions.push({
+          id: 'upgrade-resource',
+          label: '编辑与覆盖升级',
+          icon: Pencil,
+          group: 'primary',
+          onSelect: () => {
+            setSelectedLibraryResource(resItem);
+            setIsEditResourceOpen(true);
+            setContextMenu(null);
+          }
         });
       }
 
@@ -453,7 +509,14 @@ const LibraryPage: React.FC = () => {
         label: t('libraryPage.context.deleteFavorite'),
         icon: Trash2,
         group: 'danger',
-        onSelect: handleOpenFavoriteDeleteModal,
+        onSelect: () => {
+          if (resItem.type === 'shader' || resItem.type === 'resourcepack') {
+            setFavoriteDeleteTarget(resItem);
+            setContextMenu(null);
+          } else {
+            handleOpenFavoriteDeleteModal();
+          }
+        },
       });
     } else if (contextMenu.type === 'collection' && contextMenu.collection) {
       const col = contextMenu.collection;
@@ -631,8 +694,16 @@ const LibraryPage: React.FC = () => {
 
     setIsDeletingFavoriteItem(true);
     try {
-      await removeStarredItem(favoriteDeleteTarget.id);
+      if (favoriteDeleteTarget.type === 'shader' || favoriteDeleteTarget.type === 'resourcepack') {
+        await invoke('delete_library_resource', { resourceId: favoriteDeleteTarget.id });
+        void initializeLibrary();
+      } else {
+        await removeStarredItem(favoriteDeleteTarget.id);
+      }
       setFavoriteDeleteTarget(null);
+    } catch (e) {
+      console.error(e);
+      setRelationError(`删除失败: ${String(e)}`);
     } finally {
       setIsDeletingFavoriteItem(false);
     }
@@ -659,7 +730,11 @@ const LibraryPage: React.FC = () => {
     isDeleteModSetOpen ||
     isTrackerModalOpen ||
     editingCollectionMetadata ||
-    libraryImportDraft,
+    libraryImportDraft ||
+    isAddResourceModalOpen ||
+    isManageLinkageOpen ||
+    isEditResourceOpen ||
+    pendingInstanceSelectResource
   );
 
   useEffect(() => {
@@ -741,7 +816,7 @@ const LibraryPage: React.FC = () => {
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [activeSection, isCategoryView, visibleResources.length, visibleCollections.length, currentGlobalTab, hasBlockingOverlay]);
+  }, [activeSection, isCategoryView, finalVisibleResources.length, visibleCollections.length, currentGlobalTab, hasBlockingOverlay]);
 
   useEffect(() => {
     if (currentGlobalTab !== 'library') {
@@ -761,7 +836,7 @@ const LibraryPage: React.FC = () => {
     const restoredTarget = lastFocusKeyBeforeOverlayRef.current;
     const preferredTarget = isCategoryView
       ? `${LIBRARY_COLLECTION_FOCUS_PREFIX}0`
-      : visibleResources.length > 0
+      : finalVisibleResources.length > 0
         ? `${LIBRARY_RESOURCE_FOCUS_PREFIX}0`
         : 'library-search';
 
@@ -789,7 +864,7 @@ const LibraryPage: React.FC = () => {
     currentGlobalTab,
     hasBlockingOverlay,
     isCategoryView,
-    visibleResources.length,
+    finalVisibleResources.length,
     visibleCollections.length,
   ]);
 
@@ -853,7 +928,7 @@ const LibraryPage: React.FC = () => {
             onFilterChange={setActiveFilter}
             sortBy={sortBy}
             onSortChange={setSortBy}
-            visibleCount={isCategoryView ? visibleCollections.length : visibleResources.length}
+            visibleCount={isCategoryView ? visibleCollections.length : finalVisibleResources.length}
             selectedCollectionName={
               isCategoryView
                 ? selectedGroupId === 'category_modpacks'
@@ -861,7 +936,7 @@ const LibraryPage: React.FC = () => {
                   : t('libraryPage.views.modSet')
                 : selectedCollection?.name ?? activeHeaderViewLabel[activeHeaderView]
             }
-            highlightedItems={highlightedItems}
+            highlightedItems={finalHighlightedItems}
             onBack={parentCategoryId ? () => setSelectedGroupId(parentCategoryId) : undefined}
             showDeployAction={showModSetDeployAction}
             deployDisabled={!selectedModSetTracker || selectedModSetTracker.readyCount <= 0}
@@ -880,6 +955,8 @@ const LibraryPage: React.FC = () => {
             onOpenBackupActions={openCloudModal}
             showModSetManageActions={showModSetDeployAction}
             onDeleteModSet={openDeleteModSetModal}
+            showAddResource={activeFilter === 'external'}
+            onAddResource={() => setIsAddResourceModalOpen(true)}
           />
 
           {relationError && !tagTargetItem && (
@@ -889,7 +966,7 @@ const LibraryPage: React.FC = () => {
           )}
 
           <div className="min-h-0 flex-1 overflow-hidden">
-            {isInitialLoading || (isCategoryView ? visibleCollections.length === 0 : visibleResources.length === 0) ? (
+            {isInitialLoading || (isCategoryView ? visibleCollections.length === 0 : finalVisibleResources.length === 0) ? (
               <OreOverlayScrollArea className="h-full">
                 <div className="p-5">
                   <LibraryEmptyState
@@ -928,11 +1005,11 @@ const LibraryPage: React.FC = () => {
               </OreOverlayScrollArea>
             ) : (
               <LibraryResourceList
-                items={visibleResources}
+                items={finalVisibleResources}
                 density={density}
                 getTrackerStatus={showModSetDeployAction ? getTrackerStatusForResource : undefined}
                 onContextMenu={handleItemContextMenu}
-                onOpenItem={openResourceDetail}
+                onOpenItem={handleOpenItem}
                 onItemArrowPress={handleContentArrow}
                 activeContextItemId={contextMenu?.type === 'resource' ? contextMenu?.item?.id : undefined}
                 sortMode={isCollectionSortMode && !collectionSortModeDisabled && !isCollectionReordering}
@@ -1022,6 +1099,22 @@ const LibraryPage: React.FC = () => {
         installedVersionIds={[]}
         activeTab={detailTab}
         source={detailSource}
+        directInstallInstanceId={directInstallInstanceId}
+        searchMcVersion={searchMcVersion}
+        searchLoader={searchLoader}
+      />
+
+      <HomeInstanceSelectModal
+        isOpen={!!pendingInstanceSelectResource}
+        onClose={() => setPendingInstanceSelectResource(null)}
+        selectedId=""
+        onSelect={(instanceId) => {
+          const instance = instances.find((inst) => inst.id === instanceId);
+          if (instance && pendingInstanceSelectResource) {
+            openResourceDetailWithInstance(pendingInstanceSelectResource, instance);
+          }
+          setPendingInstanceSelectResource(null);
+        }}
       />
 
       <FavoriteDeleteModal
@@ -1031,6 +1124,31 @@ const LibraryPage: React.FC = () => {
           if (!isDeletingFavoriteItem) setFavoriteDeleteTarget(null);
         }}
         onConfirm={() => { void handleDeleteFavoriteItem(); }}
+      />
+
+      <AddLibraryResourceModal
+        isOpen={isAddResourceModalOpen}
+        onClose={() => setIsAddResourceModalOpen(false)}
+        onSuccess={() => void initializeLibrary()}
+      />
+
+      <ManageLinkageModal
+        isOpen={isManageLinkageOpen}
+        onClose={() => {
+          setIsManageLinkageOpen(false);
+          setSelectedLibraryResource(null);
+        }}
+        resource={selectedLibraryResource}
+      />
+
+      <EditLibraryResourceModal
+        isOpen={isEditResourceOpen}
+        onClose={() => {
+          setIsEditResourceOpen(false);
+          setSelectedLibraryResource(null);
+        }}
+        resource={selectedLibraryResource}
+        onSuccess={() => void initializeLibrary()}
       />
 
       <DeleteModSetModal

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ArrowLeft, Cloud, Download, ListFilter, Pencil, Search, Target, Trash2 } from 'lucide-react';
+import { ArrowLeft, Cloud, Download, ListFilter, Pencil, Plus, Search, Target, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { OreButton } from '../../../ui/primitives/OreButton';
@@ -34,6 +34,8 @@ interface LibraryToolbarProps {
   onOpenBackupActions?: () => void;
   showModSetManageActions?: boolean;
   onDeleteModSet?: () => void;
+  showAddResource?: boolean;
+  onAddResource?: () => void;
 }
 
 export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
@@ -61,22 +63,23 @@ export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
   onOpenBackupActions,
   showModSetManageActions = false,
   onDeleteModSet,
+  showAddResource = false,
+  onAddResource,
 }) => {
   const { t } = useTranslation();
   const hasHighlightedItems = highlightedItems.length > 0;
   const sortOptions = useMemo(() => getLibrarySortOptions(t), [t]);
-
-  // Build dynamic grid-template-columns via inline style so Tailwind purge isn't an issue
   const topRowGridTemplate = useMemo(() => {
     const cols: string[] = [];
     if (onBack) cols.push('auto');            // back button
     cols.push('minmax(0,1fr)');                // info panel (flexible)
     if (showCollectionEditAction) cols.push('auto'); // edit
     if (showBackupActions) cols.push('auto');        // import/export
+    if (showAddResource) cols.push('auto');          // add resource (right of sync)
     if (showModSetManageActions) cols.push('auto');  // delete
     if (showDeployAction) cols.push('11rem');   // deploy (aligned with sort dropdown)
     return cols.join(' ');
-  }, [onBack, showCollectionEditAction, showBackupActions, showModSetManageActions, showDeployAction]);
+  }, [onBack, showCollectionEditAction, showBackupActions, showAddResource, showModSetManageActions, showDeployAction]);
 
 
   return (
@@ -150,6 +153,21 @@ export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
           >
             <span className="flex items-center justify-center">
               <Cloud size={18} />
+            </span>
+          </OreButton>
+        )}
+
+        {/* Add local resource (on the right of sync button) */}
+        {showAddResource && (
+          <OreButton
+            focusKey="library-toolbar-add-resource"
+            variant="primary"
+            onClick={onAddResource}
+            className="!h-full aspect-square !min-w-0 !px-0 !m-0"
+            title="本地导入收藏"
+          >
+            <span className="flex items-center justify-center">
+              <Plus size={18} />
             </span>
           </OreButton>
         )}

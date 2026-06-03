@@ -57,7 +57,7 @@ export const useDownloadDetail = (
     if (!projectId) return;
 
     const preferredVersion = searchMcVersion || instanceConfig?.game_version || instanceConfig?.gameVersion || '';
-    const preferredLoader = (searchLoader || instanceConfig?.loader_type || instanceConfig?.loaderType || '').toLowerCase();
+    const preferredLoader = (activeTab === 'mod' ? (searchLoader || instanceConfig?.loader_type || instanceConfig?.loaderType || '') : '').toLowerCase();
 
     setActiveVersion(preferredVersion);
     setActiveLoader(preferredLoader === 'vanilla' ? '' : preferredLoader);
@@ -71,7 +71,7 @@ export const useDownloadDetail = (
       .then(setDetails)
       .catch(console.error)
       .finally(() => setIsLoadingDetails(false));
-  }, [instanceConfig, project, searchLoader, searchMcVersion, source]);
+  }, [instanceConfig, project, searchLoader, searchMcVersion, source, activeTab]);
 
   // NOTE: Remove or comment out the strict details metadata check to prevent incorrect clearing
   // of preferred version filters, as metadata lists from details are frequently out of sync on CurseForge/Modrinth.

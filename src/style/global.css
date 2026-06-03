@@ -86,6 +86,9 @@ html, body {
     --ore-library-resourceCard-textSummary: #D0D1D4;
     --ore-library-resourceCard-textMeta: #C6C8CB;
     --ore-library-resourceCard-textTimestamp: #D7CF9A;
+    --ore-library-resourceCard-summaryText: #D0D1D4;
+    --ore-library-resourceCard-metaText: #C6C8CB;
+    --ore-library-resourceCard-timestampText: #D7CF9A;
     --ore-library-resourceCard-iconBg: #1E1E1F;
     --ore-library-resourceCard-iconDepth: #111214;
     --ore-library-resourceCard-iconHighlight: rgba(255, 255, 255, 0.05);
@@ -127,6 +130,9 @@ html, body {
   --ore-library-resourceCard-textSummary: #D0D1D4;
   --ore-library-resourceCard-textMeta: #C6C8CB;
   --ore-library-resourceCard-textTimestamp: #D7CF9A;
+  --ore-library-resourceCard-summaryText: #D0D1D4;
+  --ore-library-resourceCard-metaText: #C6C8CB;
+  --ore-library-resourceCard-timestampText: #D7CF9A;
   --ore-library-resourceCard-iconBg: #1E1E1F;
   --ore-library-resourceCard-iconDepth: #111214;
   --ore-library-resourceCard-iconHighlight: rgba(255, 255, 255, 0.05);

@@ -18,3 +18,8 @@ pub(crate) const LEGACY_FAVORITES_FILE: &str = "pilauncher-favorites.sync.json";
 pub(crate) const SYNC_META_VERSION: i32 = 1;
 pub(crate) const SNAPSHOT_OPERATION_THRESHOLD: usize = 100;
 pub(crate) const SNAPSHOT_MAX_AGE_MILLIS: i64 = 7 * 24 * 60 * 60 * 1000;
+
+pub(crate) const LIBRARY_DIR: &str = "PiLauncherSync/library";
+pub(crate) const LIBRARY_SHADERS_DIR: &str = "PiLauncherSync/library/shaders";
+pub(crate) const LIBRARY_RESOURCEPACKS_DIR: &str = "PiLauncherSync/library/resourcepacks";
+

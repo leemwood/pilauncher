@@ -1,5 +1,6 @@
 mod compaction;
 mod constants;
+mod library;
 mod local_store;
 mod migration;
 mod models;
@@ -10,6 +11,7 @@ mod skins;
 mod snapshot;
 mod state;
 mod util;
+
 
 use crate::domain::library::{
     FavoriteOperation, FavoriteOperationAction, StarredItem, WebDavFavoriteSyncResult,
@@ -174,6 +176,8 @@ impl WebDavSyncService {
                 remote::upload_snapshot(&client, config, snapshot).await?;
             }
         }
+        
+        library::sync_library_files(app, pool, &client, config).await?;
 
         sync_meta.favorites.last_sync_at = util::now_millis();
         local_store::write_sync_meta(app, &sync_meta)?;

@@ -205,6 +205,15 @@ export const LibraryItemCard: React.FC<LibraryItemCardProps> = ({
 
           <div className="flex h-5 min-w-0 items-center justify-between gap-4">
             <div className="flex h-full min-w-0 flex-wrap items-center gap-[var(--ore-spacing-sm)] overflow-hidden">
+              {(item.type === 'shader' || item.type === 'resourcepack') && (
+                <span className={`inline-flex h-5 items-center gap-[var(--ore-spacing-xs)] whitespace-nowrap border-2 px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-caption)] uppercase tracking-[0.14em] font-bold shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] ${
+                  item.type === 'shader'
+                    ? 'border-[#6CC349] bg-[#6CC349]/20 text-[#6CC349]'
+                    : 'border-[#4A90E2] bg-[#4A90E2]/20 text-[#4A90E2]'
+                }`}>
+                  {item.type === 'shader' ? '光影' : '资源包'}
+                </span>
+              )}
               <span className="inline-flex h-5 items-center gap-[var(--ore-spacing-xs)] whitespace-nowrap border-2 border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-infoChipBg)] px-[var(--ore-spacing-sm)] font-minecraft text-[length:var(--ore-typography-size-caption)] uppercase tracking-[0.14em] text-black shadow-[inset_0_-2px_0_var(--ore-library-resourceCard-infoChipDepth)]">
                 <Globe2 className="h-3 w-3" strokeWidth={2.5} />
                 {getSourceLabel(item.source)}
