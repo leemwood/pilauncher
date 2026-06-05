@@ -49,7 +49,34 @@
   </categories>
 
   <releases>
-    <release version="0.1.38" date="2026-05-31">
+    <release version="0.1.39" date="2026-06-05">
+      <description>
+        <p xml:lang="zh_CN">新增游戏库与按键配置的云端同步、手柄键位管理以及多实例下载，并全面优化了列表性能、无障碍体验与暗黑模式样式。</p>
+        <ul xml:lang="zh_CN">
+          <li>[新功能] 支持游戏库文件与手柄快捷键配置的 WebDAV 双向云同步，并具备冲突解决机制。</li>
+          <li>[新功能] 新增手柄按键映射与快捷键管理功能，支持配置默认键位。</li>
+          <li>[新功能] 优化资源下载逻辑，支持一键将资源下载并关联至多个游戏实例。</li>
+          <li>[新功能] 增加本地游戏实例自动识别与游戏版本检测功能。</li>
+          <li>[新功能] 新增 Steve 和 Sunny 等经典角色形象头像资源。</li>
+          <li>[优化] 引入虚拟列表技术重构关联管理面板，大幅提升大量资源项下的列表滚动性能。</li>
+          <li>[优化] 适配并美化了下载详情界面和资源卡片的暗黑模式样式。</li>
+          <li>[优化] 全面优化了手柄与键盘在各界面中的焦点导航与无障碍交互体验。</li>
+          <li>[优化] 优化了赞助者皮肤渲染与皇冠标识展示，并在游戏库页面右键菜单中增加资源类型标注。</li>
+        </ul>
+        <p>Added cloud sync for library files and keymaps, custom keymap management, multi-instance resource downloads, and optimized list performance, accessibility, and dark mode.</p>
+        <ul>
+          <li>[New] Added WebDAV bi-directional cloud synchronization for library files and keymaps with conflict resolution.</li>
+          <li>[New] Added custom gamepad keymap and shortcut management with default bindings.</li>
+          <li>[New] Enhanced download logic to support downloading and linking resources to multiple game instances simultaneously.</li>
+          <li>[New] Added automatic local instance detection and game version handling.</li>
+          <li>[New] Added new character avatar assets (Steve and Sunny).</li>
+          <li>[Optimization] Integrated virtual lists in the manage linkage view to significantly improve scrolling performance for large collections.</li>
+          <li>[Optimization] Improved dark mode styles for resource cards and download detail components.</li>
+          <li>[Optimization] Overhauled gamepad and keyboard focus navigation across various views for a better accessibility experience.</li>
+          <li>[Optimization] Enhanced donor skin rendering and crown displays, and added resource type labels to context menus in the library.</li>
+        </ul>
+      </description>
+    </release>
       <description>
         <p xml:lang="zh_CN">新增版本更新日志弹窗与翻译 API 配置，优化更新提示与项目图标动画效果。</p>
         <ul xml:lang="zh_CN">
