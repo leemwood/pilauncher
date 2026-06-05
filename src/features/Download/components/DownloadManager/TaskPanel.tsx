@@ -24,6 +24,29 @@ export const TaskPanel = ({
   const activeTasksCount = taskList.filter((task: DownloadTask) => task.status === 'downloading').length;
   const completedTasksCount = taskList.filter((task: DownloadTask) => task.status === 'completed').length;
 
+  const sortedTaskList = [...taskList].sort((a, b) => {
+    // 1. Ongoing tasks (downloading) first
+    const aActive = a.status === 'downloading';
+    const bActive = b.status === 'downloading';
+    if (aActive !== bActive) {
+      return aActive ? -1 : 1;
+    }
+
+    // 2. Paused tasks second
+    const aPaused = a.status === 'paused';
+    const bPaused = b.status === 'paused';
+    if (aPaused !== bPaused) {
+      return aPaused ? -1 : 1;
+    }
+
+    // 3. Newest tasks (by startedAt / lastUpdate) first
+    const startedDiff = (b.startedAt || 0) - (a.startedAt || 0);
+    if (startedDiff !== 0) {
+      return startedDiff;
+    }
+    return (b.lastUpdate || 0) - (a.lastUpdate || 0);
+  });
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -37,7 +60,7 @@ export const TaskPanel = ({
               setFocus('btn-taskpanel-hide');
             }
           }}
-          className="z-[1000] mb-[1.25rem] flex w-[clamp(22rem,85vw,40rem)] flex-col overflow-hidden border-[0.125rem] border-[var(--ore-border-color)] bg-[var(--ore-modal-bg)] text-[var(--ore-modal-content-text)]"
+          className="z-[1000] mb-[1.25rem] flex w-[clamp(22rem,85vw,40rem)] max-h-[calc(100vh-120px)] flex-col overflow-hidden border-[0.125rem] border-[var(--ore-border-color)] bg-[var(--ore-modal-bg)] text-[var(--ore-modal-content-text)]"
           style={{ boxShadow: 'var(--ore-modal-shadow)' }}
         >
           <FocusBoundary
@@ -45,7 +68,7 @@ export const TaskPanel = ({
             trapFocus={isOpen}
             onEscape={onClose}
             defaultFocusKey="btn-taskpanel-hide"
-            className="flex h-full flex-col overflow-hidden outline-none"
+            className="flex flex-1 min-h-0 flex-col overflow-hidden outline-none"
           >
             <div
               className="shrink-0 border-b-[0.125rem] border-[var(--ore-border-color)] bg-[var(--ore-modal-header-bg)] px-[1rem] py-[0.75rem]"
@@ -72,11 +95,11 @@ export const TaskPanel = ({
             </div>
 
             <OreOverlayScrollArea
-              className="max-h-[75vh] bg-[var(--ore-downloadDetail-base)]"
+              className="flex-1 min-h-0 bg-[var(--ore-downloadDetail-base)]"
               contentClassName="space-y-[clamp(0.75rem,1.5vw,1rem)] p-[clamp(0.75rem,1.5vw,1rem)]"
               style={{ boxShadow: 'var(--ore-downloadDetail-listShadow)' }}
             >
-              {taskList.map((task: DownloadTask) => (
+              {sortedTaskList.map((task: DownloadTask) => (
                 <motion.div
                   key={task.id}
                   variants={OreMotionTokens.downloadPanelItem}

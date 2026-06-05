@@ -69,6 +69,8 @@ fn apply_linux_compat_env_vars() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let _ = lighty_core::app_state::AppState::init("PiLauncher");
+
     #[cfg(target_os = "linux")]
     apply_linux_compat_env_vars();
 

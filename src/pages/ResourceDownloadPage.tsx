@@ -271,10 +271,11 @@ const ResourceDownloadPage: React.FC = () => {
 
   const handleStartDownload = useCallback(async (
     version: OreProjectVersion,
-    targetInstanceId: string,
+    targetInstanceId: string | string[],
     autoInstallDeps = false,
     projectOverride?: { projectId?: string; source?: DownloadSource }
   ) => {
+    const singleInstanceId = Array.isArray(targetInstanceId) ? targetInstanceId[0] : targetInstanceId;
     const subFolderMap: Record<TabType, string> = {
       mod: 'mods',
       resourcepack: 'resourcepacks',
@@ -297,7 +298,7 @@ const ResourceDownloadPage: React.FC = () => {
         retryPayload: {
           url: targetVersion.download_url,
           fileName: targetVersion.file_name,
-          instanceId: targetInstanceId,
+          instanceId: singleInstanceId,
           subFolder
         }
       });
@@ -306,7 +307,7 @@ const ResourceDownloadPage: React.FC = () => {
         await invoke('download_resource', {
           url: targetVersion.download_url,
           fileName: targetVersion.file_name,
-          instanceId: targetInstanceId,
+          instanceId: singleInstanceId,
           subFolder
         });
 
@@ -314,7 +315,7 @@ const ResourceDownloadPage: React.FC = () => {
           const projectId = customProjectId || projectOverride?.projectId || targetVersion.project_id || selectedProject?.id || '';
           if (projectId) {
             await modService.updateModManifest(
-              targetInstanceId,
+              singleInstanceId,
               targetVersion.file_name,
               'launcherDownload',
               (projectOverride?.source || source) === 'curseforge' ? 'curseforge' : 'modrinth',
@@ -323,7 +324,7 @@ const ResourceDownloadPage: React.FC = () => {
             );
           }
 
-          if (targetInstanceId === instanceId) {
+          if (singleInstanceId === instanceId) {
             await refreshInstalledMods();
           }
         }
@@ -345,7 +346,7 @@ const ResourceDownloadPage: React.FC = () => {
     if (!autoInstallDeps || !version.dependencies?.length) return;
 
     try {
-      const currentInstalledMods = await modService.getCachedModManifest(targetInstanceId, true);
+      const currentInstalledMods = await modService.getCachedModManifest(singleInstanceId, true);
       const installedIds = getInstalledProjectIds(currentInstalledMods);
       const missingDeps = version.dependencies.filter(
         (dependency) => 

@@ -47,8 +47,27 @@ pub(super) async fn install<R: Runtime>(
         );
 
         let meta_urls = profile_urls(&dl_settings, mc_version, loader_version);
-        let profile_json_text =
+        let raw_json_text =
             download_text_from_candidates(&client, &meta_urls, max_attempts, cancel).await?;
+
+        // Use lighty-loaders to parse and build the version manifest
+        let info = SimpleVersionInfo {
+            name: version_id.clone(),
+            mc_version: mc_version.to_string(),
+            loader_version: loader_version.to_string(),
+            game_dir: global_mc_root.to_path_buf(),
+            java_dir: global_mc_root.join("runtime/java"),
+            loader_type: lighty_loaders::types::Loader::Quilt,
+        };
+
+        use lighty_loaders::loaders::quilt::quilt::QuiltQuery;
+        use lighty_loaders::utils::query::Query;
+        let raw_metadata: <QuiltQuery as Query>::Raw = serde_json::from_str(&raw_json_text)?;
+        let merged_version = QuiltQuery::version_builder(&info, &raw_metadata).await.map_err(|e| AppError::Generic(e.to_string()))?;
+
+        // Write the merged version to file
+        let profile_json = version_to_json(&merged_version, &version_id, mc_version);
+        let profile_json_text = serde_json::to_string_pretty(&profile_json)?;
         tokio::fs::write(&json_path, &profile_json_text).await?;
 
         let _ = app.emit(

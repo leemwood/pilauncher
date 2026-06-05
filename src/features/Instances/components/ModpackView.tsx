@@ -30,7 +30,8 @@ export const ModpackView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [selectedProject]);
 
-  const handleDownload = async (version: OreProjectVersion, instanceName: string) => {
+  const handleDownload = async (version: OreProjectVersion, instanceName: string | string[]) => {
+    const singleName = Array.isArray(instanceName) ? instanceName[0] : instanceName;
     if (!version.download_url) {
       alert('\u627e\u4e0d\u5230\u53ef\u7528\u7684\u4e0b\u8f7d\u94fe\u63a5\uff0c\u8bf7\u68c0\u67e5\u7248\u672c\u6570\u636e\u3002');
       return;
@@ -39,7 +40,7 @@ export const ModpackView: React.FC = () => {
     try {
       await invoke('download_and_import_modpack', {
         url: version.download_url,
-        instanceName
+        instanceName: singleName
       });
 
       setSelectedProject(null);

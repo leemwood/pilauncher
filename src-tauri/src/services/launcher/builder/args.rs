@@ -685,11 +685,24 @@ impl LaunchCommandBuilder {
         jvm_overrides.insert("Xmx".to_string(), format!("{}M", self.config.max_memory));
         jvm_overrides.insert("Xms".to_string(), format!("{}M", self.config.min_memory));
 
+        let user_profile = lighty_auth::UserProfile {
+            id: None,
+            username: self.auth.player_name.clone(),
+            uuid: self.auth.uuid.clone(),
+            access_token: Some(lighty_auth::SecretString::from(self.auth.access_token.clone())),
+            xuid: None,
+            email: None,
+            email_verified: false,
+            money: None,
+            role: None,
+            banned: false,
+            provider: lighty_auth::AuthProvider::Offline,
+        };
+
         let preliminary_lighty_args = <PiVersionInfo as lighty_launch::arguments::Arguments>::build_arguments(
             &version_info,
             &builder_version,
-            &self.auth.player_name,
-            &self.auth.uuid,
+            Some(&user_profile),
             &arg_overrides,
             &std::collections::HashSet::new(),
             &jvm_overrides,
@@ -716,8 +729,7 @@ impl LaunchCommandBuilder {
         let lighty_args = <PiVersionInfo as lighty_launch::arguments::Arguments>::build_arguments(
             &version_info,
             &builder_version,
-            &self.auth.player_name,
-            &self.auth.uuid,
+            Some(&user_profile),
             &arg_overrides,
             &std::collections::HashSet::new(),
             &jvm_overrides,
@@ -955,7 +967,15 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
+    fn init_app_state_for_tests() {
+        static INIT: std::sync::Once = std::sync::Once::new();
+        INIT.call_once(|| {
+            let _ = lighty_core::app_state::AppState::init("PiLauncher");
+        });
+    }
+
     fn dummy_builder() -> LaunchCommandBuilder {
+        init_app_state_for_tests();
         LaunchCommandBuilder::new(
             ResolvedLaunchConfig {
                 java_path: "auto".to_string(),

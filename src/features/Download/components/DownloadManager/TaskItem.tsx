@@ -226,7 +226,7 @@ export const TaskItem = ({
       }`}
       style={{ boxShadow: 'var(--ore-downloadDetail-sectionShadow)' }}
     >
-      <div className="mb-[0.5rem] flex items-center justify-between gap-[0.5rem]">
+      <div className="mb-[0.375rem] flex items-center justify-between gap-[0.5rem]">
         <div className="flex min-w-0 flex-1 items-center gap-[0.375rem]">
           {isError ? (
             <AlertTriangle className="h-[1.125rem] w-[1.125rem] shrink-0 text-red-500" />
@@ -246,13 +246,9 @@ export const TaskItem = ({
             {statusLabel}
           </span>
         </div>
-
-        <div className="shrink-0">
-          <ProgressSummary task={task} />
-        </div>
       </div>
 
-      <div className="mb-[0.5rem]">
+      <div className="mb-[0.375rem]">
         <OreProgressBar
           percent={task.progress}
           label={<ProgressSummary task={task} />}
@@ -260,11 +256,11 @@ export const TaskItem = ({
         />
       </div>
 
-      <div className="mb-[0.375rem]">
+      <div className="mb-[0.25rem]">
         <PipelineIndicator stages={pipeline} currentStage={task.pipelineStage} isError={isError} />
       </div>
 
-      <div className="mb-[0.5rem] text-[0.75rem] text-[var(--ore-downloadDetail-mutedText)]">
+      <div className="mb-[0.375rem] text-[0.75rem] text-[var(--ore-downloadDetail-mutedText)]">
         <span className={isError ? 'text-red-400/80' : ''}>{task.stepText}</span>
       </div>
 

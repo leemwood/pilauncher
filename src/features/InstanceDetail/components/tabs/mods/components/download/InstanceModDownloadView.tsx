@@ -632,10 +632,11 @@ export const InstanceModDownloadView: React.FC<{
 
   const handleDetailDownload = useCallback((
     version: OreProjectVersion,
-    targetInstanceId: string,
+    targetInstanceId: string | string[],
     autoInstallRequiredDeps?: boolean
   ) => {
-    return handleStartDownload(version, targetInstanceId, autoInstallRequiredDeps, selectedProject?.id || '');
+    const singleId = Array.isArray(targetInstanceId) ? targetInstanceId[0] : targetInstanceId;
+    return handleStartDownload(version, singleId, autoInstallRequiredDeps, selectedProject?.id || '');
   }, [handleStartDownload, selectedProject]);
 
   const fetchLatestProjectVersion = useCallback(async (project: ModrinthProject) => {
@@ -917,7 +918,7 @@ export const InstanceModDownloadView: React.FC<{
         searchLoader={resourceTab === 'mod' ? targetLoader : ''}
         activeTab={resourceTab}
         source={source}
-        directInstallInstanceId={instanceId}
+        directInstallInstanceIds={[instanceId]}
       />
 
       <MissingDependenciesModal

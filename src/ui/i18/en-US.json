@@ -1469,7 +1469,7 @@
       "mod": "Mods",
       "modSet": "Mod Sets",
       "modpack": "Modpacks",
-      "external": "External Resources"
+      "external": "Global Resources"
     },
     "filters": {
       "all": "All",

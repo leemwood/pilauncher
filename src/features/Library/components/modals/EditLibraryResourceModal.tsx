@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { OreModal } from '../../../../ui/primitives/OreModal';
 import { OreButton } from '../../../../ui/primitives/OreButton';
 import { OreInput } from '../../../../ui/primitives/OreInput';
+import { OreSwitch } from '../../../../ui/primitives/OreSwitch';
 import type { LibraryResourceViewModel } from '../../logic/libraryItems';
 
 interface EditLibraryResourceModalProps {
@@ -135,90 +136,131 @@ export const EditLibraryResourceModal: React.FC<EditLibraryResourceModalProps> =
       onClose={onClose}
       title={`编辑与覆盖升级${typeText}`}
       defaultFocusKey="btn-edit-res-save"
-      className="h-[min(44rem,calc(100vh-2rem))] w-[46rem] max-w-[calc(100vw-2rem)] border-[0.1875rem] border-[#1E1E1F] bg-[var(--ore-modal-bg)]"
-      contentClassName="min-h-0 overflow-visible p-5 flex flex-col h-full bg-[#242526] space-y-4 font-sans text-white text-sm"
+      className="h-[min(44rem,80vh)] w-[46rem] max-w-[calc(100vw-2rem)] border-[0.1875rem] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-modal-bg)] shadow-[var(--ore-shadow-modal-default)]"
+      contentClassName="min-h-0 overflow-visible p-6 flex flex-col h-full bg-[var(--ore-color-background-surface-panel)] space-y-5 font-sans text-[var(--ore-color-text-primary-default)] text-sm"
+      actionsClassName="!justify-center py-4 bg-[var(--ore-color-background-surface-raised)] border-t-[3px] border-[var(--ore-color-border-primary-default)]"
       actions={
-        <>
+        <div className="w-full flex flex-col items-center">
           {errorMsg && (
-            <div className="mr-auto text-xs text-[#F46D6D] px-4 font-minecraft truncate max-w-[20rem]">
-              {errorMsg}
+            <div className="text-xs text-[var(--ore-color-text-danger-default)] px-4 font-minecraft text-center truncate max-w-full mb-3">
+              ⚠️ {errorMsg}
             </div>
           )}
-          <OreButton focusKey="btn-edit-res-cancel" variant="secondary" onClick={onClose} disabled={isSaving}>
-            取消
-          </OreButton>
-          <OreButton
-            focusKey="btn-edit-res-save"
-            variant="primary"
-            onClick={() => { void handleSave(); }}
-            disabled={isSaving}
-          >
-            {isSaving ? <Loader2 className="animate-spin mr-2" size={14} /> : <Save size={14} className="mr-2" />}
-            保存更新
-          </OreButton>
-        </>
+          <div className="flex items-center justify-center gap-4 w-full">
+            <OreButton 
+              focusKey="btn-edit-res-cancel" 
+              variant="secondary" 
+              onClick={onClose} 
+              disabled={isSaving} 
+              size="auto"
+            >
+              取消
+            </OreButton>
+            <OreButton
+              focusKey="btn-edit-res-save"
+              variant="primary"
+              onClick={() => { void handleSave(); }}
+              disabled={isSaving}
+              size="auto"
+            >
+              {isSaving ? <Loader2 className="animate-spin mr-2" size={14} /> : <Save size={14} className="mr-2" />}
+              保存更新
+            </OreButton>
+          </div>
+        </div>
       }
     >
-      <div className="border border-[#2D2E30] bg-[#1A1A1B] p-4 space-y-4">
+      {/* Basic Metadata Group */}
+      <div className="border-[3px] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-surface-panel)] p-5 rounded-sm space-y-4">
+        <div className="font-minecraft text-xs text-[var(--ore-color-background-info-default)] font-bold border-b border-[var(--ore-color-border-primary-default)] pb-2.5 uppercase tracking-wider">
+          📝 基础信息设置
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <div className="mb-1 text-xs text-[#B1B2B5]">标题 (必填)</div>
-            <OreInput value={title} onChange={(e) => setTitle(e.target.value)} disabled={isSaving} focusKey="edit-res-title" />
+            <OreInput 
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              disabled={isSaving} 
+              focusKey="edit-res-title" 
+              label="标题 (必填)"
+            />
           </div>
           <div>
-            <div className="mb-1 text-xs text-[#B1B2B5]">版本号</div>
-            <OreInput value={version} onChange={(e) => setVersion(e.target.value)} disabled={isSaving} focusKey="edit-res-version" />
+            <OreInput 
+              value={version} 
+              onChange={(e) => setVersion(e.target.value)} 
+              disabled={isSaving} 
+              focusKey="edit-res-version" 
+              label="版本号"
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <div className="mb-1 text-xs text-[#B1B2B5]">作者</div>
-            <OreInput value={author} onChange={(e) => setAuthor(e.target.value)} disabled={isSaving} focusKey="edit-res-author" />
+            <OreInput 
+              value={author} 
+              onChange={(e) => setAuthor(e.target.value)} 
+              disabled={isSaving} 
+              focusKey="edit-res-author" 
+              label="作者"
+            />
           </div>
           <div>
-            <div className="mb-1 text-xs text-[#B1B2B5]">描述 / 备注</div>
-            <OreInput value={desc} onChange={(e) => setDesc(e.target.value)} disabled={isSaving} focusKey="edit-res-desc" />
+            <OreInput 
+              value={desc} 
+              onChange={(e) => setDesc(e.target.value)} 
+              disabled={isSaving} 
+              focusKey="edit-res-desc" 
+              label="描述 / 备注"
+            />
           </div>
         </div>
       </div>
 
-      <div className="border border-[#2D2E30] bg-[#1A1A1B] p-4 space-y-3">
-        <div className="flex justify-between items-center">
-          <div className="font-minecraft text-xs text-[#B1B2B5]">覆盖升级 (可选)</div>
-          <label className="flex items-center gap-1.5 text-xs text-[#D0D1D4] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isLocalFolder}
-              onChange={(e) => {
-                setIsLocalFolder(e.target.checked);
-                setNewLocalPath('');
-              }}
-              disabled={isSaving}
-              className="accent-[#6CC349]"
-            />
-            导入文件夹结构
-          </label>
+      {/* Upgrade File Group */}
+      <div className="border-[3px] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-color-background-surface-panel)] p-5 rounded-sm space-y-4">
+        <div className="flex justify-between items-center border-b border-[var(--ore-color-border-primary-default)] pb-2.5">
+          <div className="font-minecraft text-xs text-[var(--ore-color-background-info-default)] font-bold uppercase tracking-wider">
+            ⚡ 覆盖升级 (覆盖库文件并重构挂载)
+          </div>
+          <OreSwitch
+            checked={isLocalFolder}
+            onChange={(checked) => {
+              setIsLocalFolder(checked);
+              setNewLocalPath('');
+            }}
+            disabled={isSaving}
+            focusKey="switch-edit-local-folder"
+          />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
           <div className="flex-1">
             <OreInput
               value={newLocalPath}
               onChange={(e) => setNewLocalPath(e.target.value)}
-              placeholder="留空表示仅更新基础元数据；选择新文件则覆盖库文件并重构软链接"
+              placeholder="留空表示仅元数据；选择新文件则覆盖库文件"
               readOnly
               focusKey="edit-res-new-path"
             />
           </div>
-          <OreButton focusKey="btn-edit-res-browse" variant="secondary" onClick={handleBrowseLocal} disabled={isSaving}>
-            <FolderOpen size={16} className="mr-2" />
+          <OreButton 
+            focusKey="btn-edit-res-browse" 
+            variant="secondary" 
+            onClick={handleBrowseLocal} 
+            disabled={isSaving}
+            size="auto"
+          >
+            <FolderOpen size={15} className="mr-2" />
             浏览新文件
           </OreButton>
         </div>
+        
         {fileName && (
-          <div className="text-[10px] text-[#8A8B8C] font-mono">
-            当前库文件名: {fileName}
+          <div className="text-xs text-[var(--ore-color-text-muted-default)] font-mono bg-[var(--ore-color-background-surface-deep)] p-3 rounded-sm border border-[var(--ore-color-border-primary-default)] break-all">
+            <span className="text-[var(--ore-color-background-info-default)] font-bold font-minecraft mr-2">当前库文件名:</span>
+            {fileName}
           </div>
         )}
       </div>

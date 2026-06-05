@@ -61,8 +61,11 @@ steam_shortcuts_util = "1.1.8"
 steamlocate = "2.0.1"
 gilrs = { version = "0.11.1", default-features = false, features = ["xinput", "serde"] }
 urlencoding = "2.1"
-lighty-launch = "0.8.6"
-lighty-loaders = "0.8.6"
+lighty-launch = "26.5.12"
+lighty-loaders = { version = "26.5.12", features = ["fabric", "quilt", "forge", "neoforge"] }
+lighty-auth = "26.5.12"
+lighty-core = "26.5.12"
+
 
 
 

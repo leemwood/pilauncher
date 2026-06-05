@@ -7,7 +7,6 @@ use crate::services::downloader::logging::resolve_logs_dir;
 use serde::Deserialize;
 use serde_json::Value;
 use std::env;
-use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::AtomicBool;
@@ -22,7 +21,102 @@ mod forge;
 mod neoforge;
 mod quilt;
 
+#[derive(Clone)]
+pub struct SimpleVersionInfo {
+    pub name: String,
+    pub mc_version: String,
+    pub loader_version: String,
+    pub game_dir: PathBuf,
+    pub java_dir: PathBuf,
+    pub loader_type: lighty_loaders::types::Loader,
+}
+
+impl lighty_loaders::types::VersionInfo for SimpleVersionInfo {
+    type LoaderType = lighty_loaders::types::Loader;
+    fn name(&self) -> &str { &self.name }
+    fn loader_version(&self) -> &str { &self.loader_version }
+    fn minecraft_version(&self) -> &str { &self.mc_version }
+    fn game_dirs(&self) -> &Path { &self.game_dir }
+    fn java_dirs(&self) -> &Path { &self.java_dir }
+    fn loader(&self) -> &Self::LoaderType { &self.loader_type }
+}
+
+pub fn version_to_json(
+    version: &lighty_loaders::types::version_metadata::Version,
+    version_id: &str,
+    inherits_from: &str,
+) -> serde_json::Value {
+    let mut libs = serde_json::json!([]);
+    if let Some(arr) = libs.as_array_mut() {
+        for lib in &version.libraries {
+            let mut downloads = serde_json::json!({});
+            if let (Some(url), Some(path)) = (&lib.url, &lib.path) {
+                downloads["artifact"] = serde_json::json!({
+                    "url": url,
+                    "path": path,
+                    "size": lib.size,
+                    "sha1": lib.sha1,
+                });
+            }
+            let mut lib_obj = serde_json::json!({
+                "name": lib.name,
+            });
+            if !downloads.as_object().unwrap().is_empty() {
+                lib_obj["downloads"] = downloads;
+            } else if let Some(url) = &lib.url {
+                lib_obj["url"] = serde_json::json!(url);
+            }
+            arr.push(lib_obj);
+        }
+    }
+
+    let game_args: Vec<serde_json::Value> = version
+        .arguments
+        .game
+        .iter()
+        .map(|arg| serde_json::Value::String(arg.clone()))
+        .collect();
+    let jvm_args: Vec<serde_json::Value> = version
+        .arguments
+        .jvm
+        .as_ref()
+        .map(|args| {
+            args.iter()
+                .map(|arg| serde_json::Value::String(arg.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut root = serde_json::json!({
+        "id": version_id,
+        "inheritsFrom": inherits_from,
+        "type": "release",
+        "mainClass": version.main_class.main_class,
+        "javaVersion": {
+            "majorVersion": version.java_version.major_version
+        },
+        "arguments": {
+            "game": game_args,
+            "jvm": jvm_args
+        },
+        "libraries": libs
+    });
+
+    if let Some(assets_index) = &version.assets_index {
+        root["assetIndex"] = serde_json::json!({
+            "id": assets_index.id,
+            "url": assets_index.url,
+            "sha1": assets_index.sha1,
+            "size": assets_index.size,
+            "totalSize": assets_index.total_size,
+        });
+    }
+
+    root
+}
+
 const INSTALLER_OUTPUT_BUFFER_LIMIT: usize = 20;
+
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
@@ -273,37 +367,7 @@ async fn download_bytes_from_candidates(
     Ok(response.bytes().await?.to_vec())
 }
 
-async fn load_or_download_installer_archive(
-    client: &reqwest::Client,
-    candidate_urls: &[String],
-    installer_path: &Path,
-    required_entries: &[&str],
-    max_attempts: u32,
-    cancel: &Arc<AtomicBool>,
-) -> AppResult<Vec<u8>> {
-    if installer_path.exists() {
-        if let Ok(installer_bytes) = tokio::fs::read(installer_path).await {
-            if required_entries
-                .iter()
-                .all(|entry_name| extract_zip_entry_text(&installer_bytes, entry_name).is_ok())
-            {
-                return Ok(installer_bytes);
-            }
-        }
 
-        let _ = tokio::fs::remove_file(installer_path).await;
-    }
-
-    let installer_bytes =
-        download_bytes_from_candidates(client, candidate_urls, max_attempts, cancel).await?;
-
-    for entry_name in required_entries {
-        extract_zip_entry_text(&installer_bytes, entry_name)?;
-    }
-
-    tokio::fs::write(installer_path, &installer_bytes).await?;
-    Ok(installer_bytes)
-}
 
 fn remember_installer_output(lines: &Arc<Mutex<Vec<String>>>, line: String) {
     let mut guard = lines.lock().unwrap();
@@ -468,32 +532,7 @@ async fn run_java_installer<R: Runtime>(
     Ok(())
 }
 
-fn extract_zip_entry_text(archive_bytes: &[u8], entry_name: &str) -> AppResult<String> {
-    let cursor = Cursor::new(archive_bytes);
-    let mut archive = zip::ZipArchive::new(cursor)
-        .map_err(|e| AppError::Generic(format!("Invalid loader installer archive: {}", e)))?;
-    let mut entry = archive.by_name(entry_name).map_err(|e| {
-        AppError::Generic(format!(
-            "Missing {} in loader installer archive: {}",
-            entry_name, e
-        ))
-    })?;
 
-    let mut text = String::new();
-    entry.read_to_string(&mut text)?;
-    Ok(text)
-}
-
-fn extract_zip_entry_json(archive_bytes: &[u8], entry_name: &str) -> AppResult<Value> {
-    let text = extract_zip_entry_text(archive_bytes, entry_name)?;
-    Ok(serde_json::from_str(&text)?)
-}
-
-fn prepare_loader_version_json(raw_json: &str, expected_version_id: &str) -> AppResult<String> {
-    let mut json: Value = serde_json::from_str(raw_json)?;
-    json["id"] = Value::String(expected_version_id.to_string());
-    Ok(serde_json::to_string_pretty(&json)?)
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LoaderFileExpectation {
@@ -868,29 +907,7 @@ fn needs_loader_manifest_download(json_path: &Path) -> bool {
     serde_json::from_str::<Value>(&content).is_err()
 }
 
-async fn save_loader_manifest_from_installer(
-    client: &reqwest::Client,
-    candidate_urls: &[String],
-    max_attempts: u32,
-    cancel: &Arc<AtomicBool>,
-    json_path: &Path,
-    expected_version_id: &str,
-) -> AppResult<()> {
-    let installer_bytes =
-        download_bytes_from_candidates(client, candidate_urls, max_attempts, cancel).await?;
-    save_loader_manifest_from_archive_bytes(&installer_bytes, json_path, expected_version_id).await
-}
 
-async fn save_loader_manifest_from_archive_bytes(
-    archive_bytes: &[u8],
-    json_path: &Path,
-    expected_version_id: &str,
-) -> AppResult<()> {
-    let raw_version_json = extract_zip_entry_text(archive_bytes, "version.json")?;
-    let version_json = prepare_loader_version_json(&raw_version_json, expected_version_id)?;
-    tokio::fs::write(json_path, version_json).await?;
-    Ok(())
-}
 
 pub async fn install_loader<R: Runtime>(
     app: &AppHandle<R>,
@@ -956,404 +973,6 @@ pub async fn install_loader<R: Runtime>(
         )
         .await?;
     }
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-async fn install_fabric<R: Runtime>(
-    app: &AppHandle<R>,
-    instance_id: &str,
-    mc_version: &str,
-    loader_version: &str,
-    global_mc_root: &Path,
-    cancel: &Arc<AtomicBool>,
-) -> AppResult<()> {
-    let dl_settings = ConfigService::get_download_settings(app);
-    let client = build_download_client(&dl_settings)?;
-    let max_attempts = dl_settings.retry_count.max(1);
-
-    let version_id = format!("fabric-loader-{}-{}", loader_version, mc_version);
-    let version_dir = global_mc_root.join("versions").join(&version_id);
-    tokio::fs::create_dir_all(&version_dir).await?;
-    let json_path = version_dir.join(format!("{}.json", version_id));
-
-    if needs_loader_manifest_download(&json_path) {
-        if is_cancelled(cancel) {
-            return Err(AppError::Cancelled);
-        }
-
-        let _ = app.emit(
-            "instance-deployment-progress",
-            DownloadProgressEvent {
-                instance_id: instance_id.to_string(),
-                stage: "LOADER_CORE".to_string(),
-                file_name: format!("{}.json", version_id),
-                current: 10,
-                total: 100,
-                message: format!("正在下载 Fabric {} 配置清单...", loader_version),
-            },
-        );
-
-        let meta_urls = fabric_profile_urls(&dl_settings, mc_version, loader_version);
-        let profile_json_text =
-            download_text_from_candidates(&client, &meta_urls, max_attempts, cancel).await?;
-        tokio::fs::write(&json_path, &profile_json_text).await?;
-
-        let _ = app.emit(
-            "instance-deployment-progress",
-            DownloadProgressEvent {
-                instance_id: instance_id.to_string(),
-                stage: "LOADER_CORE".to_string(),
-                file_name: version_id.clone(),
-                current: 40,
-                total: 100,
-                message: "配置清单已就绪，正在下载 Fabric 依赖...".to_string(),
-            },
-        );
-    }
-
-    if is_cancelled(cancel) {
-        return Err(AppError::Cancelled);
-    }
-
-    crate::services::downloader::dependencies::download_dependencies(
-        app,
-        instance_id,
-        &version_id,
-        global_mc_root,
-        cancel,
-    )
-    .await?;
-
-    verify_loader_installation(app, instance_id, &version_id, global_mc_root, cancel).await?;
-
-    let _ = app.emit(
-        "instance-deployment-progress",
-        DownloadProgressEvent {
-            instance_id: instance_id.to_string(),
-            stage: "LOADER_CORE".to_string(),
-            file_name: version_id.clone(),
-            current: 100,
-            total: 100,
-            message: "Fabric 环境部署完成".to_string(),
-        },
-    );
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-async fn install_forge<R: Runtime>(
-    app: &AppHandle<R>,
-    instance_id: &str,
-    mc_version: &str,
-    loader_version: &str,
-    global_mc_root: &Path,
-    cancel: &Arc<AtomicBool>,
-) -> AppResult<()> {
-    let dl_settings = ConfigService::get_download_settings(app);
-    let java_settings = ConfigService::get_java_settings(app);
-    let java_runtime = crate::services::runtime_service::resolve_global_installer_java_runtime(
-        &java_settings,
-        mc_version,
-        crate::services::runtime_service::installer_default_java_command(),
-    );
-    let client = build_download_client(&dl_settings)?;
-    let max_attempts = dl_settings.retry_count.max(1);
-    let version_id = format!("{}-forge-{}", mc_version, loader_version);
-    let version_dir = global_mc_root.join("versions").join(&version_id);
-    tokio::fs::create_dir_all(&version_dir).await?;
-    let json_path = version_dir.join(format!("{}.json", version_id));
-    let temp_dir = global_mc_root.join("temp");
-    tokio::fs::create_dir_all(&temp_dir).await?;
-    let installer_path = temp_dir.join(format!("forge-installer-{}.jar", loader_version));
-
-    if is_cancelled(cancel) {
-        return Err(AppError::Cancelled);
-    }
-
-    let _ = app.emit(
-        "instance-deployment-progress",
-        DownloadProgressEvent {
-            instance_id: instance_id.to_string(),
-            stage: "LOADER_CORE".to_string(),
-            file_name: "installer.jar".to_string(),
-            current: 5,
-            total: 100,
-            message: format!("正在下载 Forge {} 安装包元数据...", loader_version),
-        },
-    );
-
-    let installer_urls = forge_installer_urls(&dl_settings, mc_version, loader_version);
-    if !installer_path.exists() {
-        if is_cancelled(cancel) {
-            return Err(AppError::Cancelled);
-        }
-        let installer_bytes =
-            download_bytes_from_candidates(&client, &installer_urls, max_attempts, cancel).await?;
-        tokio::fs::write(&installer_path, installer_bytes).await?;
-    }
-    if needs_loader_manifest_download(&json_path) {
-        if is_cancelled(cancel) {
-            return Err(AppError::Cancelled);
-        }
-        save_loader_manifest_from_installer(
-            &client,
-            &installer_urls,
-            max_attempts,
-            cancel,
-            &json_path,
-            &version_id,
-        )
-        .await?;
-    }
-
-    let _ = app.emit(
-        "instance-deployment-progress",
-        DownloadProgressEvent {
-            instance_id: instance_id.to_string(),
-            stage: "LOADER_CORE".to_string(),
-            file_name: format!("{}.json", version_id),
-            current: 40,
-            total: 100,
-            message: "Forge 版本清单已就绪，正在下载依赖...".to_string(),
-        },
-    );
-
-    if is_cancelled(cancel) {
-        return Err(AppError::Cancelled);
-    }
-    let launcher_profiles = global_mc_root.join("launcher_profiles.json");
-    if !launcher_profiles.exists() {
-        tokio::fs::write(&launcher_profiles, "{\"profiles\": {}}").await?;
-    }
-
-    emit_loader_progress(
-        app,
-        instance_id,
-        "installer.jar",
-        60,
-        100,
-        "正在执行 Forge 安装器...",
-    );
-    run_java_installer(
-        app,
-        instance_id,
-        "Forge",
-        &java_runtime.java_path,
-        &java_runtime.required_java_major,
-        &installer_path,
-        global_mc_root,
-        cancel,
-    )
-    .await?;
-
-    emit_loader_progress(
-        app,
-        instance_id,
-        format!("{}.json", version_id),
-        80,
-        100,
-        "Forge 安装完成，正在补齐并校验依赖...",
-    );
-    crate::services::downloader::dependencies::download_dependencies(
-        app,
-        instance_id,
-        &version_id,
-        global_mc_root,
-        cancel,
-    )
-    .await?;
-
-    verify_loader_installation(app, instance_id, &version_id, global_mc_root, cancel).await?;
-    let _ = tokio::fs::remove_file(&installer_path).await;
-
-    let _ = app.emit(
-        "instance-deployment-progress",
-        DownloadProgressEvent {
-            instance_id: instance_id.to_string(),
-            stage: "LOADER_CORE".to_string(),
-            file_name: String::new(),
-            current: 100,
-            total: 100,
-            message: "Forge 环境部署完成".to_string(),
-        },
-    );
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-async fn install_neoforge<R: Runtime>(
-    app: &AppHandle<R>,
-    instance_id: &str,
-    mc_version: &str,
-    loader_version: &str,
-    global_mc_root: &Path,
-    cancel: &Arc<AtomicBool>,
-) -> AppResult<()> {
-    let dl_settings = ConfigService::get_download_settings(app);
-    let java_settings = ConfigService::get_java_settings(app);
-    let java_runtime = crate::services::runtime_service::resolve_global_installer_java_runtime(
-        &java_settings,
-        mc_version,
-        crate::services::runtime_service::installer_default_java_command(),
-    );
-    let client = build_download_client(&dl_settings)?;
-    let max_attempts = dl_settings.retry_count.max(1);
-    let version_id = format!("neoforge-{}", loader_version);
-    let version_dir = global_mc_root.join("versions").join(&version_id);
-    tokio::fs::create_dir_all(&version_dir).await?;
-    let json_path = version_dir.join(format!("{}.json", version_id));
-    let temp_dir = global_mc_root.join("temp");
-    tokio::fs::create_dir_all(&temp_dir).await?;
-    let installer_path = temp_dir.join(format!("neoforge-installer-{}.jar", loader_version));
-
-    if is_cancelled(cancel) {
-        return Err(AppError::Cancelled);
-    }
-
-    let _ = app.emit(
-        "instance-deployment-progress",
-        DownloadProgressEvent {
-            instance_id: instance_id.to_string(),
-            stage: "LOADER_CORE".to_string(),
-            file_name: "installer.jar".to_string(),
-            current: 5,
-            total: 100,
-            message: format!("正在下载 NeoForge {} 安装包元数据...", loader_version),
-        },
-    );
-
-    let installer_urls = resolve_neoforge_installer_urls(
-        &client,
-        &dl_settings,
-        mc_version,
-        loader_version,
-        max_attempts,
-        cancel,
-    )
-    .await?;
-    let installer_bytes = load_or_download_installer_archive(
-        &client,
-        &installer_urls,
-        &installer_path,
-        &["version.json", "install_profile.json"],
-        max_attempts,
-        cancel,
-    )
-    .await?;
-    if needs_loader_manifest_download(&json_path) {
-        if is_cancelled(cancel) {
-            return Err(AppError::Cancelled);
-        }
-        save_loader_manifest_from_archive_bytes(&installer_bytes, &json_path, &version_id).await?;
-    }
-
-    let install_profile = extract_zip_entry_json(&installer_bytes, "install_profile.json")?;
-
-    emit_loader_progress(
-        app,
-        instance_id,
-        "install_profile.json",
-        20,
-        100,
-        "正在解析 NeoForge installer 依赖清单...",
-    );
-    crate::services::downloader::dependencies::download_libraries(
-        app,
-        instance_id,
-        &client,
-        &install_profile,
-        global_mc_root,
-        cancel,
-    )
-    .await?;
-
-    verify_loader_manifest_integrity(
-        app,
-        instance_id,
-        "install_profile.json",
-        &install_profile,
-        global_mc_root,
-        cancel,
-        32,
-        38,
-    )
-    .await?;
-
-    let _ = app.emit(
-        "instance-deployment-progress",
-        DownloadProgressEvent {
-            instance_id: instance_id.to_string(),
-            stage: "LOADER_CORE".to_string(),
-            file_name: format!("{}.json", version_id),
-            current: 40,
-            total: 100,
-            message: "NeoForge 版本清单已就绪，正在下载依赖...".to_string(),
-        },
-    );
-
-    if is_cancelled(cancel) {
-        return Err(AppError::Cancelled);
-    }
-    let launcher_profiles = global_mc_root.join("launcher_profiles.json");
-    if !launcher_profiles.exists() {
-        tokio::fs::write(&launcher_profiles, "{\"profiles\": {}}").await?;
-    }
-
-    emit_loader_progress(
-        app,
-        instance_id,
-        "installer.jar",
-        60,
-        100,
-        "正在执行 NeoForge 安装器...",
-    );
-    run_java_installer(
-        app,
-        instance_id,
-        "NeoForge",
-        &java_runtime.java_path,
-        &java_runtime.required_java_major,
-        &installer_path,
-        global_mc_root,
-        cancel,
-    )
-    .await?;
-
-    emit_loader_progress(
-        app,
-        instance_id,
-        format!("{}.json", version_id),
-        80,
-        100,
-        "NeoForge 安装完成，正在补齐并校验依赖...",
-    );
-    crate::services::downloader::dependencies::download_dependencies(
-        app,
-        instance_id,
-        &version_id,
-        global_mc_root,
-        cancel,
-    )
-    .await?;
-
-    verify_loader_installation(app, instance_id, &version_id, global_mc_root, cancel).await?;
-    let _ = tokio::fs::remove_file(&installer_path).await;
-
-    let _ = app.emit(
-        "instance-deployment-progress",
-        DownloadProgressEvent {
-            instance_id: instance_id.to_string(),
-            stage: "LOADER_CORE".to_string(),
-            file_name: String::new(),
-            current: 100,
-            total: 100,
-            message: "NeoForge 环境部署完成".to_string(),
-        },
-    );
 
     Ok(())
 }

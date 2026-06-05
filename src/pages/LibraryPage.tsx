@@ -37,8 +37,8 @@ import { useLibraryBackup } from '../features/Library/hooks/useLibraryBackup';
 import { useLibraryCollectionOrdering } from '../features/Library/hooks/useLibraryCollectionOrdering';
 import { useLibraryRelations } from '../features/Library/hooks/useLibraryRelations';
 import { useLibraryResourceDetail } from '../features/Library/hooks/useLibraryResourceDetail';
-import { InstanceSelectModal as HomeInstanceSelectModal } from '../features/home/components/InstanceSelectModal';
-import { useInstances } from '../hooks/pages/Instances/useInstances';
+import { LibraryInstanceSelectModal } from '../features/Library/components/modals/LibraryInstanceSelectModal';
+
 import { useModSetTrackerStore, type ModSetTrackerItemStatus } from '../features/Library/stores/useModSetTrackerStore';
 import { useLauncherStore } from '../store/useLauncherStore';
 import { FocusBoundary } from '../ui/focus/FocusBoundary';
@@ -102,8 +102,9 @@ const LibraryPage: React.FC = () => {
     parentCategoryId,
   } = useLibraryPage();
 
-  const { instances } = useInstances();
-  const [pendingInstanceSelectResource, setPendingInstanceSelectResource] = useState<LibraryResourceViewModel | null>(null);
+
+  const [isLibraryInstanceSelectOpen, setIsLibraryInstanceSelectOpen] = useState(false);
+  const [pendingLibraryResource, setPendingLibraryResource] = useState<LibraryResourceViewModel | null>(null);
 
   const [isTrackerModalOpen, setIsTrackerModalOpen] = useState(false);
   const [directInstallTrackerId, setDirectInstallTrackerId] = useState<string | null>(null);
@@ -149,11 +150,11 @@ const LibraryPage: React.FC = () => {
     detailProject,
     detailSource,
     detailTab,
-    directInstallInstanceId,
+    directInstallInstanceIds,
     searchMcVersion,
     searchLoader,
     openResourceDetail,
-    openResourceDetailWithInstance,
+    openResourceDetailWithInstances,
     closeResourceDetail,
     handleLibraryDetailDownload,
   } = useLibraryResourceDetail();
@@ -407,7 +408,13 @@ const LibraryPage: React.FC = () => {
 
   const handleOpenItem = (item: LibraryResourceViewModel) => {
     if (item.type === 'shader' || item.type === 'resourcepack') {
-      setPendingInstanceSelectResource(item);
+      if (item.installedVersion) {
+        setSelectedLibraryResource(item);
+        setIsManageLinkageOpen(true);
+      } else {
+        setPendingLibraryResource(item);
+        setIsLibraryInstanceSelectOpen(true);
+      }
     } else {
       openResourceDetail(item);
     }
@@ -734,7 +741,7 @@ const LibraryPage: React.FC = () => {
     isAddResourceModalOpen ||
     isManageLinkageOpen ||
     isEditResourceOpen ||
-    pendingInstanceSelectResource
+    isLibraryInstanceSelectOpen
   );
 
   useEffect(() => {
@@ -1099,21 +1106,22 @@ const LibraryPage: React.FC = () => {
         installedVersionIds={[]}
         activeTab={detailTab}
         source={detailSource}
-        directInstallInstanceId={directInstallInstanceId}
+        directInstallInstanceIds={directInstallInstanceIds}
         searchMcVersion={searchMcVersion}
         searchLoader={searchLoader}
       />
 
-      <HomeInstanceSelectModal
-        isOpen={!!pendingInstanceSelectResource}
-        onClose={() => setPendingInstanceSelectResource(null)}
-        selectedId=""
-        onSelect={(instanceId) => {
-          const instance = instances.find((inst) => inst.id === instanceId);
-          if (instance && pendingInstanceSelectResource) {
-            openResourceDetailWithInstance(pendingInstanceSelectResource, instance);
+      <LibraryInstanceSelectModal
+        isOpen={isLibraryInstanceSelectOpen}
+        onClose={() => {
+          setIsLibraryInstanceSelectOpen(false);
+          setPendingLibraryResource(null);
+        }}
+        resource={pendingLibraryResource}
+        onConfirm={(instanceIds) => {
+          if (pendingLibraryResource) {
+            openResourceDetailWithInstances(pendingLibraryResource, instanceIds);
           }
-          setPendingInstanceSelectResource(null);
         }}
       />
 

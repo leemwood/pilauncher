@@ -468,29 +468,49 @@ pub async fn delete_library_resource<R: Runtime>(
         .map_err(|e| e.to_string())?;
     let filename = snapshot_value.get("fileName")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| "Filename not found in snapshot".to_string())?;
+        .map(|s| s.to_string());
 
-    let rows = sqlx::query(
-        "SELECT instance_id FROM library_resource_mappings WHERE resource_id = ?"
-    )
-    .bind(&resource_id)
-    .fetch_all(&db.pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    if let Some(filename) = filename {
+        let rows = sqlx::query(
+            "SELECT instance_id FROM library_resource_mappings WHERE resource_id = ?"
+        )
+        .bind(&resource_id)
+        .fetch_all(&db.pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let mapped_instances: Vec<String> = rows.into_iter().map(|row| row.get::<String, _>("instance_id")).collect();
+        let mapped_instances: Vec<String> = rows.into_iter().map(|row| row.get::<String, _>("instance_id")).collect();
 
-    let dest_folder = match res_type.as_str() {
-        "shader" => "shaderpacks",
-        "resourcepack" => "resourcepacks",
-        _ => return Err("Invalid type".to_string()),
-    };
+        let dest_folder = match res_type.as_str() {
+            "shader" => "shaderpacks",
+            "resourcepack" => "resourcepacks",
+            _ => return Err("Invalid type".to_string()),
+        };
 
-    for inst_id in &mapped_instances {
-        let instance_dir = get_game_dir(&app, inst_id)?;
-        let dest_path = instance_dir.join(dest_folder).join(filename);
-        if dest_path.exists() {
-            safe_remove_link(&dest_path)?;
+        for inst_id in &mapped_instances {
+            let instance_dir = get_game_dir(&app, inst_id)?;
+            let dest_path = instance_dir.join(dest_folder).join(&filename);
+            if dest_path.exists() {
+                safe_remove_link(&dest_path)?;
+            }
+        }
+
+        let base_path = ConfigService::get_base_path(&app)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "尚未配置基础数据目录".to_string())?;
+
+        let library_path = PathBuf::from(&base_path)
+            .join("shared_mods")
+            .join("library")
+            .join(&folder)
+            .join(&filename);
+
+        if library_path.exists() {
+            if library_path.is_dir() {
+                fs::remove_dir_all(&library_path).map_err(|e| e.to_string())?;
+            } else {
+                fs::remove_file(&library_path).map_err(|e| e.to_string())?;
+            }
         }
     }
 
@@ -501,24 +521,6 @@ pub async fn delete_library_resource<R: Runtime>(
     .execute(&db.pool)
     .await
     .map_err(|e| e.to_string())?;
-
-    let base_path = ConfigService::get_base_path(&app)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "尚未配置基础数据目录".to_string())?;
-
-    let library_path = PathBuf::from(&base_path)
-        .join("shared_mods")
-        .join("library")
-        .join(&folder)
-        .join(filename);
-
-    if library_path.exists() {
-        if library_path.is_dir() {
-            fs::remove_dir_all(&library_path).map_err(|e| e.to_string())?;
-        } else {
-            fs::remove_file(&library_path).map_err(|e| e.to_string())?;
-        }
-    }
 
     crate::services::library_service::LibraryService::remove_starred_item(&db.pool, &resource_id)
         .await

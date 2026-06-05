@@ -9,11 +9,11 @@ import { FocusItem } from '../../../../ui/focus/FocusItem';
 import { FocusBoundary } from '../../../../ui/focus/FocusBoundary';
 import type { LibraryResourceViewModel } from '../../logic/libraryItems';
 
-interface ManageLinkageModalProps {
+interface LibraryInstanceSelectModalProps {
   isOpen: boolean;
   onClose: () => void;
   resource: LibraryResourceViewModel | null;
-  onSuccess?: () => void;
+  onConfirm: (selectedInstanceIds: string[]) => void;
 }
 
 interface InstanceItem {
@@ -24,17 +24,15 @@ interface InstanceItem {
   coverPath?: string;
 }
 
-export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
+export const LibraryInstanceSelectModal: React.FC<LibraryInstanceSelectModalProps> = ({
   isOpen,
   onClose,
   resource,
-  onSuccess,
+  onConfirm,
 }) => {
-
   const [instances, setInstances] = useState<InstanceItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,19 +42,13 @@ export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
   }, [isOpen, resource]);
 
   const loadData = async () => {
-    if (!resource) return;
     setIsLoading(true);
     setErrorMsg(null);
     try {
       // 1. Load instances
       const list = await invoke<InstanceItem[]>('get_all_instances', { forceRefresh: false });
       setInstances(list);
-
-      // 2. Load linked instances
-      const linkedIds = await invoke<string[]>('get_library_resource_mappings', {
-        resourceId: resource.id,
-      });
-      setSelectedIds(new Set(linkedIds));
+      setSelectedIds(new Set());
     } catch (e) {
       console.error(e);
       setErrorMsg(`数据加载失败: ${String(e)}`);
@@ -66,7 +58,6 @@ export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
   };
 
   const handleToggle = (id: string) => {
-    if (isSaving) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -78,23 +69,9 @@ export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
     });
   };
 
-  const handleSave = async () => {
-    if (!resource || isSaving) return;
-    setIsSaving(true);
-    setErrorMsg(null);
-    try {
-      await invoke('link_library_resource_to_instances', {
-        resourceId: resource.id,
-        instanceIds: Array.from(selectedIds),
-      });
-      onSuccess?.();
-      onClose();
-    } catch (e) {
-      console.error(e);
-      setErrorMsg(`保存失败: ${String(e)}`);
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSave = () => {
+    onConfirm(Array.from(selectedIds));
+    onClose();
   };
 
   const resourceTitle = resource?.title || '未命名资源';
@@ -104,8 +81,8 @@ export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
     <OreModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`管理${typeText}实例导入`}
-      defaultFocusKey="btn-linkage-save"
+      title={`选择${typeText}应用实例`}
+      defaultFocusKey="btn-instance-confirm"
       className="h-[min(38rem,calc(100vh-2rem))] w-[40rem] max-w-[calc(100vw-2rem)] border-[0.1875rem] border-[var(--ore-color-border-primary-default)] bg-[var(--ore-modal-bg)] shadow-[var(--ore-shadow-modal-default)]"
       contentClassName="min-h-0 overflow-visible p-0 flex flex-col h-full bg-[var(--ore-color-background-surface-panel)]"
       actionsClassName="!justify-center py-4 bg-[var(--ore-color-background-surface-raised)] border-t-[3px] border-[var(--ore-color-border-primary-default)]"
@@ -118,23 +95,22 @@ export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
           )}
           <div className="flex items-center justify-center gap-4 w-full">
             <OreButton 
-              focusKey="btn-linkage-cancel" 
+              focusKey="btn-instance-cancel" 
               variant="secondary" 
               onClick={onClose} 
-              disabled={isSaving} 
               size="auto"
             >
               取消
             </OreButton>
             <OreButton
-              focusKey="btn-linkage-save"
+              focusKey="btn-instance-confirm"
               variant="primary"
-              onClick={() => { void handleSave(); }}
-              disabled={isLoading || isSaving}
+              onClick={handleSave}
+              disabled={isLoading || selectedIds.size === 0}
               size="auto"
             >
-              {isSaving ? <Loader2 className="animate-spin mr-2" size={14} /> : <Save size={14} className="mr-2" />}
-              保存映射
+              <Save size={14} className="mr-2" />
+              确认并去选择版本
             </OreButton>
           </div>
         </div>
@@ -158,7 +134,7 @@ export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
             {isLoading ? (
               <div className="flex h-48 flex-col items-center justify-center text-sm text-[var(--ore-color-text-muted-default)] font-minecraft">
                 <Loader2 className="animate-spin mb-3 text-[var(--ore-color-background-success-default)]" size={24} />
-                正在加载实例映射...
+                正在加载实例列表...
               </div>
             ) : instances.length > 0 ? (
               instances.map((instance) => {
@@ -166,7 +142,7 @@ export const ManageLinkageModal: React.FC<ManageLinkageModalProps> = ({
                 return (
                   <FocusItem
                     key={instance.id}
-                    focusKey={`lib-linkage-item-${instance.id}`}
+                    focusKey={`lib-instance-item-${instance.id}`}
                     onEnter={() => handleToggle(instance.id)}
                   >
                     {({ ref, focused }) => (

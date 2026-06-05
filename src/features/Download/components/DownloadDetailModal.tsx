@@ -19,13 +19,13 @@ interface DownloadDetailModalProps {
   project: ModrinthProject | null;
   instanceConfig: DownloadInstanceConfig | null;
   onClose: () => void;
-  onDownload: (version: OreProjectVersion, targetInstanceIdOrName: string, autoInstallDeps?: boolean) => void | Promise<void>;
+  onDownload: (version: OreProjectVersion, targetInstanceIdOrName: string | string[], autoInstallDeps?: boolean) => void | Promise<void>;
   installedVersionIds: string[];
   searchMcVersion?: string;
   searchLoader?: string;
   activeTab: 'mod' | 'resourcepack' | 'shader' | 'modpack';
   source: DownloadSource;
-  directInstallInstanceId?: string;
+  directInstallInstanceIds?: string[];
 }
 
 export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
@@ -38,8 +38,9 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
   searchLoader,
   activeTab,
   source,
-  directInstallInstanceId
+  directInstallInstanceIds
 }) => {
+  const hasDirectInstall = !!(directInstallInstanceIds && directInstallInstanceIds.length > 0);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [visibleCount, setVisibleCount] = useState(15);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -124,8 +125,8 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
       }
       return v;
     }).filter((version) => {
-      const targetLoader = directInstallInstanceId ? searchLoader : (activeLoader || searchLoader);
-      const targetVersion = directInstallInstanceId ? searchMcVersion : (activeVersion || searchMcVersion);
+      const targetLoader = hasDirectInstall ? searchLoader : (activeLoader || searchLoader);
+      const targetVersion = hasDirectInstall ? searchMcVersion : (activeVersion || searchMcVersion);
 
       let matchLoader = true;
       if (activeTab === 'mod' && targetLoader && targetLoader.toLowerCase() !== 'all') {
@@ -139,11 +140,11 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
 
       return matchLoader && matchVersion;
     });
-  }, [activeLoader, activeTab, activeVersion, directInstallInstanceId, searchLoader, searchMcVersion, versions]);
+  }, [activeLoader, activeTab, activeVersion, hasDirectInstall, searchLoader, searchMcVersion, versions]);
 
   const displayVersions = strictlyFilteredVersions.slice(0, visibleCount);
-  const currentDisplayLoader = directInstallInstanceId ? searchLoader : (activeLoader || searchLoader);
-  const currentDisplayVersion = directInstallInstanceId ? searchMcVersion : (activeVersion || searchMcVersion);
+  const currentDisplayLoader = hasDirectInstall ? searchLoader : (activeLoader || searchLoader);
+  const currentDisplayVersion = hasDirectInstall ? searchMcVersion : (activeVersion || searchMcVersion);
   const controlsEnabled = !pendingVersion;
 
 
@@ -157,7 +158,7 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
       if (doesFocusableExist('download-modal-version-row-0')) {
         didAutoFocusModalRef.current = true;
         setFocus('download-modal-version-row-0');
-      } else if (!directInstallInstanceId && doesFocusableExist('download-modal-mc-dropdown-0')) {
+      } else if (!hasDirectInstall && doesFocusableExist('download-modal-mc-dropdown-0')) {
         didAutoFocusModalRef.current = true;
         setFocus('download-modal-mc-dropdown-0');
       } else if (retries < 5) {
@@ -168,7 +169,7 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
     
     // Slight initial delay to allow Modal animations
     setTimeout(tryFocus, 150);
-  }, [directInstallInstanceId, displayVersions.length, isLoadingVersions, project]);
+  }, [hasDirectInstall, displayVersions.length, isLoadingVersions, project]);
 
   if (!displayProject) return null;
 
@@ -191,7 +192,7 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
           controlsEnabled={controlsEnabled}
         />
 
-        {!directInstallInstanceId && (
+        {!hasDirectInstall && (
           <VersionFilters
             versionsCount={strictlyFilteredVersions.length}
             loaderOptions={loaderOptions}
@@ -208,7 +209,7 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
           ref={scrollContainerRef}
           className={`
             relative z-10 flex-1 w-full bg-[#313233] min-h-0
-            ${directInstallInstanceId ? 'border-t-[0.125rem] border-[#1E1E1F]' : ''}
+            ${hasDirectInstall ? 'border-t-[0.125rem] border-[#1E1E1F]' : ''}
           `}
           viewportClassName="shadow-[inset_0_0.625rem_1.25rem_-0.625rem_rgba(0,0,0,0.55)]"
           onScroll={handleScroll}
@@ -222,8 +223,8 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
             displayVersions={displayVersions}
             installedVersionIds={installedVersionIds}
             onDownload={(version) => {
-              if (directInstallInstanceId) {
-                onDownload(version, directInstallInstanceId);
+              if (hasDirectInstall && directInstallInstanceIds) {
+                onDownload(version, directInstallInstanceIds);
                 onClose();
               } else {
                 setPendingVersion(version);
@@ -249,7 +250,7 @@ export const DownloadDetailModal: React.FC<DownloadDetailModalProps> = ({
         />
       ) : (
         <InstanceSelectModal
-          isOpen={!!pendingVersion && !directInstallInstanceId}
+          isOpen={!!pendingVersion && !hasDirectInstall}
           version={pendingVersion}
           projectId={displayProject.id || (displayProject as any).project_id}
           onClose={() => setPendingVersion(null)}

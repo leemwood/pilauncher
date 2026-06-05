@@ -1474,7 +1474,7 @@
       "mod": "模组",
       "modSet": "模组集",
       "modpack": "整合包",
-      "external": "外部资源"
+      "external": "全局资源"
     },
     "filters": {
       "all": "全部",

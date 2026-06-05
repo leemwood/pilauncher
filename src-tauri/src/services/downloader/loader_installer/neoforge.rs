@@ -180,9 +180,19 @@ pub(super) async fn install<R: Runtime>(
     let version_dir = global_mc_root.join("versions").join(&version_id);
     tokio::fs::create_dir_all(&version_dir).await?;
     let json_path = version_dir.join(format!("{}.json", version_id));
-    let temp_dir = global_mc_root.join("temp");
-    tokio::fs::create_dir_all(&temp_dir).await?;
-    let installer_path = temp_dir.join(format!("neoforge-installer-{}.jar", loader_version));
+
+    // Construct SimpleVersionInfo for lighty-loaders
+    let info = SimpleVersionInfo {
+        name: version_id.clone(),
+        mc_version: mc_version.to_string(),
+        loader_version: loader_version.to_string(),
+        game_dir: global_mc_root.to_path_buf(),
+        java_dir: global_mc_root.join("runtime/java"),
+        loader_type: lighty_loaders::types::Loader::NeoForge,
+    };
+
+    let installer_path = lighty_loaders::loaders::neoforge::neoforge::installer_cache_path(&info);
+    tokio::fs::create_dir_all(installer_path.parent().unwrap()).await?;
 
     if is_cancelled(cancel) {
         return Err(AppError::Cancelled);
@@ -209,24 +219,33 @@ pub(super) async fn install<R: Runtime>(
         cancel,
     )
     .await?;
-    let installer_bytes = load_or_download_installer_archive(
-        &client,
-        &installer_urls,
-        &installer_path,
-        &["version.json", "install_profile.json"],
-        max_attempts,
-        cancel,
-    )
-    .await?;
+
+    if !installer_path.exists() {
+        if is_cancelled(cancel) {
+            return Err(AppError::Cancelled);
+        }
+        let installer_bytes =
+            download_bytes_from_candidates(&client, &installer_urls, max_attempts, cancel).await?;
+        tokio::fs::write(&installer_path, installer_bytes).await?;
+    }
+
     if needs_loader_manifest_download(&json_path) {
         if is_cancelled(cancel) {
             return Err(AppError::Cancelled);
         }
-        save_loader_manifest_from_archive_bytes(&installer_bytes, &json_path, &version_id).await?;
+
+        use lighty_loaders::loaders::neoforge::neoforge::{NeoForgeQuery, NEOFORGE};
+        let merged = NEOFORGE.get(&info, NeoForgeQuery::NeoForgeBuilder).await.map_err(|e| AppError::Generic(e.to_string()))?;
+        let merged_version = match &*merged {
+            lighty_loaders::types::VersionMetaData::Version(v) => v,
+            _ => return Err(AppError::Generic("Failed to resolve NeoForge version metadata".into())),
+        };
+        let profile_json = version_to_json(merged_version, &version_id, mc_version);
+        let profile_json_text = serde_json::to_string_pretty(&profile_json)?;
+        tokio::fs::write(&json_path, profile_json_text).await?;
     }
 
-    let install_profile = extract_zip_entry_json(&installer_bytes, "install_profile.json")?;
-
+    // Extract installer libraries via lighty-loaders
     emit_loader_progress(
         app,
         instance_id,
@@ -235,11 +254,46 @@ pub(super) async fn install<R: Runtime>(
         100,
         "正在解析 NeoForge installer 依赖清单...",
     );
+
+    use lighty_loaders::loaders::neoforge::neoforge::{NeoForgeQuery, NEOFORGE};
+    let installer_libs_meta = NEOFORGE.get(&info, NeoForgeQuery::Libraries).await.map_err(|e| AppError::Generic(e.to_string()))?;
+    let installer_libs = match &*installer_libs_meta {
+        lighty_loaders::types::VersionMetaData::Libraries(libs) => libs,
+        _ => return Err(AppError::Generic("Failed to resolve NeoForge installer libraries".into())),
+    };
+
+    let mut libs_arr = serde_json::json!([]);
+    if let Some(arr) = libs_arr.as_array_mut() {
+        for lib in installer_libs {
+            let mut downloads = serde_json::json!({});
+            if let (Some(url), Some(path)) = (&lib.url, &lib.path) {
+                downloads["artifact"] = serde_json::json!({
+                    "url": url,
+                    "path": path,
+                    "size": lib.size,
+                    "sha1": lib.sha1,
+                });
+            }
+            let mut lib_obj = serde_json::json!({
+                "name": lib.name,
+            });
+            if !downloads.as_object().unwrap().is_empty() {
+                lib_obj["downloads"] = downloads;
+            } else if let Some(url) = &lib.url {
+                lib_obj["url"] = serde_json::json!(url);
+            }
+            arr.push(lib_obj);
+        }
+    }
+    let dummy_install_profile = serde_json::json!({
+        "libraries": libs_arr
+    });
+
     crate::services::downloader::dependencies::download_libraries(
         app,
         instance_id,
         &client,
-        &install_profile,
+        &dummy_install_profile,
         global_mc_root,
         cancel,
     )
@@ -249,7 +303,7 @@ pub(super) async fn install<R: Runtime>(
         app,
         instance_id,
         "install_profile.json",
-        &install_profile,
+        &dummy_install_profile,
         global_mc_root,
         cancel,
         32,
