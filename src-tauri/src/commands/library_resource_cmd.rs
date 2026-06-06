@@ -54,10 +54,11 @@ fn create_resource_link(src: &Path, dst: &Path) -> Result<(), String> {
     if src.is_dir() {
         #[cfg(target_os = "windows")]
         {
-            if std::os::windows::fs::symlink_dir(src, dst).is_ok() {
+            // Prioritize directory junction on Windows as it doesn't require admin/dev mode and works across drives.
+            if create_junction(src, dst).is_ok() {
                 return Ok(());
             }
-            if create_junction(src, dst).is_ok() {
+            if std::os::windows::fs::symlink_dir(src, dst).is_ok() {
                 return Ok(());
             }
             copy_dir_all(src, dst)?;
@@ -72,9 +73,8 @@ fn create_resource_link(src: &Path, dst: &Path) -> Result<(), String> {
     } else {
         #[cfg(target_os = "windows")]
         {
-            if std::os::windows::fs::symlink_file(src, dst).is_ok() {
-                return Ok(());
-            }
+            // Windows file symlinks are not recognized by Minecraft/Java.
+            // We prioritize hard links, and fall back to copying the file if hard link fails (e.g., across drives).
             if fs::hard_link(src, dst).is_ok() {
                 return Ok(());
             }

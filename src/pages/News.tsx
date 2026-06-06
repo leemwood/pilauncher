@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { doesFocusableExist } from '@noriginmedia/norigin-spatial-navigation';
 import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'motion/react';
 import { NewsCard } from '../features/home/components/NewsCard';
 import { NEWS_PAGE_COPY, getNewsFocusKeySegment, getNewsLocale, normalizeMinecraftNewsItems } from '../features/home/data/newsItems';
 import { useLauncherStore } from '../store/useLauncherStore';
@@ -136,16 +137,13 @@ const News: React.FC = () => {
         <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <div className="mb-2 inline-flex items-center gap-2 border border-white/10 bg-black/20 px-3 py-1.5 text-[0.68rem] font-minecraft tracking-[0.28em] text-ore-text-muted">
+              <div className="mb-2 inline-flex items-center gap-2 border border-neutral-300 dark:border-white/10 bg-neutral-100 dark:bg-black/20 px-3 py-1.5 text-[0.68rem] font-minecraft tracking-[0.28em] text-neutral-600 dark:text-ore-text-muted">
                 <NewspaperIcon className="h-[0.95rem] w-[0.95rem] text-ore-green" />
                 <span>{pageCopy.kicker}</span>
               </div>
-              <h1 className="font-minecraft text-[2rem] text-white ore-text-shadow md:text-[2.5rem]">
+              <h1 className="font-minecraft text-[2rem] text-neutral-900 dark:text-white dark:ore-text-shadow md:text-[2.5rem]">
                 {pageCopy.title}
               </h1>
-              <p className="mt-2 max-w-2xl font-minecraft text-sm leading-6 text-ore-text-muted md:text-[0.95rem]">
-                {pageCopy.subtitle}
-              </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -198,10 +196,13 @@ const News: React.FC = () => {
 
           {isLoading && visibleItems.length === 0 && (
             <div className="grid grid-cols-1 gap-5 min-[1000px]:grid-cols-2">
-              {Array.from({ length: 2 }).map((_, index) => (
-                <div
+              {Array.from({ length: 4 }).map((_, index) => (
+                <motion.div
                   key={index}
-                  className="min-h-[26rem] animate-pulse border-[3px] bg-[#313233] shadow-[8px_8px_0_rgba(0,0,0,0.24)]"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: index * 0.08 }}
+                  className="flex min-h-[26rem] flex-col overflow-hidden border-[3px] bg-[#313233] shadow-[8px_8px_0_rgba(0,0,0,0.24)]"
                   style={{
                     borderTopColor: '#5A5B5C',
                     borderLeftColor: '#5A5B5C',
@@ -209,14 +210,59 @@ const News: React.FC = () => {
                     borderBottomColor: '#1E1E1F',
                   }}
                 >
-                  <div className="h-64 border-b-[3px] border-[#1E1E1F] bg-[#242526]" />
-                  <div className="flex flex-col gap-4 p-5">
-                    <div className="h-5 w-1/3 bg-white/10" />
-                    <div className="h-7 w-4/5 bg-white/10" />
-                    <div className="h-16 w-full bg-white/10" />
-                    <div className="mt-8 h-11 w-full bg-white/10" />
+                  <div className="relative h-[17rem] overflow-hidden border-b-[3px] border-[#1E1E1F] bg-[#1E1E1F] lg:h-[17.5rem] flex items-center justify-center">
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
+                      animate={{
+                        x: ['-100%', '100%'],
+                      }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1.6,
+                        ease: 'linear',
+                      }}
+                    />
+                    <motion.div
+                      className="h-10 w-10 rounded-full border-2 border-dashed border-white/10"
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
+                    />
+                    <div className="absolute left-4 top-4 h-6 w-24 bg-white/5 border border-white/5" />
                   </div>
-                </div>
+                  <div className="flex flex-1 flex-col gap-4 bg-[#2a2b2d] p-5">
+                    <div className="flex flex-col gap-2">
+                      <motion.div
+                        className="h-6 w-3/4 bg-white/10 rounded"
+                        animate={{ opacity: [0.5, 0.8, 0.5] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut", delay: 0.1 }}
+                      />
+                      <motion.div
+                        className="h-6 w-1/2 bg-white/10 rounded"
+                        animate={{ opacity: [0.5, 0.8, 0.5] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut", delay: 0.2 }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <motion.div
+                        className="h-4 w-full bg-white/5 rounded"
+                        animate={{ opacity: [0.4, 0.7, 0.4] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut", delay: 0.3 }}
+                      />
+                      <motion.div
+                        className="h-4 w-5/6 bg-white/5 rounded"
+                        animate={{ opacity: [0.4, 0.7, 0.4] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut", delay: 0.4 }}
+                      />
+                    </div>
+                    <div className="mt-auto flex flex-col gap-3">
+                      <div className="flex gap-3">
+                        <div className="h-11 flex-1 bg-white/5 border border-white/5 rounded animate-pulse" />
+                        <div className="h-11 flex-1 bg-white/5 border border-white/5 rounded animate-pulse" />
+                      </div>
+                      <div className="h-11 w-full bg-white/10 rounded animate-pulse" />
+                    </div>
+                  </div>
+                </motion.div>
               ))}
             </div>
           )}

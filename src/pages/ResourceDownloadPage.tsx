@@ -109,8 +109,13 @@ const ResourceDownloadPage: React.FC = () => {
     mcVersion && mcVersion !== 'all' && loaderType && loaderType !== 'all'
   );
   const showBulkDownload = activeTab === 'mod' && hasStrictVersionAndLoader;
-  const selectionEnabled = activeTab !== 'shader';
-  const favoriteResourceType = activeTab === 'resourcepack' ? 'resourcepack' : 'mod';
+  const selectionEnabled = activeTab !== 'modpack';
+  const favoriteResourceType =
+    activeTab === 'resourcepack'
+      ? 'resourcepack'
+      : activeTab === 'shader'
+      ? 'shader'
+      : 'mod';
 
   const batchRepresentativeVersion = useMemo<OreProjectVersion | null>(() => {
     if (!showBulkDownload || selectedProjects.length === 0) return null;
@@ -500,7 +505,13 @@ const ResourceDownloadPage: React.FC = () => {
           onAddFavorite={() => setIsFavoriteModalOpen(true)}
           onClear={clearSelection}
           focusKeyPrefix={DOWNLOAD_ACTION_BAR_FOCUS_PREFIX}
-          favoriteLabel={activeTab === 'resourcepack' ? '收藏资源包' : '加入收藏'}
+          favoriteLabel={
+            activeTab === 'resourcepack'
+              ? '收藏资源包'
+              : activeTab === 'shader'
+              ? '收藏光影'
+              : '加入收藏'
+          }
         />
       )}
 

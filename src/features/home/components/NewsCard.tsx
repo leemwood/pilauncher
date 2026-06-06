@@ -74,7 +74,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
         borderBottomColor: '#1E1E1F',
       } as React.CSSProperties}
     >
-      <div className="relative h-[15.5rem] overflow-hidden border-b-[3px] border-[#1E1E1F] bg-[#1E1E1F] lg:h-[16rem]">
+      <div className="relative h-[17rem] overflow-hidden border-b-[3px] border-[#1E1E1F] bg-[#1E1E1F] lg:h-[17.5rem]">
         <div
           className="absolute inset-0 transition-all duration-500 ease-out group-hover:scale-[1.05] group-hover:translate-y-[-3px] group-focus-within:scale-[1.05] group-focus-within:translate-y-[-3px]"
           style={{
@@ -120,7 +120,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
           </button>
         )}
 
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-4 pb-4 pt-10">
           <h3
             className="font-minecraft text-[1.55rem] leading-tight text-white ore-text-shadow"
             style={{

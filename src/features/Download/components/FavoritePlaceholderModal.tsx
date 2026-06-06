@@ -17,7 +17,7 @@ interface FavoritePlaceholderModalProps {
   isOpen: boolean;
   projects: ModrinthProject[];
   onClose: () => void;
-  resourceType?: Extract<TabType, 'mod' | 'resourcepack'>;
+  resourceType?: Extract<TabType, 'mod' | 'resourcepack' | 'shader'>;
   defaultGameVersion?: string;
   defaultLoader?: string;
   mcVersionOptions?: DropdownOption[];
@@ -45,7 +45,7 @@ const normalizeProjectId = (project: ModrinthProject) =>
 
 const toStarredItem = (
   project: ModrinthProject,
-  resourceType: Extract<TabType, 'mod' | 'resourcepack'>,
+  resourceType: Extract<TabType, 'mod' | 'resourcepack' | 'shader'>,
 ): StarredItem => {
   const timestamp = nowSeconds();
   const source = project.source || 'modrinth';
@@ -164,6 +164,15 @@ export const FavoritePlaceholderModal: React.FC<FavoritePlaceholderModalProps> =
         selectedTitle: '已选择 Mod',
         info: '默认只保存到收藏并关联标签；开启模组集后，才会额外生成可追踪的模组集合。',
         saveText: '保存入库',
+      }
+    : resourceType === 'shader'
+    ? {
+        title: '收藏光影',
+        tagTitle: '光影标签',
+        tagPlaceholder: '选择标签',
+        selectedTitle: '已选择光影',
+        info: '光影会保存到收藏，并可按标签整理。',
+        saveText: '保存光影',
       }
     : {
         title: '收藏资源包',

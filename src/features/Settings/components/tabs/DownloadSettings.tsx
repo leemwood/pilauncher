@@ -166,9 +166,9 @@ export const DownloadSettings: React.FC = () => {
         <FormRow
           label={t('settings.download.concurrency')}
           description={t('settings.download.concurrencyDesc')}
-          className="!lg:items-center"
+          vertical
           control={
-            <div className="flex w-[320px] items-center gap-3">
+            <div className="flex w-full items-center gap-3">
               <OreSlider
                 className="flex-1"
                 focusKey="settings-download-concurrency"
@@ -203,9 +203,9 @@ export const DownloadSettings: React.FC = () => {
           <FormRow
             label={t('settings.download.chunkedThreads')}
             description={t('settings.download.chunkedThreadsDesc')}
-            className="!lg:items-center"
+            vertical
             control={
-              <div className="flex w-[320px] items-center gap-3">
+              <div className="flex w-full items-center gap-3">
                 <OreSlider
                   className="flex-1"
                   focusKey="settings-download-chunked-threads"
@@ -279,9 +279,9 @@ export const DownloadSettings: React.FC = () => {
         <FormRow
           label={t('settings.download.retry')}
           description={t('settings.download.retryDesc')}
-          className="!lg:items-center"
+          vertical
           control={
-            <div className="flex w-[320px] items-center gap-3">
+            <div className="flex w-full items-center gap-3">
               <OreSlider
                 className="flex-1"
                 focusKey="settings-download-retry"

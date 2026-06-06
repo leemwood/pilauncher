@@ -1718,39 +1718,6 @@ impl SaveManagerService {
         })
     }
 
-    fn restore_snapshot_dir_with_rollback(
-        src: &Path,
-        dst: &Path,
-        rollback: &Path,
-    ) -> Result<(), String> {
-        if rollback.exists() {
-            Self::remove_dir_if_exists(rollback)?;
-        }
-
-        if dst.exists() {
-            Self::move_dir_with_fallback(dst, rollback)?;
-        }
-
-        let restore_result = if src.exists() {
-            Self::move_dir_with_fallback(src, dst)
-        } else {
-            fs::create_dir_all(dst).map_err(|error| error.to_string())
-        };
-
-        if let Err(error) = restore_result {
-            if dst.exists() {
-                let _ = Self::remove_dir_if_exists(dst);
-            }
-            if rollback.exists() {
-                let _ = Self::move_dir_with_fallback(rollback, dst);
-            }
-            return Err(error);
-        }
-
-        let _ = Self::remove_dir_if_exists(rollback);
-        Ok(())
-    }
-
     pub fn get_saves<R: Runtime>(
         app: &AppHandle<R>,
         instance_id: &str,
