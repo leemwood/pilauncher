@@ -3,7 +3,8 @@ import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/
 import { Blocks, Check, CheckCircle2, Clock3, Download, Heart, Loader2, Monitor, Server, Tags } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VirtuosoGrid } from 'react-virtuoso';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion, AnimatePresence } from 'motion/react';
+import { ShimmerOverlay } from '../../../../../../Download/components/ShimmerOverlay';
 import fabricIcon from '../../../../../../../assets/icons/tags/loaders/fabric.svg';
 import forgeIcon from '../../../../../../../assets/icons/tags/loaders/forge.svg';
 import neoforgeIcon from '../../../../../../../assets/icons/tags/loaders/neoforge.svg';
@@ -121,9 +122,9 @@ const prettifyLoader = (loader: string) => {
   return loader.charAt(0).toUpperCase() + loader.slice(1);
 };
 
-const ResourceCardSkeleton = () => {
+export const ResourceCardSkeleton = () => {
   return (
-    <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60 animate-pulse">
+    <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60">
       <div className="absolute inset-y-0 left-0 w-1.5 bg-[#48494A]/20" />
 
       <div className="flex w-full items-stretch gap-[0.875rem] p-[0.875rem] pr-[1rem]">
@@ -160,6 +161,7 @@ const ResourceCardSkeleton = () => {
           </div>
         </div>
       </div>
+      <ShimmerOverlay />
     </div>
   );
 };
@@ -592,7 +594,7 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
 
   return (
     <div
-      className="h-full min-h-0 flex-1 overflow-hidden"
+      className="relative h-full min-h-0 flex-1 overflow-hidden"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)',
         WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)'
@@ -622,13 +624,7 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
           className="min-h-full"
         >
           <div className="min-h-full px-[0.875rem] pb-[1.25rem] pt-0 sm:px-[1rem] sm:pb-[1.5rem] sm:pt-0">
-            {emptyLoading ? (
-              <div className="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] pb-[1.5rem] pt-[1.5rem]">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <ResourceCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : results.length === 0 ? (
+            {results.length === 0 && !isLoading ? (
               <div className="flex min-h-[22.5rem] flex-col items-center justify-center gap-3 px-6 text-center">
                 <Blocks className="h-10 w-10 text-white/35" />
                 <div className="font-minecraft text-base text-white">{emptyStateText}</div>
@@ -671,6 +667,33 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
           </div>
         </FocusBoundary>
       </OreOverlayScrollArea>
+
+      <AnimatePresence>
+        {emptyLoading && (
+          <motion.div
+            key="skeleton-overlay"
+            initial={{ opacity: 1, ["--wipe" as any]: "-120%" }}
+            exit={{ 
+              ["--wipe" as any]: "120%",
+              pointerEvents: "none"
+            }}
+            transition={{ 
+              ["--wipe" as any]: { duration: 0.7, ease: "easeInOut" }
+            }}
+            style={{
+              maskImage: 'linear-gradient(to right, transparent var(--wipe), black calc(var(--wipe) + 100%))',
+              WebkitMaskImage: 'linear-gradient(to right, transparent var(--wipe), black calc(var(--wipe) + 100%))'
+            }}
+            className="absolute inset-0 z-30 bg-[#313233] px-[1rem] pt-0 overflow-y-auto custom-scrollbar"
+          >
+            <div className="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] pb-[1.5rem] pt-[1.5rem]">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <ResourceCardSkeleton key={i} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

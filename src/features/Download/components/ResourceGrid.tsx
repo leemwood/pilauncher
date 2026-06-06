@@ -4,6 +4,7 @@ import { VirtuosoGrid } from 'react-virtuoso';
 import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { VirtuosoScroller } from '../../../ui/primitives/OreOverlayScrollArea';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
+import { ShimmerOverlay } from './ShimmerOverlay';
 
 import { FocusBoundary } from '../../../ui/focus/FocusBoundary';
 import type { InstalledModIndex, ModMeta } from '../../InstanceDetail/logic/modService';
@@ -16,6 +17,7 @@ interface ResourceGridItem {
   project: ModrinthProject;
   viewModel: ProjectViewModel;
   isInstalled: boolean;
+  isSkeleton?: boolean;
 }
 
 interface ResourceGridContext {
@@ -24,13 +26,13 @@ interface ResourceGridContext {
 }
 
 const ResourceGridFooter: React.FC<{ context?: ResourceGridContext }> = ({ context }) => {
-  if (!context?.hasMore) return null;
+  if (!context?.hasMore || context.isLoadingMore) return null;
 
   return (
     <div className="col-span-full flex h-16 items-center justify-center">
       <Loader2
         size={24}
-        className={`text-ore-green opacity-60 ${context.isLoadingMore ? 'animate-spin' : ''}`}
+        className="text-ore-green opacity-60"
       />
     </div>
   );
@@ -50,9 +52,9 @@ const RESOURCE_GRID_COMPONENTS = {
   ))
 };
 
-const ResourceCardSkeleton = () => {
+export const ResourceCardSkeleton = () => {
   return (
-    <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60 animate-pulse">
+    <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60">
       <div className="absolute inset-y-0 left-0 w-1.5 bg-[#48494A]/20" />
 
       <div className="flex w-full items-stretch gap-[0.875rem] p-[0.875rem] pr-[1rem]">
@@ -89,6 +91,7 @@ const ResourceCardSkeleton = () => {
           </div>
         </div>
       </div>
+      <ShimmerOverlay />
     </div>
   );
 };
@@ -246,103 +249,99 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
   const resourceItems = useMemo(() => {
     const installedLookup = installedModIndex || installedMods;
 
-    return results.map((project) => ({
+    const items: ResourceGridItem[] = results.map((project) => ({
       project,
       viewModel: buildProjectViewModel(project),
-      isInstalled: checkIsInstalled(project, installedLookup)
+      isInstalled: checkIsInstalled(project, installedLookup),
+      isSkeleton: false
     }));
-  }, [installedModIndex, installedMods, results]);
+
+    if (isLoadingMore) {
+      // Append 4 skeleton items at the bottom when loading more
+      for (let i = 0; i < 4; i++) {
+        items.push({
+          project: {
+            id: `skeleton-${i}`,
+            slug: `skeleton-${i}`,
+            title: '',
+            description: '',
+            icon_url: '',
+            author: '',
+            downloads: 0,
+            date_modified: '',
+            client_side: '',
+            server_side: ''
+          },
+          viewModel: {
+            loaders: [],
+            features: [],
+            followerCount: 0,
+            supportsClient: false,
+            supportsServer: false
+          },
+          isInstalled: false,
+          isSkeleton: true
+        });
+      }
+    }
+
+    return items;
+  }, [installedModIndex, installedMods, results, isLoadingMore]);
 
   return (
-    <AnimatePresence mode="wait">
-      {isLoading ? (
-        <motion.div
-          key="skeleton"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="h-full min-h-0 flex-1 overflow-hidden"
-          style={{
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)'
-          }}
+    <div
+      className="relative h-full min-h-0 flex-1 overflow-hidden"
+      style={{
+        maskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)'
+      }}
+    >
+      <motion.div
+        key="grid"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="h-full w-full"
+      >
+        <FocusBoundary
+          id="download-results-grid"
+          defaultFocusKey="download-grid-item-0"
+          className="h-full min-h-0"
         >
-          <VirtuosoScroller
-            id={scrollContainerId}
-            ref={(node: HTMLDivElement | null) => {
-              scrollContainerRef.current = node;
-            }}
-            className="h-full min-h-0 flex-1 scroll-smooth"
-            onScroll={(e: React.UIEvent<HTMLDivElement>) => {
-              onScrollTopChange?.(e.currentTarget.scrollTop);
-            }}
-            style={{
-              height: '100%',
-              overflowY: 'auto'
-            }}
-          >
-            <FocusBoundary
-              id="download-results-grid"
-              defaultFocusKey="download-grid-item-0"
-              className="min-h-full"
-            >
-              <div className="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] pb-[1.5rem] px-[0.875rem] pt-[1.5rem] sm:px-[1rem] sm:pt-[1.5rem]">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <ResourceCardSkeleton key={i} />
-                ))}
-              </div>
-            </FocusBoundary>
-          </VirtuosoScroller>
-        </motion.div>
-      ) : (
-        <motion.div
-          key="grid"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -15 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="h-full min-h-0 flex-1 overflow-hidden"
-          style={{
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 1.5rem)'
-          }}
-        >
-          <FocusBoundary
-            id="download-results-grid"
-            defaultFocusKey="download-grid-item-0"
-            className="h-full min-h-0"
-          >
-            <LayoutGroup id="resource-download-grid-group">
-              <VirtuosoGrid<ResourceGridItem, ResourceGridContext>
-                ref={virtuosoRef}
-                id={scrollContainerId}
-                className="h-full custom-scrollbar"
-                style={{
-                  height: '100%',
-                  overflowY: 'auto',
-                  overscrollBehaviorY: 'contain'
-                }}
-                data={resourceItems}
-                context={{ hasMore, isLoadingMore }}
-                scrollerRef={handleScrollerRef}
-                computeItemKey={(_, item) => getProjectKey(item.project)}
-                listClassName="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] px-[1rem] pb-[1.5rem] pt-0"
-                components={RESOURCE_GRID_COMPONENTS}
-                increaseViewportBy={{ top: 240, bottom: 520 }}
-                endReached={triggerLoadMore}
-                itemContent={(index, { project, viewModel, isInstalled }) => (
+          <LayoutGroup id="resource-download-grid-group">
+            <VirtuosoGrid<ResourceGridItem, ResourceGridContext>
+              ref={virtuosoRef}
+              id={scrollContainerId}
+              className="h-full custom-scrollbar"
+              style={{
+                height: '100%',
+                overflowY: 'auto',
+                overscrollBehaviorY: 'contain'
+              }}
+              data={resourceItems}
+              context={{ hasMore, isLoadingMore }}
+              scrollerRef={handleScrollerRef}
+              computeItemKey={(_, item) => item.isSkeleton ? item.project.id : getProjectKey(item.project)}
+              listClassName="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] px-[1rem] pb-[1.5rem] pt-0"
+              components={RESOURCE_GRID_COMPONENTS}
+              increaseViewportBy={{ top: 240, bottom: 520 }}
+              endReached={triggerLoadMore}
+              itemContent={(index, item) => {
+                if (item.isSkeleton) {
+                  return <ResourceCardSkeleton key={item.project.id} />;
+                }
+                return (
                   <ResourceCard
-                    project={project}
-                    viewModel={viewModel}
+                    project={item.project}
+                    viewModel={item.viewModel}
                     index={index}
-                    isInstalled={isInstalled}
+                    isInstalled={item.isInstalled}
                     hasMore={hasMore}
                     canLoadMore={canLoadMore}
                     onLoadMore={triggerLoadMore}
                     onSelectProject={onSelectProject}
                     isSelectionMode={isSelectionMode}
-                    isSelected={selectedProjectIds?.has(getProjectKey(project)) ?? false}
+                    isSelected={selectedProjectIds?.has(getProjectKey(item.project)) ?? false}
                     onToggleSelection={onToggleProjectSelection}
                     isNearBottom={index >= results.length - 6}
                     categoryOptions={categoryOptions}
@@ -350,13 +349,40 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
                     shouldAnimateLayout={shouldAnimateLayout}
                     selectedProjectId={selectedProjectId}
                   />
-                )}
-              />
-            </LayoutGroup>
-          </FocusBoundary>
-        </motion.div>
-      )}
-    </AnimatePresence>
+                );
+              }}
+            />
+          </LayoutGroup>
+        </FocusBoundary>
+      </motion.div>
+
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            key="skeleton-overlay"
+            initial={{ opacity: 1, ["--wipe" as any]: "-120%" }}
+            exit={{ 
+              ["--wipe" as any]: "120%",
+              pointerEvents: "none"
+            }}
+            transition={{ 
+              ["--wipe" as any]: { duration: 0.7, ease: "easeInOut" }
+            }}
+            style={{
+              maskImage: 'linear-gradient(to right, transparent var(--wipe), black calc(var(--wipe) + 100%))',
+              WebkitMaskImage: 'linear-gradient(to right, transparent var(--wipe), black calc(var(--wipe) + 100%))'
+            }}
+            className="absolute inset-0 z-30 bg-[#313233] px-[1rem] pt-0 overflow-y-auto custom-scrollbar"
+          >
+            <div className="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] pb-[1.5rem] pt-[1.5rem]">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <ResourceCardSkeleton key={i} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 
 };

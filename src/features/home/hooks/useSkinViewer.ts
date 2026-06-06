@@ -326,7 +326,7 @@ export function useSkinViewer(visibleTab = 'home', options: UseSkinViewerOptions
 
   // ─── 1. 挂载 / 卸载 canvas ───────────────────────────────────
   useEffect(() => {
-    const engine = SkinEngine.getOrCreate({ enableRandomIdle: true, targetFps: 60, idleFps: 30 });
+    const engine = SkinEngine.getOrCreate({ enableRandomIdle: true, targetFps: 60, idleFps: 60 });
     const container = containerRef.current;
     if (!container) return;
     engine.setPreviewScale(previewScale);

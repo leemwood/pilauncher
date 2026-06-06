@@ -66,7 +66,7 @@
   },
   "multiplayer": {
     "title": "Multiplayer Hub",
-    "description": "Community Server Directory and Terracotta Multiplayer.",
+    "description": "Community Server Directory.",
     "onlineServers": "Community Servers",
     "piHub": "Terracotta Multiplayer"
   },

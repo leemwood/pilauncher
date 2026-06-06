@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { AnimatePresence, motion } from 'motion/react';
 import { doesFocusableExist, getCurrentFocusKey, setFocus } from '@noriginmedia/norigin-spatial-navigation';
-import { Blocks, Image as ImageIcon, Loader2, Package, type LucideIcon } from 'lucide-react';
+import { Blocks, Image as ImageIcon, Package, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -12,7 +13,8 @@ import { DownloadDetailModal } from '../features/Download/components/DownloadDet
 import { FavoritePlaceholderModal } from '../features/Download/components/FavoritePlaceholderModal';
 import { FilterBar } from '../features/Download/components/FilterBar';
 import { InstanceSelectModal } from '../features/Download/components/DetailModal/InstanceSelectModal';
-import { ResourceGrid } from '../features/Download/components/ResourceGrid';
+import { ResourceGrid, ResourceCardSkeleton } from '../features/Download/components/ResourceGrid';
+import { ShimmerOverlay } from '../features/Download/components/ShimmerOverlay';
 import { fetchCurseForgeVersions } from '../features/Download/logic/curseforgeApi';
 import { useResourceDownload, type DownloadSource, type TabType } from '../features/Download/hooks/useResourceDownload';
 import { useDownloadSelectionStore } from '../features/Download/stores/useDownloadSelectionStore';
@@ -26,6 +28,62 @@ import { focusManager } from '../ui/focus/FocusManager';
 
 const DOWNLOAD_ACTION_BAR_FOCUS_PREFIX = 'resource-download-actions';
 const DOWNLOAD_GRID_FOCUS_PREFIX = 'download-grid-item-';
+
+const ResourceDownloadPageSkeleton = () => {
+  return (
+    <div className="relative flex h-full w-full flex-col bg-transparent text-white">
+      {/* 1. FilterBar Skeleton */}
+      <div className="flex-shrink-0 border-b-[0.125rem] border-[#1E1E1F] bg-[#313233] px-4 pt-4 pb-[1rem] shadow-[inset_0_0.125rem_0_rgba(255,255,255,0.08)]">
+        <div className="mx-auto flex w-full max-w-[93.75rem] flex-col gap-3">
+          <div className="flex h-10 items-center justify-center gap-2">
+            <div className="relative overflow-hidden h-10 w-32 bg-[#48494A]/30 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            <div className="relative overflow-hidden h-10 w-32 bg-[#48494A]/30 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            <div className="relative overflow-hidden h-10 w-32 bg-[#48494A]/30 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-x-2 gap-y-2 md:grid-cols-2 lg:grid-cols-12">
+            <div className="relative overflow-hidden h-10 lg:col-span-3 bg-[#48494A]/25 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            <div className="relative overflow-hidden h-10 lg:col-span-6 bg-[#48494A]/25 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            <div className="relative overflow-hidden h-10 lg:col-span-3 bg-[#48494A]/25 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            
+            <div className="relative overflow-hidden h-10 lg:col-span-3 bg-[#48494A]/25 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            <div className="relative overflow-hidden h-10 lg:col-span-3 bg-[#48494A]/25 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            <div className="relative overflow-hidden h-10 lg:col-span-3 bg-[#48494A]/25 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+            <div className="relative overflow-hidden h-10 lg:col-span-3 bg-[#48494A]/25 border-[0.125rem] border-[#141516]">
+              <ShimmerOverlay />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Grid Skeleton */}
+      <div className="h-full min-h-0 flex-1 overflow-hidden px-4 pt-6">
+        <div className="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] pb-[1.5rem]">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ResourceCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ResourceDownloadPage: React.FC = () => {
   const { t } = useTranslation();
@@ -72,6 +130,14 @@ const ResourceDownloadPage: React.FC = () => {
 
   const [selectedProject, setSelectedProject] = useState<ModrinthProject | null>(null);
   const [selectedProjectIdForTransition, setSelectedProjectIdForTransition] = useState<string | undefined>(undefined);
+
+  const [hasInitialLoaded, setHasInitialLoaded] = useState(() => isEnvLoaded && !isLoading);
+
+  useEffect(() => {
+    if (isEnvLoaded && !isLoading) {
+      setHasInitialLoaded(true);
+    }
+  }, [isEnvLoaded, isLoading]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -441,128 +507,154 @@ const ResourceDownloadPage: React.FC = () => {
     clearSelection();
   }, [clearSelection, fetchLatestProjectVersion, handleStartDownload, selectedProjects]);
 
-  if (!isEnvLoaded) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-white font-minecraft">
-        <Loader2 size={44} className="animate-spin text-ore-green" />
-        {t('download.status.loadingEnv', { defaultValue: 'Loading environment...' })}
-      </div>
-    );
-  }
-
   return (
-    <FocusBoundary id="resource-download-page" trapFocus={true} className="relative flex h-full w-full flex-col bg-transparent text-white">
-      <h1 className="sr-only">{t('download.title', '资源下载')}</h1>
-      <FilterBar
-        activeTab={activeTab}
-        tabs={tabs}
-        onTabChange={setActiveTab}
-        query={query}
-        setQuery={setQuery}
-        source={source}
-        setSource={setSource}
-        mcVersion={mcVersion}
-        setMcVersion={setMcVersion}
-        loaderType={loaderType}
-        setLoaderType={setLoaderType}
-        category={category}
-        setCategory={setCategory}
-        sort={sort}
-        setSort={setSort}
-        mcVersionOptions={mcVersionOptions}
-        categoryOptions={categoryOptions}
-        isCurseForgeAvailable={isCurseForgeAvailable}
-        onSearch={handleSearchClick}
-        onReset={handleResetClick}
-      />
+    <div className="relative h-full w-full overflow-hidden bg-transparent">
+      {/* Main content wrapper, always mounted to prevent layout jumps and allow smooth reveal */}
+      <motion.div
+        key="page-content"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="h-full w-full"
+      >
+        <FocusBoundary id="resource-download-page" trapFocus={true} className="relative flex h-full w-full flex-col bg-transparent text-white">
+          <h1 className="sr-only">{t('download.title', '资源下载')}</h1>
+          <FilterBar
+            activeTab={activeTab}
+            tabs={tabs}
+            onTabChange={setActiveTab}
+            query={query}
+            setQuery={setQuery}
+            source={source}
+            setSource={setSource}
+            mcVersion={mcVersion}
+            setMcVersion={setMcVersion}
+            loaderType={loaderType}
+            setLoaderType={setLoaderType}
+            category={category}
+            setCategory={setCategory}
+            sort={sort}
+            setSort={setSort}
+            mcVersionOptions={mcVersionOptions}
+            categoryOptions={categoryOptions}
+            isCurseForgeAvailable={isCurseForgeAvailable}
+            onSearch={handleSearchClick}
+            onReset={handleResetClick}
+          />
 
-      <ResourceGrid
-        results={results}
-        installedMods={installedMods}
-        installedModIndex={installedModIndex}
-        isLoading={isLoading && results.length === 0}
-        isLoadingMore={isLoadingMore}
-        hasMore={hasMore}
-        categoryOptions={categoryOptions}
-        onLoadMore={loadMore}
-        onSelectProject={handleSelectProject}
-        selectedProjectIds={selectionEnabled ? selectedProjectIds : undefined}
-        isSelectionMode={selectionEnabled && isSelectionMode}
-        onToggleProjectSelection={selectionEnabled ? handleToggleProjectSelection : undefined}
-        getProjectKey={getProjectKey}
-        onClickAuthor={(author) => {
-          setCategory('');
-          setQuery(author, true);
-        }}
-        selectedProjectId={selectedProjectIdForTransition}
-      />
+          <ResourceGrid
+            results={results}
+            installedMods={installedMods}
+            installedModIndex={installedModIndex}
+            isLoading={isLoading && results.length === 0}
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            categoryOptions={categoryOptions}
+            onLoadMore={loadMore}
+            onSelectProject={handleSelectProject}
+            selectedProjectIds={selectionEnabled ? selectedProjectIds : undefined}
+            isSelectionMode={selectionEnabled && isSelectionMode}
+            onToggleProjectSelection={selectionEnabled ? handleToggleProjectSelection : undefined}
+            getProjectKey={getProjectKey}
+            onClickAuthor={(author) => {
+              setCategory('');
+              setQuery(author, true);
+            }}
+            selectedProjectId={selectedProjectIdForTransition}
+          />
 
-      {selectionEnabled && (
-        <ContextualActionBar
-          selectedCount={selectedCount}
-          showBulkDownload={showBulkDownload}
-          onBulkDownload={() => setIsBatchInstanceModalOpen(true)}
-          onAddFavorite={() => setIsFavoriteModalOpen(true)}
-          onClear={clearSelection}
-          focusKeyPrefix={DOWNLOAD_ACTION_BAR_FOCUS_PREFIX}
-          favoriteLabel={
-            activeTab === 'resourcepack'
-              ? '收藏资源包'
-              : activeTab === 'shader'
-              ? '收藏光影'
-              : '加入收藏'
-          }
-        />
-      )}
+          {selectionEnabled && (
+            <ContextualActionBar
+              selectedCount={selectedCount}
+              showBulkDownload={showBulkDownload}
+              onBulkDownload={() => setIsBatchInstanceModalOpen(true)}
+              onAddFavorite={() => setIsFavoriteModalOpen(true)}
+              onClear={clearSelection}
+              focusKeyPrefix={DOWNLOAD_ACTION_BAR_FOCUS_PREFIX}
+              favoriteLabel={
+                activeTab === 'resourcepack'
+                  ? '收藏资源包'
+                  : activeTab === 'shader'
+                  ? '收藏光影'
+                  : '加入收藏'
+              }
+            />
+          )}
 
-      <DownloadDetailModal
-        project={selectedProject}
-        instanceConfig={instanceConfig}
-        onClose={() => {
-          setSelectedProject(null);
-          setTimeout(() => {
-            const lastFocus = lastFocusBeforeModalRef.current;
-            if (lastFocus && doesFocusableExist(lastFocus)) {
-              setFocus(lastFocus);
-              return;
-            }
-            if (doesFocusableExist('download-grid-item-0')) {
-              setFocus('download-grid-item-0');
-              return;
-            }
-            setFocus('download-search-input');
-          }, 50);
-        }}
-        onDownload={handleStartDownload}
-        installedVersionIds={installedVersionIds}
-        searchMcVersion={mcVersion}
-        searchLoader={loaderType}
-        activeTab={activeTab}
-        source={source}
-      />
+          <DownloadDetailModal
+            project={selectedProject}
+            instanceConfig={instanceConfig}
+            onClose={() => {
+              setSelectedProject(null);
+              setTimeout(() => {
+                const lastFocus = lastFocusBeforeModalRef.current;
+                if (lastFocus && doesFocusableExist(lastFocus)) {
+                  setFocus(lastFocus);
+                  return;
+                }
+                if (doesFocusableExist('download-grid-item-0')) {
+                  setFocus('download-grid-item-0');
+                  return;
+                }
+                setFocus('download-search-input');
+              }, 50);
+            }}
+            onDownload={handleStartDownload}
+            installedVersionIds={installedVersionIds}
+            searchMcVersion={mcVersion}
+            searchLoader={loaderType}
+            activeTab={activeTab}
+            source={source}
+          />
 
-      <FavoritePlaceholderModal
-        isOpen={isFavoriteModalOpen}
-        projects={selectedProjects}
-        onClose={() => setIsFavoriteModalOpen(false)}
-        resourceType={favoriteResourceType}
-        defaultGameVersion={mcVersion && mcVersion !== 'all' ? mcVersion : ''}
-        defaultLoader={loaderType && loaderType !== 'all' ? loaderType : ''}
-        mcVersionOptions={mcVersionOptions}
-        onCreated={clearSelection}
-      />
+          <FavoritePlaceholderModal
+            isOpen={isFavoriteModalOpen}
+            projects={selectedProjects}
+            onClose={() => setIsFavoriteModalOpen(false)}
+            resourceType={favoriteResourceType}
+            defaultGameVersion={mcVersion && mcVersion !== 'all' ? mcVersion : ''}
+            defaultLoader={loaderType && loaderType !== 'all' ? loaderType : ''}
+            mcVersionOptions={mcVersionOptions}
+            onCreated={clearSelection}
+          />
 
-      <InstanceSelectModal
-        isOpen={isBatchInstanceModalOpen}
-        version={batchRepresentativeVersion}
-        onClose={() => setIsBatchInstanceModalOpen(false)}
-        onConfirm={(instanceIds) => {
-          void handleBatchDownloadConfirm(instanceIds);
-        }}
-        ignoreLoader={activeTab !== 'mod'}
-        source={source}
-      />
-    </FocusBoundary>
+          <InstanceSelectModal
+            isOpen={isBatchInstanceModalOpen}
+            version={batchRepresentativeVersion}
+            onClose={() => setIsBatchInstanceModalOpen(false)}
+            onConfirm={(instanceIds) => {
+              void handleBatchDownloadConfirm(instanceIds);
+            }}
+            ignoreLoader={activeTab !== 'mod'}
+            source={source}
+          />
+        </FocusBoundary>
+      </motion.div>
+
+      {/* Full-Page Loading Skeleton Overlay (wipes away from left to right) */}
+      <AnimatePresence>
+        {!hasInitialLoaded && (
+          <motion.div
+            key="page-skeleton-overlay"
+            initial={{ opacity: 1, ["--wipe" as any]: "-120%" }}
+            exit={{ 
+              ["--wipe" as any]: "120%",
+              pointerEvents: "none"
+            }}
+            transition={{ 
+              ["--wipe" as any]: { duration: 0.7, ease: "easeInOut" }
+            }}
+            style={{
+              maskImage: 'linear-gradient(to right, transparent var(--wipe), black calc(var(--wipe) + 100%))',
+              WebkitMaskImage: 'linear-gradient(to right, transparent var(--wipe), black calc(var(--wipe) + 100%))'
+            }}
+            className="absolute inset-0 z-50 bg-[#313233]"
+          >
+            <ResourceDownloadPageSkeleton />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

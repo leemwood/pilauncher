@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { doesFocusableExist, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { motion, useReducedMotion } from 'motion/react';
-import { Blocks, Check, CheckCircle2, Clock3, Download, Heart, Monitor, Server, Tags } from 'lucide-react';
+import { Blocks, Check, CheckCircle2, Clock3, Download, Globe2, Heart, Monitor, Package, Server, Tags } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import fabricIcon from '../../../assets/icons/tags/loaders/fabric.svg';
@@ -226,24 +226,46 @@ export const ResourceCard = React.memo(({
                 </motion.div>
 
                 <div className="flex h-[1.375rem] w-full items-center justify-center gap-[0.25rem] overflow-hidden">
-                  {loaders.slice(0, 3).map((loader) => {
-                    const loaderIcon = LOADER_ICON_MAP[loader.raw.toLowerCase()];
-                    if (!loaderIcon) return null;
+                  {loaders.length > 0 ? (
+                    loaders.slice(0, 3).map((loader) => {
+                      const loaderIcon = LOADER_ICON_MAP[loader.raw.toLowerCase()];
+                      if (!loaderIcon) return null;
 
-                    return (
-                      <div
-                        key={loader.raw}
-                        className="flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center overflow-hidden border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-loaderChipDepth)]"
-                        title={loader.display}
-                      >
-                        <img
-                          src={loaderIcon}
-                          alt=""
-                          className="h-[0.75rem] w-[0.75rem] shrink-0 object-contain opacity-90"
-                        />
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div
+                          key={loader.raw}
+                          className="flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center overflow-hidden border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-loaderChipDepth)]"
+                          title={loader.display}
+                        >
+                          <img
+                            src={loaderIcon}
+                            alt=""
+                            className="h-[0.75rem] w-[0.75rem] shrink-0 object-contain opacity-90"
+                          />
+                        </div>
+                      );
+                    })
+                  ) : project.project_type === 'resourcepack' ? (
+                    <div
+                      className="flex h-[1.375rem] max-w-full items-center gap-1 overflow-hidden border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] px-1.5 text-black shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-loaderChipDepth)]"
+                      title="资源包"
+                    >
+                      <Package className="h-3 w-3 shrink-0 text-black/75" strokeWidth={2.5} />
+                      <span className="font-minecraft text-[9px] uppercase tracking-[0.08em] leading-none whitespace-nowrap">
+                        资源包
+                      </span>
+                    </div>
+                  ) : project.project_type === 'shader' ? (
+                    <div
+                      className="flex h-[1.375rem] max-w-full items-center gap-1 overflow-hidden border-[0.125rem] border-[var(--ore-library-resourceCard-chipBorder)] bg-[var(--ore-library-resourceCard-loaderChipBg)] px-1.5 text-black shadow-[inset_0_-0.125rem_0_var(--ore-library-resourceCard-loaderChipDepth)]"
+                      title="光影包"
+                    >
+                      <Globe2 className="h-3 w-3 shrink-0 text-black/75" strokeWidth={2.5} />
+                      <span className="font-minecraft text-[9px] uppercase tracking-[0.08em] leading-none whitespace-nowrap">
+                        光影包
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

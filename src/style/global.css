@@ -161,3 +161,8 @@ html, body {
   --ore-downloadDetail-badgeText: #C6C8CB;
 }
 
+@property --wipe {
+  syntax: '<percentage>';
+  inherits: true;
+  initial-value: -120%;
+}

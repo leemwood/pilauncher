@@ -297,6 +297,14 @@ const mapProjectSummary = (mod: CurseForgeMod): OreProjectSummary => {
   const visibleCategories = filterProjectCategories(mod.categories || [], mod.classId);
   const environment = mapEnvironmentSupport(mod.latestFiles || []);
   const loaders = getProjectLoaders(mod);
+  const projectType =
+    mod.classId === 12
+      ? 'resourcepack'
+      : mod.classId === 6552
+      ? 'shader'
+      : mod.classId === 4471
+      ? 'modpack'
+      : 'mod';
 
   return {
     id: String(mod.id),
@@ -315,7 +323,8 @@ const mapProjectSummary = (mod: CurseForgeMod): OreProjectSummary => {
     categories: visibleCategories.map((category) => category.slug || category.name),
     display_categories: visibleCategories.map((category) => category.name),
     gallery_urls: (mod.screenshots || []).map((item) => item.thumbnailUrl || item.url || '').filter(Boolean),
-    source: 'curseforge'
+    source: 'curseforge',
+    project_type: projectType
   };
 };
 

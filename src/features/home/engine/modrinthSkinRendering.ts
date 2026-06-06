@@ -225,7 +225,7 @@ function installDamageFlashShader(material: THREE.MeshStandardMaterial, intensit
   material.needsUpdate = true;
 }
 
-function syncDamageFlashMaterial(material: THREE.MeshStandardMaterial, intensity: number) {
+export function syncDamageFlashMaterial(material: THREE.MeshStandardMaterial, intensity: number) {
   installDamageFlashShader(material, intensity);
 
   const shader = (material as DamageFlashMaterial).userData.damageFlashShader;

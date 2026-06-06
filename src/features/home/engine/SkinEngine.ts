@@ -15,7 +15,7 @@ import {
   loadModrinthAnimationSource,
   loadModrinthModel,
   loadModrinthTexture,
-  syncDamageFlashShader,
+  syncDamageFlashMaterial,
 } from './modrinthSkinRendering';
 
 
@@ -59,7 +59,7 @@ interface SkinEngineRaw {
 
 const DEFAULT_SKIN_URL = 'https://minotar.net/skin/Steve.png';
 const DEFAULT_FPS = 60;
-const DEFAULT_IDLE_FPS = 30;
+const DEFAULT_IDLE_FPS = 60;
 const DEFAULT_WIDTH = 300;
 const DEFAULT_HEIGHT = 450;
 const DEFAULT_RANDOM_IDLE_INTERVAL: [number, number] = [8000, 8000];
@@ -241,6 +241,7 @@ export class SkinEngine {
   private previousPointerX = 0;
   private _disposed = false;
   private previewScale = 1;
+  private damageFlashMaterials: THREE.MeshStandardMaterial[] = [];
 
   // Click Impulse & Damage Flash variables
   private clickImpulseEnergy = 0;
@@ -286,7 +287,7 @@ export class SkinEngine {
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.NoToneMapping;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     enableSampleAlphaToCoverage(this.renderer);
 
     this.scene = new THREE.Scene();
@@ -609,6 +610,7 @@ export class SkinEngine {
     this.animationLoopModes.clear();
     this.lastLoadedSkinKey = null;
     this.lastLoadedCapeKey = null;
+    this.damageFlashMaterials = [];
 
     if (SkinEngine.instance === this) {
       SkinEngine.instance = null;
@@ -638,6 +640,18 @@ export class SkinEngine {
     }
 
     this.playerModel = nextModel;
+    this.damageFlashMaterials = [];
+    nextModel.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((material) => {
+        if (material instanceof THREE.MeshStandardMaterial && material.name !== 'cape') {
+          this.damageFlashMaterials.push(material);
+        }
+      });
+    });
+
     this.modelWrapper.add(nextModel);
     this.initializeAnimations(gltf.animations);
     this.updateCameraTarget();
@@ -881,10 +895,10 @@ export class SkinEngine {
     this.updateClickImpulse(dt);
     this.updateDamageFlash(dt);
 
-    if (this.playerModel) {
-      // Sync damage flash shader intensity
-      syncDamageFlashShader(this.playerModel, this.damageFlashIntensity);
-    }
+    // Sync damage flash shader intensity on cached materials
+    this.damageFlashMaterials.forEach((material) => {
+      syncDamageFlashMaterial(material, this.damageFlashIntensity);
+    });
 
     // Apply click impulse to modelWrapper
     this.modelWrapper.position.set(this.clickImpulseOffsetX, 0.04, 0);

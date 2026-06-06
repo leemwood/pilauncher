@@ -22,6 +22,7 @@ export interface ModrinthProject {
   source?: 'modrinth' | 'curseforge';
   project_id?: string;
   gallery_urls?: string[];
+  project_type?: string;
 }
 
 const toModrinthProject = (detail: OreProjectDetail): ModrinthProject => ({

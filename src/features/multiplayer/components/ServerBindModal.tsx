@@ -234,6 +234,7 @@ export const ServerBindModal: React.FC<ServerBindModalProps> = ({ isOpen, onClos
                 focusKey="modal-bind-dropdown"
                 onArrowPress={handleLinearArrow}
                 disabled={instances.length === 0}
+                portal
               />
             )}
           </div>

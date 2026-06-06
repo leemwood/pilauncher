@@ -11,13 +11,22 @@ import { useInputAction } from '../ui/focus/InputDriver';
 
 const Multiplayer: React.FC = () => {
   const { t } = useTranslation();
+  const showPiHub = false; // 暂时隐藏陶瓦联机
   const [activeSection, setActiveSection] = useState<MultiplayerSection>('online-servers');
   const { servers, adSlots, isLoading, error, fetchServers } = useOnlineServers();
 
-  useInputAction('TAB_LEFT', () => setActiveSection('online-servers'));
-  useInputAction('PAGE_LEFT', () => setActiveSection('online-servers'));
-  useInputAction('TAB_RIGHT', () => setActiveSection('multiplayer'));
-  useInputAction('PAGE_RIGHT', () => setActiveSection('multiplayer'));
+  useInputAction('TAB_LEFT', () => {
+    if (showPiHub) setActiveSection('online-servers');
+  });
+  useInputAction('PAGE_LEFT', () => {
+    if (showPiHub) setActiveSection('online-servers');
+  });
+  useInputAction('TAB_RIGHT', () => {
+    if (showPiHub) setActiveSection('multiplayer');
+  });
+  useInputAction('PAGE_RIGHT', () => {
+    if (showPiHub) setActiveSection('multiplayer');
+  });
 
   return (
     <FocusBoundary id="multiplayer-page" isActive={true} className="ore-multiplayer-page">
@@ -32,21 +41,23 @@ const Multiplayer: React.FC = () => {
             </p>
           </div>
 
-          <div className="w-full md:w-auto flex-shrink-0 mt-2 md:mt-0 flex items-center justify-center gap-2">
-            <div className="flex items-center justify-center w-7 h-7 rounded border border-white/10 bg-black/40 text-white/80 font-bold text-[10px] shadow-sm select-none">LT</div>
-            <OreToggleButton
-              options={[
-                { label: t('multiplayer.onlineServers'), value: 'online-servers' },
-                { label: t('multiplayer.piHub'), value: 'multiplayer' }
-              ]}
-              value={activeSection}
-              onChange={(value) => setActiveSection(value as MultiplayerSection)}
-              size="lg"
-              focusable={false}
-              className="!w-full md:!w-[22rem]"
-            />
-            <div className="flex items-center justify-center w-7 h-7 rounded border border-white/10 bg-black/40 text-white/80 font-bold text-[10px] shadow-sm select-none">RT</div>
-          </div>
+          {showPiHub && (
+            <div className="w-full md:w-auto flex-shrink-0 mt-2 md:mt-0 flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center w-7 h-7 rounded border border-white/10 bg-black/40 text-white/80 font-bold text-[10px] shadow-sm select-none">LT</div>
+              <OreToggleButton
+                options={[
+                  { label: t('multiplayer.onlineServers'), value: 'online-servers' },
+                  { label: t('multiplayer.piHub'), value: 'multiplayer' }
+                ]}
+                value={activeSection}
+                onChange={(value) => setActiveSection(value as MultiplayerSection)}
+                size="lg"
+                focusable={false}
+                className="!w-full md:!w-[22rem]"
+              />
+              <div className="flex items-center justify-center w-7 h-7 rounded border border-white/10 bg-black/40 text-white/80 font-bold text-[10px] shadow-sm select-none">RT</div>
+            </div>
+          )}
         </header>
 
         <div className="ore-multiplayer-body">

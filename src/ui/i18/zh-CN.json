@@ -66,7 +66,7 @@
   },
   "multiplayer": {
     "title": "联机中心",
-    "description": "社区服务器目录和陶瓦联机入口。",
+    "description": "社区服务器目录。",
     "onlineServers": "社区服务器",
     "piHub": "陶瓦联机"
   },

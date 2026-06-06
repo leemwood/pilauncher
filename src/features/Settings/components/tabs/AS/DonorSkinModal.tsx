@@ -74,7 +74,7 @@ export const DonorSkinModal: React.FC<DonorSkinModalProps> = ({ isOpen, onClose,
   useEffect(() => {
     if (!isOpen || !donor || !containerRef.current) return;
 
-    const engine = SkinEngine.getOrCreate({ enableRandomIdle: true, targetFps: 60, idleFps: 30 });
+    const engine = SkinEngine.getOrCreate({ enableRandomIdle: true, targetFps: 60, idleFps: 60 });
     const container = containerRef.current;
 
     // Set engine canvas sizes and mount to container

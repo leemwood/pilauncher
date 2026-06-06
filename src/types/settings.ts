@@ -216,7 +216,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
     autoCheckLatency: false,
     concurrency: 8,
-    chunkedDownloadEnabled: true,
+    chunkedDownloadEnabled: false,
     chunkedDownloadThreads: 2,
     chunkedDownloadMinSizeMb: 8,
     speedLimit: 0,

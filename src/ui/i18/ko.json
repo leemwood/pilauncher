@@ -66,7 +66,7 @@
   },
   "multiplayer": {
     "title": "온라인 센터",
-    "description": "커뮤니티 서버 디렉토리 및 테라코타 온라인 포털.",
+    "description": "커뮤니티 서버 디렉토리.",
     "onlineServers": "커뮤니티 서버",
     "piHub": "테라코타 온라인"
   },

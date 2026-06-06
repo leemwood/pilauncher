@@ -60,7 +60,7 @@ fn default_quilt_source_url() -> String {
 }
 
 fn default_chunked_download_enabled() -> bool {
-    true
+    false
 }
 
 fn default_chunked_download_threads() -> usize {
@@ -88,7 +88,7 @@ impl Default for DownloadSettings {
         Self {
             minecraft_meta_source: "bangbang93".to_string(),
             concurrency: 8,
-            chunked_download_enabled: true,
+            chunked_download_enabled: false,
             chunked_download_threads: 4,
             chunked_download_min_size_mb: 32,
             speed_limit: 0,
