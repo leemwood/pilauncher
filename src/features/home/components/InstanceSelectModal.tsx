@@ -9,6 +9,7 @@ import { FocusItem } from '../../../ui/focus/FocusItem';
 import { focusManager } from '../../../ui/focus/FocusManager';
 import { OreInstanceCard } from '../../../ui/primitives/OreInstanceCard';
 import { OreModal } from '../../../ui/primitives/OreModal';
+import { OreOverlayScrollArea } from '../../../ui/primitives/OreOverlayScrollArea';
 import { useLauncherStore } from '../../../store/useLauncherStore';
 import { formatRelativeTime } from '../../../utils/formatters';
 
@@ -73,7 +74,7 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
       return;
     }
 
-    setQuery('');
+    setQuery(''); // eslint-disable-line react-hooks/set-state-in-effect
 
     const focusTimer = setTimeout(() => {
       searchRef.current?.focus();
@@ -112,9 +113,10 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
         onEscape={onClose}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div
+        <OreOverlayScrollArea
           ref={scrollContainerRef}
-          className="min-h-0 flex-1 overflow-y-auto custom-scrollbar"
+          className="min-h-0 flex-1"
+          viewportClassName="custom-scrollbar"
         >
           {instances.length === 0 ? (
             <div className="m-4 flex h-64 flex-col items-center justify-center border-2 border-dashed border-[#1E1E1F] bg-[#141415]/50">
@@ -175,7 +177,7 @@ export const InstanceSelectModal: React.FC<InstanceSelectModalProps> = ({
               })}
             </div>
           )}
-        </div>
+        </OreOverlayScrollArea>
 
         <div
           className="sticky bottom-0 z-10 flex-shrink-0 border-t-[3px] border-[var(--ore-border-color)] bg-[var(--ore-modal-footer-bg)] px-4 py-3"

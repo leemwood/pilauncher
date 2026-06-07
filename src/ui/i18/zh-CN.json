@@ -15,6 +15,7 @@
     "launchGame": "启动游戏",
     "instanceDetail": "实例详情",
     "wardrobe": "更衣室",
+    "selectedInstanceDeleted": "已选中的实例已被删除，请重新选择实例",
     "selectInstanceModal": {
       "title": "选择启动实例",
       "empty": "尚未创建任何实例",

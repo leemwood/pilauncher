@@ -15,6 +15,7 @@
     "launchGame": "Play",
     "instanceDetail": "Instance Details",
     "wardrobe": "Wardrobe",
+    "selectedInstanceDeleted": "The selected instance has been deleted, please select another one.",
     "selectInstanceModal": {
       "title": "Select Instance",
       "empty": "No instances created yet",

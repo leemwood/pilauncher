@@ -10,6 +10,7 @@ import { useInputMode } from '../../../ui/focus/FocusProvider';
 import { useLauncherStore } from '../../../store/useLauncherStore';
 import { useAccountStore } from '../../../store/useAccountStore';
 import { useInstances } from '../../../hooks/pages/Instances/useInstances';
+import { useToastStore } from '../../../store/useToastStore';
 import { NoAccountModal } from '../../../ui/components/NoAccountModal';
 import { NoInstanceModal } from '../../../ui/components/NoInstanceModal';
 
@@ -29,6 +30,7 @@ export const LaunchControls: React.FC<LaunchControlsProps> = ({
   onSelectInstance,
 }) => {
   const { t } = useTranslation();
+  const addToast = useToastStore(state => state.addToast);
 
   const setActiveTab = useLauncherStore(state => state.setActiveTab);
   const setSelectedInstanceId = useLauncherStore(state => state.setSelectedInstanceId);
@@ -79,6 +81,13 @@ export const LaunchControls: React.FC<LaunchControlsProps> = ({
   };
 
   const handleSettingsClick = () => {
+    const isSelectedDeleted = !!instanceId && instances.length > 0 && !instances.some(i => i.id === instanceId);
+    if (isSelectedDeleted) {
+      addToast('warning', t('home.selectedInstanceDeleted', '已选中的实例已被删除，请重新选择实例'));
+      onSelectInstance();
+      return;
+    }
+
     if (!checkInstanceState()) return;
 
     if (instanceId) {
@@ -89,6 +98,13 @@ export const LaunchControls: React.FC<LaunchControlsProps> = ({
   };
 
   const handlePlayClick = () => {
+    const isSelectedDeleted = !!instanceId && instances.length > 0 && !instances.some(i => i.id === instanceId);
+    if (isSelectedDeleted) {
+      addToast('warning', t('home.selectedInstanceDeleted', '已选中的实例已被删除，请重新选择实例'));
+      onSelectInstance();
+      return;
+    }
+
     if (!checkInstanceState()) return;
 
     const { accounts, activeAccountId } = useAccountStore.getState();

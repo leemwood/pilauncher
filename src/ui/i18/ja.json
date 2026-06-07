@@ -15,6 +15,7 @@
     "launchGame": "ゲームを開始する",
     "instanceDetail": "インスタンスの詳細",
     "wardrobe": "ロッカールーム",
+    "selectedInstanceDeleted": "選択されたインスタンスは削除されました。別のインスタンスを選択してください。",
     "selectInstanceModal": {
       "title": "起動インスタンスの選択",
       "empty": "まだインスタンスが作成されていません",

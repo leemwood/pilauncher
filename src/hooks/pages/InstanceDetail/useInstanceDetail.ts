@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { ask, open } from '@tauri-apps/plugin-dialog';
+import { useTranslation } from 'react-i18next';
 import { useLauncherStore } from '../../../store/useLauncherStore';
 import { useDownloadStore } from '../../../store/useDownloadStore';
+import { useToastStore } from '../../../store/useToastStore';
 
 export type DetailTab =
   | 'overview'
@@ -85,6 +87,9 @@ interface RawInstanceDetail {
 }
 
 export const useInstanceDetail = (instanceId: string) => {
+  const { t } = useTranslation();
+  const addToast = useToastStore((state) => state.addToast);
+
   const activeTab = useLauncherStore((state) => state.instanceDetailTab) as DetailTab;
   const setActiveTab = useLauncherStore((state) => state.setInstanceDetailTab);
   const setMainTab = useLauncherStore((state) => state.setActiveTab);
@@ -146,13 +151,15 @@ export const useInstanceDetail = (instanceId: string) => {
         setHeroLogoUrl(heroAbs ? `${convertFileSrc(heroAbs)}?t=${Date.now()}` : null);
       } catch (error) {
         console.error('获取实例详情失败:', error);
+        addToast('warning', t('home.selectedInstanceDeleted', '已选中的实例已被删除，请重新选择实例'));
+        setMainTab('home');
       } finally {
         setIsInitializing(false);
       }
     };
 
     void fetchDetail();
-  }, [instanceId]);
+  }, [instanceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!data || data.screenshots.length <= 1 || activeTab !== 'overview') return;

@@ -15,6 +15,7 @@
     "launchGame": "게임을 시작하세요",
     "instanceDetail": "인스턴스 세부정보",
     "wardrobe": "라커룸",
+    "selectedInstanceDeleted": "선택한 인스턴스가 삭제되었습니다. 다른 인스턴스를 선택하십시오.",
     "selectInstanceModal": {
       "title": "시작 인스턴스 선택",
       "empty": "아직 생성된 인스턴스가 없습니다.",
