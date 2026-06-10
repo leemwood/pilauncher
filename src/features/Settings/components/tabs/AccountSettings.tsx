@@ -25,7 +25,6 @@ export const AccountSettings: React.FC = () => {
   const {
     accounts,
     activeAccountId,
-    hasUnlockedThirdPartyAuth,
     removeAccount,
     setActiveAccount
   } = useAccountStore();
@@ -62,9 +61,8 @@ export const AccountSettings: React.FC = () => {
     }
   };
 
-  const hasMicrosoftAccount = accounts.some((account) => account.type?.toLowerCase() === 'microsoft');
   const isUtcPlusEight = useMemo(() => new Date().getTimezoneOffset() === -8 * 60, []);
-  const canUseThirdPartyAuth = isUtcPlusEight && (hasUnlockedThirdPartyAuth || hasMicrosoftAccount);
+  const canUseThirdPartyAuth = isUtcPlusEight;
 
   const accountSortWeight = (type?: string) => {
     const normalizedType = type?.toLowerCase();

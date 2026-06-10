@@ -18,7 +18,7 @@ fn get_mdns_daemon() -> ServiceDaemon {
 
 impl MdnsScanner {
     /// 启动 mDNS 后台广播服务
-    pub fn start_broadcast(device_id: &str, device_name: &str, http_port: u16) {
+    pub fn start_broadcast(device_id: &str, device_name: &str, public_key: &str, http_port: u16) {
         let mdns = get_mdns_daemon();
 
         let service_type = "_pilauncher._tcp.local.";
@@ -42,24 +42,50 @@ impl MdnsScanner {
         properties.insert("version".to_string(), "1.0".to_string());
         properties.insert("device_name".to_string(), device_name.to_string());
         properties.insert("device_id".to_string(), device_id.to_string());
+        properties.insert("public_key".to_string(), public_key.to_string());
 
-        let service_info = ServiceInfo::new(
+        let service_info = match ServiceInfo::new(
             service_type,
             &instance_name,
             &host_name, // 传入洗干净的纯净 Hostname
             &ip,        // 传入真实的 192.168.x.x 地址
             http_port,
             properties,
-        )
-        .unwrap();
+        ) {
+            Ok(info) => info,
+            Err(e) => {
+                println!("[mDNS 广播] 错误：无法创建服务信息 ({})，广播未启动", e);
+                return;
+            }
+        };
 
         println!(
             "[mDNS 广播] 开始向局域网宣告自己 -> IP: {}, Host: {}",
             ip, host_name
         );
 
-        mdns.register(service_info)
-            .expect("Failed to register mDNS service");
+        if let Err(e) = mdns.register(service_info) {
+            println!("[mDNS 广播] 错误：注册服务失败 ({})", e);
+        }
+    }
+
+    /// 停止 mDNS 广播服务
+    pub fn stop_broadcast(device_id: &str, device_name: &str) {
+        let mdns = get_mdns_daemon();
+        let service_type = "_pilauncher._tcp.local.";
+        let instance_name = format!("{}_{}", device_name, device_id);
+        let fullname = format!("{}.{}", instance_name, service_type);
+        if let Err(e) = mdns.unregister(&fullname) {
+            println!("[mDNS 广播] 注销服务失败: {}", e);
+        } else {
+            println!("[mDNS 广播] 成功注销服务: {}", fullname);
+        }
+    }
+
+    /// 重启 mDNS 广播服务
+    pub fn restart_broadcast(old_device_id: &str, old_device_name: &str, new_device_id: &str, new_device_name: &str, public_key: &str, http_port: u16) {
+        Self::stop_broadcast(old_device_id, old_device_name);
+        Self::start_broadcast(new_device_id, new_device_name, public_key, http_port);
     }
 
     /// 阻塞式扫描
@@ -81,6 +107,7 @@ impl MdnsScanner {
                     if let Ok(ServiceEvent::ServiceResolved(info)) = event {
                         let device_id = info.get_property_val_str("device_id").unwrap_or("").to_string();
                         let device_name = info.get_property_val_str("device_name").unwrap_or("").to_string();
+                        let public_key = info.get_property_val_str("public_key").unwrap_or("").to_string();
 
                         println!("[mDNS 雷达] 发现一台合规设备 -> Name: {}", device_name);
 
@@ -90,6 +117,7 @@ impl MdnsScanner {
                                 device_name,
                                 ip: ip.to_string(),
                                 port: info.get_port(),
+                                public_key,
                             });
                         }
                     }

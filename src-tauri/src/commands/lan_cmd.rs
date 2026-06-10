@@ -26,6 +26,10 @@ fn is_safe_user_uuid(user_uuid: &str) -> bool {
     !user_uuid.is_empty() && user_uuid.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
 }
 
+fn is_safe_filename(name: &str) -> bool {
+    !name.is_empty() && !name.contains('/') && !name.contains('\\') && name != "." && name != ".."
+}
+
 fn is_valid_png(bytes: &[u8]) -> bool {
     bytes.len() > PNG_SIGNATURE.len() && bytes.starts_with(&PNG_SIGNATURE)
 }
@@ -133,21 +137,40 @@ pub async fn send_trust_request<R: Runtime>(
         .build()
         .map_err(|e| e.to_string())?;
     let url = format!("http://{}:{}/trust/request", target_ip, target_port);
+
+    let timestamp = chrono::Utc::now().timestamp().to_string();
+    let message = format!("POST:/trust/request:{}:{}", timestamp, req_payload.device_id);
+
+    use base64::{engine::general_purpose, Engine as _};
+    use ed25519_dalek::{SigningKey, Signer};
+
+    let private_bytes = general_purpose::STANDARD
+        .decode(&my_identity.private_key_b64)
+        .map_err(|e| format!("解码私钥失败: {}", e))?;
+    let private_array: [u8; 32] = private_bytes
+        .try_into()
+        .map_err(|_| "私钥长度错误".to_string())?;
+    let signing_key = SigningKey::from_bytes(&private_array);
+    let signature = signing_key.sign(message.as_bytes());
+    let signature_b64 = general_purpose::STANDARD.encode(signature.to_bytes());
+
     let response = client
         .post(&url)
         .json(&req_payload)
+        .header("X-Signature", signature_b64)
+        .header("X-Timestamp", timestamp)
         .send()
         .await
-        .map_err(|_| "缃戠粶杩炴帴澶辫触".to_string())?;
+        .map_err(|_| "网络连接失败".to_string())?;
 
     if !response.status().is_success() {
-        return Err("瀵规柟鎷掔粷浜嗘偍鐨勮姹傦紝鎴栨搷浣滃凡瓒呮椂銆?".to_string());
+        return Err("对方拒绝了您的请求，或操作已超时。".to_string());
     }
 
     let target_identity = response
         .json::<TrustRequest>()
         .await
-        .map_err(|_| "瀵规柟鏁版嵁鏍煎紡寮傚父".to_string())?;
+        .map_err(|_| "对方数据格式异常".to_string())?;
     let remote_info = fetch_remote_device_info(&target_ip, target_port).await;
     let remote_username = remote_info
         .as_ref()
@@ -260,15 +283,42 @@ pub async fn resolve_trust_request<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn update_lan_device_info(
+pub async fn update_lan_device_info<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, Arc<SharedLanState>>,
     info: DeviceInitInfo,
     local_bg_path: String,
 ) -> Result<(), String> {
     let mut current_info = state.current_device_info.lock().unwrap();
-    *current_info = info;
+    let old_id = current_info.device_id.clone();
+    let old_name = current_info.device_name.clone();
+
+    let name_changed = !old_id.is_empty() && (old_name != info.device_name || old_id != info.device_id);
+
+    *current_info = info.clone();
     let mut bg_path = state.local_bg_path.lock().unwrap();
     *bg_path = local_bg_path;
+
+    if name_changed {
+        let base_path = ConfigService::get_base_path(&app)
+            .map_err(|e| e.to_string())?
+            .unwrap_or_default();
+        let config_dir = std::path::PathBuf::from(&base_path).join("config");
+        let my_identity = TrustStore::get_or_create_identity(&config_dir);
+
+        println!(
+            "[mDNS 广播] 检测到设备信息发生改变，重启广播: {} -> {}",
+            old_name, info.device_name
+        );
+        MdnsScanner::restart_broadcast(
+            &old_id,
+            &old_name,
+            &info.device_id,
+            &info.device_name,
+            &my_identity.public_key_b64,
+            9999,
+        );
+    }
     Ok(())
 }
 
@@ -514,12 +564,15 @@ pub async fn get_instance_saves<R: Runtime>(
     app: AppHandle<R>,
     instance_id: String,
 ) -> Result<Vec<String>, String> {
+    if !is_safe_filename(&instance_id) {
+        return Err("非法的实例 ID".to_string());
+    }
     let base_path = ConfigService::get_base_path(&app)
         .map_err(|e| e.to_string())?
         .unwrap_or_default();
     let saves_dir = PathBuf::from(base_path)
         .join("instances")
-        .join(instance_id)
+        .join(&instance_id)
         .join("saves");
     let mut list = Vec::new();
 
@@ -556,6 +609,17 @@ pub async fn push_to_device<R: Runtime>(
     remote_device_name: Option<String>,
     remote_username: Option<String>,
 ) -> Result<String, String> {
+    if !is_safe_filename(&target_id) {
+        return Err("非法的实例 ID".to_string());
+    }
+    if transfer_type != "instance" {
+        if let Some(ref save) = save_name {
+            if !is_safe_filename(save) {
+                return Err("非法的存档名称".to_string());
+            }
+        }
+    }
+
     let base_path = ConfigService::get_base_path(&app)
         .map_err(|e| e.to_string())?
         .unwrap_or_default();
@@ -564,7 +628,7 @@ pub async fn push_to_device<R: Runtime>(
     let (src_dir, item_name) = if transfer_type == "instance" {
         (instances_dir.join(&target_id), target_id.clone())
     } else {
-        let selected_save = save_name.unwrap_or_default();
+        let selected_save = save_name.clone().unwrap_or_default();
         (
             instances_dir
                 .join(&target_id)
@@ -779,6 +843,24 @@ pub async fn push_to_device<R: Runtime>(
             }
         });
 
+        let timestamp = chrono::Utc::now().timestamp().to_string();
+        let method = "POST";
+        let path = "/api/transfer/receive";
+        let sign_message = format!("{}:{}:{}:{}", method, path, timestamp, sender_device_id);
+
+        use base64::{engine::general_purpose, Engine as _};
+        use ed25519_dalek::{SigningKey, Signer};
+
+        let private_bytes = general_purpose::STANDARD
+            .decode(&identity.private_key_b64)
+            .map_err(|e| format!("解码私钥失败: {}", e))?;
+        let private_array: [u8; 32] = private_bytes
+            .try_into()
+            .map_err(|_| "私钥长度错误".to_string())?;
+        let signing_key = SigningKey::from_bytes(&private_array);
+        let signature = signing_key.sign(sign_message.as_bytes());
+        let signature_b64 = general_purpose::STANDARD.encode(signature.to_bytes());
+
         let response = match client
             .post(format!(
                 "http://{}:{}/api/transfer/receive",
@@ -799,6 +881,8 @@ pub async fn push_to_device<R: Runtime>(
                 "X-Username",
                 urlencoding::encode(&sender_username).into_owned(),
             )
+            .header("X-Signature", signature_b64)
+            .header("X-Timestamp", timestamp)
             .header(reqwest::header::CONTENT_LENGTH, total_size.to_string())
             .body(reqwest::Body::wrap_stream(body_stream))
             .send()
@@ -934,6 +1018,12 @@ pub async fn apply_received_transfer<R: Runtime>(
     remote_username: Option<String>,
     name: Option<String>,
 ) -> Result<String, String> {
+    if let Some(ref inst_id) = target_instance_id {
+        if !is_safe_filename(inst_id) {
+            return Err("非法的目标实例 ID".to_string());
+        }
+    }
+
     let shared_state = app.state::<Arc<SharedLanState>>();
     let current_info = shared_state.current_device_info.lock().unwrap().clone();
     let base_path = ConfigService::get_base_path(&app)

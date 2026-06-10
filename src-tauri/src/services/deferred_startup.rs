@@ -45,6 +45,7 @@ pub fn start(app: AppHandle, lan_state: Arc<services::lan::http_api::SharedLanSt
                 services::lan::mdns_service::MdnsScanner::start_broadcast(
                     &identity.device_id,
                     &identity.device_name,
+                    &identity.public_key_b64,
                     9999,
                 );
             }

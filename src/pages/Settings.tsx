@@ -22,6 +22,7 @@ import { FocusBoundary } from '../ui/focus/FocusBoundary';
 import { focusManager } from '../ui/focus/FocusManager';
 import { useInputAction } from '../ui/focus/InputDriver';
 import { GamepadButtonIcon } from '../ui/components/GamepadButtonIcon';
+import { loadSystemFonts } from '../utils/systemFonts';
 
 
 
@@ -31,6 +32,11 @@ export const Settings: React.FC = () => {
   const [pressingLT, setPressingLT] = useState(false);
   const [pressingRT, setPressingRT] = useState(false);
   const activeBoundaryId = useMemo(() => `settings-page-boundary:${activeTab}`, [activeTab]);
+
+  useEffect(() => {
+    // Start preloading system fonts in the background as soon as Settings page is opened
+    void loadSystemFonts();
+  }, []);
 
   const createTabLabel = useCallback((icon: React.ReactNode, label: string) => (
     <div className="settings-tab-label flex min-w-0 items-center justify-center gap-2">

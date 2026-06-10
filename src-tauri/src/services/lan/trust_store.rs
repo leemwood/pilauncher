@@ -80,6 +80,13 @@ impl TrustStore {
             );
         }
 
+        if device_id.trim().is_empty() {
+            device_id = uuid::Uuid::new_v4().to_string();
+        }
+        if device_name.trim().is_empty() {
+            device_name = format!("PiLauncher-{}", &device_id[..6]);
+        }
+
         DeviceIdentity {
             device_id,
             device_name,

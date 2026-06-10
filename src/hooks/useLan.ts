@@ -7,6 +7,7 @@ export interface DiscoveredDevice {
   device_name: string;
   ip: string;
   port: number;
+  public_key: string;
 }
 
 export interface TrustedDevice {
@@ -143,6 +144,20 @@ export const useLan = () => {
     }
   }, []);
 
+  const verifyTrustedDevices = useCallback(
+    async (onlineDevices: OnlineDeviceCheck[]) => {
+      try {
+        const downgraded = await invoke<string[]>('verify_trusted_devices', { onlineDevices });
+        if (downgraded.length > 0) {
+          await Promise.all([fetchTrusted(), fetchFriends()]);
+        }
+      } catch (error) {
+        console.error('验证信任设备失败:', error);
+      }
+    },
+    [fetchFriends, fetchTrusted],
+  );
+
   const scan = useCallback(async () => {
     if (isScanningRef.current) {
       return;
@@ -152,7 +167,20 @@ export const useLan = () => {
     setIsScanning(true);
     try {
       const list = await invoke<DiscoveredDevice[]>('scan_lan_devices');
-      setDiscovered(dedupeDiscoveredDevices(list));
+      const deduped = dedupeDiscoveredDevices(list);
+      setDiscovered(deduped);
+
+      // 自动校验在线已信任设备的指纹
+      const onlineChecks = deduped
+        .filter((d) => d.device_id && d.public_key)
+        .map((d) => ({
+          device_id: d.device_id,
+          device_name: d.device_name,
+          public_key: d.public_key,
+        }));
+      if (onlineChecks.length > 0) {
+        await verifyTrustedDevices(onlineChecks);
+      }
     } catch (error) {
       console.error('局域网扫描失败:', error);
       setDiscovered([]);
@@ -160,7 +188,7 @@ export const useLan = () => {
       isScanningRef.current = false;
       setIsScanning(false);
     }
-  }, []);
+  }, [verifyTrustedDevices]);
 
   useEffect(() => {
     const unlistenTrust = listen<IncomingTrustRequest>('trust_request_received', (event) => {
@@ -244,20 +272,6 @@ export const useLan = () => {
     async (deviceId: string) => {
       await invoke('remove_trusted_device', { deviceId });
       await Promise.all([fetchTrusted(), fetchFriends()]);
-    },
-    [fetchFriends, fetchTrusted],
-  );
-
-  const verifyTrustedDevices = useCallback(
-    async (onlineDevices: OnlineDeviceCheck[]) => {
-      try {
-        const downgraded = await invoke<string[]>('verify_trusted_devices', { onlineDevices });
-        if (downgraded.length > 0) {
-          await Promise.all([fetchTrusted(), fetchFriends()]);
-        }
-      } catch (error) {
-        console.error('验证信任设备失败:', error);
-      }
     },
     [fetchFriends, fetchTrusted],
   );

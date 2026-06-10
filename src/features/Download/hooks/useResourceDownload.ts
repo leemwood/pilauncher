@@ -462,14 +462,8 @@ export const useResourceDownload = (
     setCommittedQuery('');
     setCategory('');
     setSort('relevance');
-
-    if (instanceConfig) {
-      setMcVersion(resolveInstanceGameVersion(instanceConfig));
-      setLoaderType(resolveInstanceLoaderType(instanceConfig));
-    } else {
-      setMcVersion('');
-      setLoaderType('');
-    }
+    setMcVersion('');
+    setLoaderType('');
 
     setOffset(0);
     setResults([]);
@@ -488,9 +482,15 @@ export const useResourceDownload = (
 
   const installedModIndex = useMemo(() => new InstalledModIndex(installedMods), [installedMods]);
 
+  const handleTabChange = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    setMcVersion('');
+    setLoaderType('');
+  }, []);
+
   return {
     activeTab,
-    setActiveTab,
+    setActiveTab: handleTabChange,
     query: localQuery,
     setQuery,
     mcVersion,

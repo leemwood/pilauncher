@@ -85,40 +85,166 @@ pub struct AxumAppState {
 }
 
 async fn auth_middleware(
-    State(_state): State<Arc<AxumAppState>>,
-    _headers: HeaderMap,
+    State(state): State<Arc<AxumAppState>>,
+    headers: HeaderMap,
     request: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    use sqlx::Row;
+    use base64::{engine::general_purpose, Engine as _};
+    use ed25519_dalek::{Signature, VerifyingKey, Verifier};
+
+    // 1. 获取头部鉴权信息
+    let sender_device_id = headers
+        .get("X-Device-Id")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let signature_b64 = headers
+        .get("X-Signature")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let timestamp_str = headers
+        .get("X-Timestamp")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    // 2. 校验时间戳防重放 (限制在 60 秒内)
+    let timestamp = timestamp_str.parse::<i64>().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let now = chrono::Utc::now().timestamp();
+    if (now - timestamp).abs() > 60 {
+        println!("[API 鉴权] 失败：请求时间戳超时 {} (当前时间 {})", timestamp, now);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // 3. 从数据库查询公钥与信任状态
+    let db = state.tauri_app.state::<AppDatabase>();
+    let device_record = sqlx::query(
+        "SELECT public_key_b64, trust_level FROM trusted_devices WHERE device_uuid = $1 LIMIT 1"
+    )
+    .bind(sender_device_id)
+    .fetch_optional(&db.pool)
+    .await
+    .map_err(|e| {
+        println!("[API 鉴权] 错误：数据库查询失败: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let (public_key_b64, trust_level) = match device_record {
+        Some(row) => {
+            let pk: String = row.try_get("public_key_b64").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let tl: String = row.try_get("trust_level").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            (pk, tl)
+        }
+        None => {
+            println!("[API 鉴权] 失败：设备 {} 未在信任数据库中", sender_device_id);
+            return Err(StatusCode::FORBIDDEN);
+        }
+    };
+
+    // 必须是已信任设备，好友设备需要先升级为信任设备
+    if trust_level != "trusted" {
+        println!("[API 鉴权] 失败：设备 {} 的信任等级为 {}, 拒绝传输", sender_device_id, trust_level);
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // 4. 重构签名消息: "{method}:{path}:{timestamp}:{sender_device_id}"
+    let method = request.method().as_str().to_string();
+    let path = request.uri().path().to_string();
+    let message = format!("{}:{}:{}:{}", method, path, timestamp_str, sender_device_id);
+
+    // 5. 验证 Ed25519 签名
+    let public_bytes = general_purpose::STANDARD
+        .decode(&public_key_b64)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let sig_bytes = general_purpose::STANDARD
+        .decode(signature_b64)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let public_array: [u8; 32] = public_bytes.try_into().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let verifying_key = VerifyingKey::from_bytes(&public_array).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let signature = Signature::from_slice(&sig_bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    if verifying_key.verify(message.as_bytes(), &signature).is_err() {
+        println!("[API 鉴权] 失败：签名验证未通过");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
     Ok(next.run(request).await)
 }
 
 async fn request_trust(
     State(state): State<Arc<AxumAppState>>,
+    headers: HeaderMap,
     Json(payload): Json<TrustRequest>,
 ) -> Result<Json<TrustRequest>, StatusCode> {
-    let my_user_uuid = state
-        .shared_state
-        .current_device_info
-        .lock()
-        .unwrap()
-        .user_uuid
-        .clone();
+    use base64::{engine::general_purpose, Engine as _};
+    use ed25519_dalek::{Signature, VerifyingKey, Verifier};
+
+    // 1. 获取头部鉴权信息
+    let signature_b64 = headers
+        .get("X-Signature")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let timestamp_str = headers
+        .get("X-Timestamp")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    // 2. 校验时间戳防重放 (限制在 60 秒内)
+    let timestamp = timestamp_str.parse::<i64>().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let now = chrono::Utc::now().timestamp();
+    if (now - timestamp).abs() > 60 {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // 3. 重构签名消息: "POST:/trust/request:{timestamp}:{sender_device_id}"
+    let message = format!("POST:/trust/request:{}:{}", timestamp_str, payload.device_id);
+
+    // 4. 验证 Ed25519 签名 (基于请求体中的 public_key)
+    let public_bytes = general_purpose::STANDARD
+        .decode(&payload.public_key)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let sig_bytes = general_purpose::STANDARD
+        .decode(signature_b64)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let public_array: [u8; 32] = public_bytes.try_into().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let verifying_key = VerifyingKey::from_bytes(&public_array).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let signature = Signature::from_slice(&sig_bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    if verifying_key.verify(message.as_bytes(), &signature).is_err() {
+        println!("[信任握手] 失败：签名验证未通过");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // 5. 移除了 is_same_user 的自动审批逻辑，任何新设备都必须显示确认弹窗。
+    // 但是，如果设备已经在我们的数据库中且公钥相同，则可以自动允许（这在 resolve 之后或再次连接时发生）
+    let db = state.tauri_app.state::<AppDatabase>();
+    let existing_trust = sqlx::query(
+        "SELECT trust_level, public_key_b64 FROM trusted_devices WHERE device_uuid = $1 LIMIT 1"
+    )
+    .bind(&payload.device_id)
+    .fetch_optional(&db.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut is_already_trusted = false;
     let request_kind = payload
         .request_kind
         .clone()
         .unwrap_or_else(|| "friend".to_string());
-    let is_same_user = !my_user_uuid.is_empty() && my_user_uuid == payload.user_uuid;
 
-    if is_same_user {
-        let base_path = ConfigService::get_base_path(&state.tauri_app)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .unwrap_or_default();
-        let config_dir = PathBuf::from(base_path).join("config");
-        let my_identity = TrustStore::get_or_create_identity(&config_dir);
-        let db = state.tauri_app.state::<AppDatabase>();
+    if let Some(row) = existing_trust {
+        use sqlx::Row;
+        let db_pk: String = row.try_get("public_key_b64").unwrap_or_default();
+        let db_tl: String = row.try_get("trust_level").unwrap_or_default();
+        if db_pk == payload.public_key && (db_tl == "trusted" || (db_tl == "friend" && request_kind != "trusted")) {
+            is_already_trusted = true;
+        }
+    }
+
+    if is_already_trusted {
         let target_username = payload.username.clone().unwrap_or_default();
-
         let relationship_result = if request_kind == "trusted" {
             TrustStore::add_trusted_device(
                 &db.pool,
@@ -140,16 +266,15 @@ async fn request_trust(
             )
             .await
         };
-
         relationship_result.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         let _ = state.tauri_app.emit("trust_list_updated", json!({}));
 
-        let current_info = state
-            .shared_state
-            .current_device_info
-            .lock()
-            .unwrap()
-            .clone();
+        let base_path = ConfigService::get_base_path(&state.tauri_app)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .unwrap_or_default();
+        let config_dir = PathBuf::from(base_path).join("config");
+        let my_identity = TrustStore::get_or_create_identity(&config_dir);
+        let current_info = state.shared_state.current_device_info.lock().unwrap().clone();
 
         return Ok(Json(TrustRequest {
             device_id: if !current_info.device_id.trim().is_empty() {
@@ -307,7 +432,6 @@ async fn ws_handler(
         }
     })
 }
-
 async fn receive_transfer(
     State(state): State<Arc<AxumAppState>>,
     headers: HeaderMap,
@@ -318,6 +442,16 @@ async fn receive_transfer(
         .and_then(|value| value.to_str().ok())
         .map(|value| value.to_string())
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    let is_valid_transfer_id = !transfer_id.is_empty()
+        && transfer_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+    if !is_valid_transfer_id {
+        return (
+            StatusCode::BAD_REQUEST,
+            "Invalid X-Transfer-Id header".to_string(),
+        );
+    }
+
     let transfer_type = headers
         .get("X-Transfer-Type")
         .and_then(|value| value.to_str().ok())

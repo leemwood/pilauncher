@@ -31,6 +31,7 @@ pub struct DiscoveredDevice {
     pub device_name: String,
     pub ip: String,
     pub port: u16,
+    pub public_key: String,
 }
 
 // 4. HTTP RPC 握手请求模型

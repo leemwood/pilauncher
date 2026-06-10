@@ -1,6 +1,5 @@
 use std::fs;
 use std::fs::File;
-use std::io::{Read, Write};
 use std::path::Path;
 
 use walkdir::WalkDir;
@@ -40,11 +39,8 @@ where
                 .map_err(|e| e.to_string())?;
             let mut source_file =
                 File::open(path).map_err(|e| format!("Open source file failed: {}", e))?;
-            let mut buffer = Vec::new();
-            source_file
-                .read_to_end(&mut buffer)
-                .map_err(|e| format!("Read source file failed: {}", e))?;
-            zip.write_all(&buffer).map_err(|e| e.to_string())?;
+            std::io::copy(&mut source_file, &mut zip)
+                .map_err(|e| format!("Write to zip failed: {}", e))?;
             on_progress(current, total, format!("Packing {}", display_name));
         } else if !name.as_os_str().is_empty() {
             zip.add_directory(display_name.clone(), options)
