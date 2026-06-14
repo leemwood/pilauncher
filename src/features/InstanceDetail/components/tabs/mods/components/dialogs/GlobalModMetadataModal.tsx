@@ -14,7 +14,7 @@ interface GlobalModMetadataModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentSettings?: ModMetadataSettings;
-  onSaveMetadataSettings: (settings: ModMetadataSettings) => Promise<void>;
+  onSaveMetadataSettings: (settings: ModMetadataSettings, skipReload?: boolean) => Promise<void>;
   onReidentifyAllMods: (onProgress?: (current: number, total: number) => void) => Promise<void>;
 }
 
@@ -64,6 +64,14 @@ export const GlobalModMetadataModal: React.FC<GlobalModMetadataModalProps> = ({
     setIsReidentifying(true);
     setProgress({ current: 0, total: 1 });
     try {
+      // Auto save draft settings first, skipping loadMods() to avoid concurrent mod scanning race conditions
+      await onSaveMetadataSettings({
+        metadataPlatform: metadataPlatformDraft,
+        updatePlatform: updatePlatformDraft,
+        metadataLocked: metadataPlatformDraft !== 'auto',
+        updateLocked: updatePlatformDraft !== 'auto'
+      }, true);
+
       await onReidentifyAllMods((current, total) => {
         setProgress({ current, total });
       });

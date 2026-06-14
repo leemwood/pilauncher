@@ -144,8 +144,10 @@ export const useResourceDownload = (
 
   const [isLoading, setIsLoading] = useState(!isCacheValid);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
 
   const isFirstMount = useRef(true);
+  const isRestoringRef = useRef(false);
   const resolvedInstanceMcVersion = resolveInstanceGameVersion(instanceConfig);
   const resolvedInstanceLoaderType = resolveInstanceLoaderType(instanceConfig);
   const effectiveMcVersion = lockInstanceEnvironment && resolvedInstanceMcVersion
@@ -374,32 +376,88 @@ export const useResourceDownload = (
     } else {
       setIsLoading(true);
       setResults([]);
+      setLoadMoreFailed(false);
     }
 
     const searchQuery = queryOverride !== undefined ? queryOverride : committedQuery;
 
     try {
-      const data = source === 'curseforge'
-        ? await searchCurseForge({
-            query: searchQuery,
-            category,
-            sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
-            projectType: activeTab,
-            version: effectiveMcVersion || undefined,
-            loader: activeTab === 'mod' ? effectiveLoaderType || undefined : undefined,
-            offset: currentOffset,
-            limit: 20
-          })
-        : await searchModrinth({
-            query: searchQuery,
-            category,
-            sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
-            projectType: activeTab,
-            version: effectiveMcVersion || undefined,
-            loader: activeTab === 'mod' ? effectiveLoaderType || undefined : undefined,
-            offset: currentOffset,
-            limit: 20
-          });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any = null;
+
+      if (isLoadMore) {
+        let success = false;
+        let attempt = 0;
+        const maxAttempts = 5;
+
+        while (attempt < maxAttempts && !success) {
+          try {
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('TIMEOUT')), 8000)
+            );
+
+            const fetchPromise = source === 'curseforge'
+              ? searchCurseForge({
+                  query: searchQuery,
+                  category,
+                  sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
+                  projectType: activeTab,
+                  version: effectiveMcVersion || undefined,
+                  loader: activeTab === 'mod' ? effectiveLoaderType || undefined : undefined,
+                  offset: currentOffset,
+                  limit: 20
+                })
+              : searchModrinth({
+                  query: searchQuery,
+                  category,
+                  sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
+                  projectType: activeTab,
+                  version: effectiveMcVersion || undefined,
+                  loader: activeTab === 'mod' ? effectiveLoaderType || undefined : undefined,
+                  offset: currentOffset,
+                  limit: 20
+                });
+
+            data = await Promise.race([fetchPromise, timeoutPromise]);
+            success = true;
+          } catch (err) {
+            attempt++;
+            console.warn(`Load more attempt ${attempt} failed:`, err);
+            if (attempt >= maxAttempts) {
+              throw err;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+      } else {
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT')), 8000)
+        );
+
+        const fetchPromise = source === 'curseforge'
+          ? searchCurseForge({
+              query: searchQuery,
+              category,
+              sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
+              projectType: activeTab,
+              version: effectiveMcVersion || undefined,
+              loader: activeTab === 'mod' ? effectiveLoaderType || undefined : undefined,
+              offset: currentOffset,
+              limit: 20
+            })
+          : searchModrinth({
+              query: searchQuery,
+              category,
+              sort: sort as 'relevance' | 'downloads' | 'updated' | 'newest',
+              projectType: activeTab,
+              version: effectiveMcVersion || undefined,
+              loader: activeTab === 'mod' ? effectiveLoaderType || undefined : undefined,
+              offset: currentOffset,
+              limit: 20
+            });
+
+        data = await Promise.race([fetchPromise, timeoutPromise]);
+      }
 
       if (isLoadMore) setResults((prev) => [...prev, ...data.hits]);
       else setResults(data.hits);
@@ -407,8 +465,12 @@ export const useResourceDownload = (
       setHasMore(currentOffset + data.hits.length < data.total_hits);
     } catch (error) {
       console.error(error);
-      if (!isLoadMore) setResults([]);
-      setHasMore(false);
+      if (!isLoadMore) {
+        setResults([]);
+        setHasMore(false);
+      } else {
+        setLoadMoreFailed(true);
+      }
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -421,6 +483,11 @@ export const useResourceDownload = (
     if (isFirstMount.current) {
       isFirstMount.current = false;
       if (isCacheValid) return;
+    }
+
+    if (isRestoringRef.current) {
+      isRestoringRef.current = false;
+      return;
     }
 
     setOffset(0);
@@ -473,12 +540,12 @@ export const useResourceDownload = (
   };
 
   const loadMore = useCallback(() => {
-    if (!hasMore || isLoading || isLoadingMore || results.length === 0) return;
+    if (!hasMore || isLoading || isLoadingMore || results.length === 0 || loadMoreFailed) return;
 
     const nextOffset = offset + 20;
     setOffset(nextOffset);
     void executeSearch(nextOffset, true);
-  }, [executeSearch, hasMore, isLoading, isLoadingMore, offset, results.length]);
+  }, [executeSearch, hasMore, isLoading, isLoadingMore, offset, results.length, loadMoreFailed]);
 
   const installedModIndex = useMemo(() => new InstalledModIndex(installedMods), [installedMods]);
 
@@ -487,6 +554,27 @@ export const useResourceDownload = (
     setMcVersion('');
     setLoaderType('');
   }, []);
+
+  const restoreState = useCallback((
+    newQuery: string,
+    newCategory: string,
+    newResults: ModrinthProject[],
+    newOffset: number,
+    newHasMore: boolean
+  ) => {
+    isRestoringRef.current = true;
+    setLocalQuery(newQuery);
+    setCommittedQuery(newQuery);
+    setCategory(newCategory);
+    setResults(newResults);
+    setOffset(newOffset);
+    setHasMore(newHasMore);
+  }, []);
+
+  const retryLoadMore = useCallback(() => {
+    setLoadMoreFailed(false);
+    void executeSearch(offset, true);
+  }, [executeSearch, offset]);
 
   return {
     activeTab,
@@ -506,6 +594,7 @@ export const useResourceDownload = (
     source,
     setSource,
     results,
+    offset,
     hasMore,
     isLoading,
     isLoadingMore,
@@ -519,6 +608,9 @@ export const useResourceDownload = (
     isCurseForgeAvailable: hasCurseForgeApiKey(),
     handleSearchClick,
     handleResetClick,
-    loadMore
+    loadMore,
+    restoreState,
+    loadMoreFailed,
+    retryLoadMore
   };
 };

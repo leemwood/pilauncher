@@ -6,7 +6,8 @@ import {
 } from '../../../../../../logic/modrinthApi';
 import {
   fetchCurseForgeVersions,
-  searchCurseForge
+  searchCurseForge,
+  hasCurseForgeApiKey
 } from '../../../../../../../Download/logic/curseforgeApi';
 import {
   resolveInstanceGameVersion,
@@ -50,6 +51,11 @@ export const useModVersions = (
       setIsLoadingVersions(true);
 
       const fetchPlatformVersions = async () => {
+        if (activePlatform === 'curseforge' && !hasCurseForgeApiKey()) {
+          cacheRef.current[cacheKey] = [];
+          setModVersions([]);
+          return;
+        }
         let currentProjectId = getPlatformProjectId(displayMod, activePlatform)
           || (activePlatform === 'modrinth' ? displayMod.modId : undefined);
 

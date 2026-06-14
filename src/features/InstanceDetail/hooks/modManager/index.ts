@@ -76,7 +76,9 @@ export const useModManager = (instanceId: string) => {
       }
 
       void (async () => {
-        const syncedMods = await syncCloudMetadata(enrichedMods);
+        const syncedMods = await syncCloudMetadata(enrichedMods, {
+          globalMetadataPlatform: config?.globalMetadataSettings?.metadataPlatform
+        });
         if (syncedMods !== enrichedMods) {
           setMods((current) => mergeModBatch(current, syncedMods));
         }
@@ -155,7 +157,9 @@ export const useModManager = (instanceId: string) => {
     setIsCheckingModUpdates(true);
 
     try {
-      const syncedMods = await syncCloudMetadata(currentMods);
+      const syncedMods = await syncCloudMetadata(currentMods, {
+        globalMetadataPlatform: instanceConfig?.globalMetadataSettings?.metadataPlatform
+      });
       if (syncedMods !== currentMods) {
         setMods((current) => mergeSyncedModMetadata(current, currentMods, syncedMods));
       }
@@ -174,6 +178,7 @@ export const useModManager = (instanceId: string) => {
     setIsCheckingModUpdates,
     setMods,
     syncCloudMetadata,
+    instanceConfig
   ]);
 
   const saveModMetadataSettings = useCallback(async (
@@ -200,27 +205,17 @@ export const useModManager = (instanceId: string) => {
 
   const reidentifyMod = useCallback(async (mod: ModMeta) => {
     await modService.resetModPlatformMetadata(instanceId, mod.fileName);
-    const clearedMod: ModMeta = {
-      ...mod,
-      manifestEntry: mod.manifestEntry
-        ? {
-            ...mod.manifestEntry,
-            source: {
-              ...mod.manifestEntry.source,
-              platform: undefined,
-              projectId: undefined,
-              fileId: undefined
-            },
-            matchedPlatforms: {}
-          }
-        : mod.manifestEntry
-    };
-    const syncedMods = await syncCloudMetadata([clearedMod], { force: true });
-    const syncedMod = syncedMods[0] || mod;
+    const freshMods = await modService.getMods(instanceId);
+    const freshMod = freshMods.find((m) => m.fileName === mod.fileName) || mod;
+    const syncedMods = await syncCloudMetadata([freshMod], {
+      force: true,
+      globalMetadataPlatform: instanceConfig?.globalMetadataSettings?.metadataPlatform
+    });
+    const syncedMod = syncedMods[0] || freshMod;
 
     setMods((current) => mergeModBatch(current, [syncedMod]));
     return syncedMod;
-  }, [instanceId, setMods, syncCloudMetadata]);
+  }, [instanceId, setMods, syncCloudMetadata, instanceConfig]);
 
   const sorting = useModSorting(mods, isLoading);
   const operations = useModOperations({

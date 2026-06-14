@@ -23,10 +23,28 @@ interface ResourceGridItem {
 interface ResourceGridContext {
   hasMore: boolean;
   isLoadingMore: boolean;
+  loadMoreFailed?: boolean;
+  onRetryLoadMore?: () => void;
 }
 
 const ResourceGridFooter: React.FC<{ context?: ResourceGridContext }> = ({ context }) => {
-  if (!context?.hasMore || context.isLoadingMore) return null;
+  if (!context?.hasMore) return null;
+
+  if (context.loadMoreFailed) {
+    return (
+      <div className="col-span-full flex h-16 items-center justify-center gap-3">
+        <span className="text-sm text-red-400 font-minecraft font-bold">加载失败，请重试</span>
+        <button
+          onClick={context.onRetryLoadMore}
+          className="rounded-sm border border-ore-green/30 bg-ore-green/10 px-3 py-1.5 text-xs font-minecraft font-bold tracking-wider text-ore-green hover:bg-ore-green/20 hover:text-white transition-colors cursor-pointer active:scale-95"
+        >
+          手动继续加载
+        </button>
+      </div>
+    );
+  }
+
+  if (context.isLoadingMore) return null;
 
   return (
     <div className="col-span-full flex h-16 items-center justify-center">
@@ -54,7 +72,12 @@ const RESOURCE_GRID_COMPONENTS = {
 
 export const ResourceCardSkeleton = () => {
   return (
-    <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60"
+    >
       <div className="absolute inset-y-0 left-0 w-1.5 bg-[#48494A]/20" />
 
       <div className="flex w-full items-stretch gap-[0.875rem] p-[0.875rem] pr-[1rem]">
@@ -92,7 +115,7 @@ export const ResourceCardSkeleton = () => {
         </div>
       </div>
       <ShimmerOverlay />
-    </div>
+    </motion.div>
   );
 };
 
@@ -103,6 +126,8 @@ interface ResourceGridProps {
   isLoading: boolean;
   isLoadingMore?: boolean;
   hasMore: boolean;
+  loadMoreFailed?: boolean;
+  onRetryLoadMore?: () => void;
   onLoadMore: () => void;
   onSelectProject: (project: ModrinthProject) => void;
   selectedProjectIds?: Set<string>;
@@ -123,6 +148,8 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
   isLoading,
   isLoadingMore = false,
   hasMore,
+  loadMoreFailed = false,
+  onRetryLoadMore,
   onLoadMore,
   onSelectProject,
   selectedProjectIds,
@@ -319,7 +346,7 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
                 overscrollBehaviorY: 'contain'
               }}
               data={resourceItems}
-              context={{ hasMore, isLoadingMore }}
+              context={{ hasMore, isLoadingMore, loadMoreFailed, onRetryLoadMore }}
               scrollerRef={handleScrollerRef}
               computeItemKey={(_, item) => item.isSkeleton ? item.project.id : getProjectKey(item.project)}
               listClassName="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] px-[1rem] pb-[1.5rem] pt-0"

@@ -12,8 +12,46 @@ import {
 } from './modManagerShared';
 
 export const useModListState = (instanceId: string) => {
-  const [mods, setMods] = useState<ModMeta[]>([]);
+  const [mods, setRawMods] = useState<ModMeta[]>([]);
+
+  const setMods = useCallback((
+    update: ModMeta[] | ((current: ModMeta[]) => ModMeta[])
+  ) => {
+    setRawMods((current) => {
+      const next = typeof update === 'function' ? update(current) : update;
+      return next.map((newMod) => {
+        const existing = current.find((oldMod) => {
+          if (oldMod.fileName === newMod.fileName) return true;
+          if (newMod.cacheKey && oldMod.cacheKey && !newMod.cacheKey.startsWith('file_') && newMod.cacheKey === oldMod.cacheKey) return true;
+          const newRef = newMod.manifestEntry?.source;
+          const oldRef = oldMod.manifestEntry?.source;
+          if (newRef?.platform && newRef?.projectId && oldRef?.platform && oldRef?.projectId) {
+            if (newRef.platform === oldRef.platform && newRef.projectId === oldRef.projectId) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        if (existing) {
+          return {
+            ...newMod,
+            networkInfo: newMod.networkInfo || existing.networkInfo,
+            networkIconUrl: newMod.networkIconUrl || existing.networkIconUrl || existing.networkInfo?.icon_url,
+            isFetchingNetwork: newMod.isFetchingNetwork ?? existing.isFetchingNetwork,
+            hasUpdate: newMod.hasUpdate ?? existing.hasUpdate,
+            updateVersionName: newMod.updateVersionName ?? existing.updateVersionName,
+            updateDownloadUrl: newMod.updateDownloadUrl ?? existing.updateDownloadUrl,
+            updateFileId: newMod.updateFileId ?? existing.updateFileId,
+            updateFileName: newMod.updateFileName ?? existing.updateFileName,
+          };
+        }
+        return newMod;
+      });
+    });
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [instanceConfig, setInstanceConfig] = useState<any>(null);
 
   const activeModScanRequestRef = useRef<string | null>(null);
@@ -35,7 +73,7 @@ export const useModListState = (instanceId: string) => {
     }
 
     setMods((current) => mergeModBatch(current, pending));
-  }, []);
+  }, [setMods]);
 
   const scheduleScanFlush = useCallback(() => {
     if (scanFlushTimerRef.current) {
@@ -122,7 +160,7 @@ export const useModListState = (instanceId: string) => {
     return () => {
       void unlistenPromise.then((unlisten) => unlisten());
     };
-  }, [flushPendingScanMods, instanceId, scheduleScanFlush]);
+  }, [flushPendingScanMods, instanceId, scheduleScanFlush, setMods]);
 
   return {
     mods,

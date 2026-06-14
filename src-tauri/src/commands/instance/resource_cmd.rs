@@ -180,6 +180,7 @@ pub async fn update_mod_manifest<R: Runtime>(
     project_id: String,
     file_id: String,
     version: Option<String>,
+    old_file_name: Option<String>,
 ) -> Result<(), String> {
     ResourceManager::update_mod_manifest(
         &app,
@@ -190,6 +191,7 @@ pub async fn update_mod_manifest<R: Runtime>(
         &project_id,
         &file_id,
         version,
+        old_file_name,
     )
 }
 

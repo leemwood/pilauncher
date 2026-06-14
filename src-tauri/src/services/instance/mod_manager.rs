@@ -175,99 +175,6 @@ impl ModManagerService {
         Ok(mods_dir)
     }
 
-    fn compute_curseforge_fingerprint(path: &Path) -> Result<u32, String> {
-        const BUFFER_SIZE: usize = 64 * 1024;
-        const SEED: u32 = 1;
-
-        let mut file = File::open(path).map_err(|e| e.to_string())?;
-        let mut buffer = [0u8; BUFFER_SIZE];
-        let mut filtered_len = 0u32;
-
-        loop {
-            let bytes_read = file.read(&mut buffer).map_err(|e| e.to_string())?;
-            if bytes_read == 0 {
-                break;
-            }
-
-            filtered_len = filtered_len.wrapping_add(
-                buffer[..bytes_read]
-                    .iter()
-                    .filter(|byte| !Self::is_curseforge_fingerprint_whitespace(**byte))
-                    .count() as u32,
-            );
-        }
-
-        let mut file = File::open(path).map_err(|e| e.to_string())?;
-        let mut hash = SEED ^ filtered_len;
-        let mut pending = [0u8; 4];
-        let mut pending_len = 0usize;
-
-        loop {
-            let bytes_read = file.read(&mut buffer).map_err(|e| e.to_string())?;
-            if bytes_read == 0 {
-                break;
-            }
-
-            for byte in buffer[..bytes_read]
-                .iter()
-                .copied()
-                .filter(|byte| !Self::is_curseforge_fingerprint_whitespace(*byte))
-            {
-                pending[pending_len] = byte;
-                pending_len += 1;
-
-                if pending_len == 4 {
-                    Self::mix_murmur_hash2_block(&mut hash, pending);
-                    pending = [0u8; 4];
-                    pending_len = 0;
-                }
-            }
-        }
-
-        match pending_len {
-            3 => {
-                hash ^= (pending[2] as u32) << 16;
-                hash ^= (pending[1] as u32) << 8;
-                hash ^= pending[0] as u32;
-                hash = hash.wrapping_mul(0x5bd1e995);
-            }
-            2 => {
-                hash ^= (pending[1] as u32) << 8;
-                hash ^= pending[0] as u32;
-                hash = hash.wrapping_mul(0x5bd1e995);
-            }
-            1 => {
-                hash ^= pending[0] as u32;
-                hash = hash.wrapping_mul(0x5bd1e995);
-            }
-            _ => {}
-        }
-
-        hash ^= hash >> 13;
-        hash = hash.wrapping_mul(0x5bd1e995);
-        hash ^= hash >> 15;
-
-        Ok(hash)
-    }
-
-    fn is_curseforge_fingerprint_whitespace(byte: u8) -> bool {
-        matches!(byte, b'\t' | b'\n' | b'\r' | b' ')
-    }
-
-    fn mix_murmur_hash2_block(hash: &mut u32, block: [u8; 4]) {
-        const M: u32 = 0x5bd1e995;
-        const R: u32 = 24;
-
-        let mut k = u32::from_le_bytes(block);
-
-        k = k.wrapping_mul(M);
-        k ^= k >> R;
-        k = k.wrapping_mul(M);
-
-        *hash = hash.wrapping_mul(M);
-        *hash ^= k;
-    }
-
     fn has_complete_curseforge_source(entry: Option<&ModManifestEntry>) -> bool {
         let Some(entry) = entry else {
             return false;
@@ -302,7 +209,7 @@ impl ModManagerService {
             return None;
         }
 
-        Self::compute_curseforge_fingerprint(path).ok()
+        crate::domain::mod_manifest::compute_curseforge_fingerprint(path).ok()
     }
 
     // ================= 1. 读取并解析 Mods =================
@@ -377,8 +284,11 @@ impl ModManagerService {
                                 .as_ref()
                                 .map(|rel| shared_mods_dir.join(rel).to_string_lossy().to_string());
 
-                            let cache_key =
-                                crate::domain::mod_manifest::mod_manifest_key(&file_name);
+                            let cache_key = ModManifestService::manifest_cache_key(
+                                Some(&entry),
+                                entry.mod_id.as_deref(),
+                                &base_name,
+                            );
                             let mut meta = ModMetadata {
                                 file_name: file_name.clone(),
                                 mod_id: entry.mod_id.clone(),
@@ -1809,6 +1719,7 @@ impl ModManagerService {
             &manifest_path,
             &target_path,
             ModSourceKind::LauncherDownload,
+            None,
             None,
             None,
             None,

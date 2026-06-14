@@ -32,6 +32,8 @@ interface ResourceGridProps {
   isLoading: boolean;
   isLoadingMore?: boolean;
   hasMore: boolean;
+  loadMoreFailed?: boolean;
+  onRetryLoadMore?: () => void;
   resourceTab?: 'mod' | 'resourcepack' | 'shader';
   lockedMcVersion?: string;
   lockedLoaderType?: string;
@@ -69,11 +71,14 @@ interface ResourceGridItem {
   project: ModrinthProject;
   viewModel: ProjectViewModel;
   isInstalled: boolean;
+  isSkeleton?: boolean;
 }
 
 interface ResourceGridContext {
   hasMore: boolean;
   isLoadingMore: boolean;
+  loadMoreFailed?: boolean;
+  onRetryLoadMore?: () => void;
 }
 
 const TOP_ROW_KEYS = [
@@ -93,11 +98,27 @@ const LOADER_ICON_MAP: Record<string, string> = {
 const ResourceGridFooter: React.FC<{ context?: ResourceGridContext }> = ({ context }) => {
   if (!context?.hasMore) return null;
 
+  if (context.loadMoreFailed) {
+    return (
+      <div className="col-span-full flex h-16 items-center justify-center gap-3">
+        <span className="text-sm text-red-400 font-minecraft font-bold">加载失败，请重试</span>
+        <button
+          onClick={context.onRetryLoadMore}
+          className="rounded-sm border border-ore-green/30 bg-ore-green/10 px-3 py-1.5 text-xs font-minecraft font-bold tracking-wider text-ore-green hover:bg-ore-green/20 hover:text-white transition-colors cursor-pointer active:scale-95"
+        >
+          手动继续加载
+        </button>
+      </div>
+    );
+  }
+
+  if (context.isLoadingMore) return null;
+
   return (
     <div className="col-span-full flex h-16 items-center justify-center">
       <Loader2
         size={24}
-        className={`text-ore-green opacity-60 ${context.isLoadingMore ? 'animate-spin' : ''}`}
+        className="text-ore-green opacity-60"
       />
     </div>
   );
@@ -124,7 +145,12 @@ const prettifyLoader = (loader: string) => {
 
 export const ResourceCardSkeleton = () => {
   return (
-    <div className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      className="relative flex min-h-[8.5rem] w-full overflow-hidden border-[0.125rem] border-[#1E1E1F] bg-[#C6C8CB]/60"
+    >
       <div className="absolute inset-y-0 left-0 w-1.5 bg-[#48494A]/20" />
 
       <div className="flex w-full items-stretch gap-[0.875rem] p-[0.875rem] pr-[1rem]">
@@ -162,7 +188,7 @@ export const ResourceCardSkeleton = () => {
         </div>
       </div>
       <ShimmerOverlay />
-    </div>
+    </motion.div>
   );
 };
 
@@ -461,6 +487,8 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
   isLoading,
   isLoadingMore = false,
   hasMore,
+  loadMoreFailed = false,
+  onRetryLoadMore,
   resourceTab = 'mod',
   lockedMcVersion = '',
   lockedLoaderType = '',
@@ -576,11 +604,45 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
 
   const installedModIndex = useMemo(() => new InstalledModIndex(installedMods), [installedMods]);
 
-  const resourceItems = useMemo(() => results.map((project) => ({
-    project,
-    viewModel: buildProjectViewModel(project),
-    isInstalled: installedModIndex.isInstalled(project)
-  })), [installedModIndex, results]);
+  const resourceItems = useMemo(() => {
+    const items: ResourceGridItem[] = results.map((project) => ({
+      project,
+      viewModel: buildProjectViewModel(project),
+      isInstalled: installedModIndex.isInstalled(project),
+      isSkeleton: false
+    }));
+
+    if (isLoadingMore) {
+      // Append 4 skeleton items at the bottom when loading more
+      for (let i = 0; i < 4; i++) {
+        items.push({
+          project: {
+            id: `skeleton-${i}`,
+            slug: `skeleton-${i}`,
+            title: '',
+            description: '',
+            icon_url: '',
+            author: '',
+            downloads: 0,
+            date_modified: '',
+            client_side: '',
+            server_side: ''
+          },
+          viewModel: {
+            loaders: [],
+            features: [],
+            followerCount: 0,
+            supportsClient: false,
+            supportsServer: false
+          },
+          isInstalled: false,
+          isSkeleton: true
+        });
+      }
+    }
+
+    return items;
+  }, [installedModIndex, results, isLoadingMore]);
 
   const emptyLoading = isLoading && results.length === 0;
   const emptyStateText = resourceTab === 'shader'
@@ -636,32 +698,37 @@ export const ResourceGrid: React.FC<ResourceGridProps> = ({
               <VirtuosoGrid<ResourceGridItem, ResourceGridContext>
                 ref={virtuosoRef}
                 data={resourceItems}
-                context={{ hasMore, isLoadingMore }}
+                context={{ hasMore, isLoadingMore, loadMoreFailed, onRetryLoadMore }}
                 customScrollParent={scrollElement ?? undefined}
-                computeItemKey={(index, item) => `${getProjectKey(item.project)}-${index}`}
+                computeItemKey={(index, item) => item.isSkeleton ? item.project.id : `${getProjectKey(item.project)}-${index}`}
                 listClassName="grid grid-cols-1 min-[1921px]:grid-cols-2 gap-[0.75rem] pb-[1.5rem] pt-0"
                 components={RESOURCE_GRID_COMPONENTS}
                 increaseViewportBy={{ top: 240, bottom: 520 }}
                 endReached={triggerLoadMore}
-                itemContent={(index, { project, viewModel, isInstalled }) => (
-                  <ResourceCard
-                    project={project}
-                    viewModel={viewModel}
-                    index={index}
-                    isInstalled={isInstalled}
-                    hasMore={hasMore}
-                    canLoadMore={canLoadMore}
-                    onLoadMore={triggerLoadMore}
-                    onSelectProject={onSelectProject}
-                    isSelectionMode={isSelectionMode}
-                    isSelected={selectedProjectIds?.has(getProjectKey(project)) ?? false}
-                    onToggleSelection={onToggleProjectSelection}
-                    isNearBottom={index >= results.length - 6}
-                    onClickAuthor={onClickAuthor}
-                    shouldAnimateLayout={shouldAnimateLayout}
-                    selectedProjectId={selectedProjectId}
-                  />
-                )}
+                itemContent={(index, item) => {
+                  if (item.isSkeleton) {
+                    return <ResourceCardSkeleton key={item.project.id} />;
+                  }
+                  return (
+                    <ResourceCard
+                      project={item.project}
+                      viewModel={item.viewModel}
+                      index={index}
+                      isInstalled={item.isInstalled}
+                      hasMore={hasMore}
+                      canLoadMore={canLoadMore}
+                      onLoadMore={triggerLoadMore}
+                      onSelectProject={onSelectProject}
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedProjectIds?.has(getProjectKey(item.project)) ?? false}
+                      onToggleSelection={onToggleProjectSelection}
+                      isNearBottom={index >= results.length - 6}
+                      onClickAuthor={onClickAuthor}
+                      shouldAnimateLayout={shouldAnimateLayout}
+                      selectedProjectId={selectedProjectId}
+                    />
+                  );
+                }}
               />
             )}
           </div>

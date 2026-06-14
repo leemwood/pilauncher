@@ -112,6 +112,7 @@ const ResourceDownloadPage: React.FC = () => {
     source,
     setSource,
     results,
+    offset,
     hasMore,
     isLoading,
     isLoadingMore,
@@ -125,7 +126,10 @@ const ResourceDownloadPage: React.FC = () => {
     isCurseForgeAvailable,
     handleSearchClick,
     handleResetClick,
-    loadMore
+    loadMore,
+    restoreState,
+    loadMoreFailed,
+    retryLoadMore
   } = useResourceDownload(instanceId);
 
   const [selectedProject, setSelectedProject] = useState<ModrinthProject | null>(null);
@@ -152,6 +156,71 @@ const ResourceDownloadPage: React.FC = () => {
 
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
   const [isBatchInstanceModalOpen, setIsBatchInstanceModalOpen] = useState(false);
+  const [resultsScrollTop, setResultsScrollTop] = useState(0);
+
+  interface DownloadHistoryItem {
+    query: string;
+    category: string;
+    results: ModrinthProject[];
+    offset: number;
+    hasMore: boolean;
+    scrollTop: number;
+  }
+
+  const [historyStack, setHistoryStack] = useState<DownloadHistoryItem[]>([]);
+  const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
+
+  if (activeTab !== prevActiveTab) {
+    setPrevActiveTab(activeTab);
+    setHistoryStack([]);
+  }
+
+  const handleBackFromAuthor = useCallback(() => {
+    if (historyStack.length === 0) return;
+
+    const prevStack = [...historyStack];
+    const lastState = prevStack.pop()!;
+    setHistoryStack(prevStack);
+
+    restoreState(
+      lastState.query,
+      lastState.category,
+      lastState.results,
+      lastState.offset,
+      lastState.hasMore
+    );
+
+    setTimeout(() => {
+      const scrollHost = document.getElementById('resource-download-results');
+      if (scrollHost) {
+        scrollHost.scrollTop = lastState.scrollTop;
+      }
+    }, 50);
+  }, [historyStack, restoreState]);
+
+  useEffect(() => {
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleBackFromAuthor();
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, [handleBackFromAuthor]);
   const selectedProjectIds = useDownloadSelectionStore((state) => state.selectedProjectIds);
   const selectedProjectsById = useDownloadSelectionStore((state) => state.selectedProjects);
   const selectedCount = useDownloadSelectionStore((state) => state.selectedCount);
@@ -557,10 +626,25 @@ const ResourceDownloadPage: React.FC = () => {
             onToggleProjectSelection={selectionEnabled ? handleToggleProjectSelection : undefined}
             getProjectKey={getProjectKey}
             onClickAuthor={(author) => {
+              setHistoryStack((prev) => [
+                ...prev,
+                {
+                  query,
+                  category,
+                  results,
+                  offset,
+                  hasMore,
+                  scrollTop: resultsScrollTop
+                }
+              ]);
               setCategory('');
               setQuery(author, true);
             }}
             selectedProjectId={selectedProjectIdForTransition}
+            scrollContainerId="resource-download-results"
+            onScrollTopChange={setResultsScrollTop}
+            loadMoreFailed={loadMoreFailed}
+            onRetryLoadMore={retryLoadMore}
           />
 
           {selectionEnabled && (

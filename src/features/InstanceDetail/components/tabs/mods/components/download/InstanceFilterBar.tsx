@@ -1,6 +1,6 @@
 // src/features/InstanceDetail/components/tabs/mods/components/download/InstanceFilterBar.tsx
 import React from 'react';
-import { Search, RotateCcw, Package, Image as LucideImage, Blocks } from 'lucide-react';
+import { Search, RotateCcw, Package, Image as LucideImage, Blocks, Undo2 } from 'lucide-react';
 import { doesFocusableExist, setFocus } from '@noriginmedia/norigin-spatial-navigation';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +16,8 @@ import { getLocalizedDownloadOptionLabel } from '../../../../../../Download/logi
 interface InstanceFilterBarProps {
   onBack: () => void;
   showBackButton?: boolean;
+  showBackFromAuthorButton?: boolean;
+  onBackFromAuthor?: () => void;
   resourceTab?: 'mod' | 'resourcepack' | 'shader';
   lockedMcVersion: string;
   lockedLoaderType: string;
@@ -52,6 +54,8 @@ const secondRow: FilterKey[] = [
 export const InstanceFilterBar: React.FC<InstanceFilterBarProps> = ({
   onBack,
   showBackButton = true,
+  showBackFromAuthorButton = false,
+  onBackFromAuthor,
   resourceTab = 'mod',
   lockedMcVersion,
   lockedLoaderType,
@@ -110,10 +114,21 @@ export const InstanceFilterBar: React.FC<InstanceFilterBarProps> = ({
   const handleArrow = (key: FilterKey) => (direction: string) => {
     const secondRowIndex = secondRow.indexOf(key);
 
-    if (direction === 'left' || direction === 'right') {
-      const nextIndex = direction === 'right'
-        ? (secondRowIndex + 1) % secondRow.length
-        : (secondRowIndex - 1 + secondRow.length) % secondRow.length;
+    if (direction === 'left') {
+      if (secondRowIndex === 0 && showBackFromAuthorButton) {
+        if (doesFocusableExist('inst-filter-btn-back-author')) {
+          setFocus('inst-filter-btn-back-author');
+          return false;
+        }
+      }
+      const nextIndex = (secondRowIndex - 1 + secondRow.length) % secondRow.length;
+      const nextKey = secondRow[nextIndex];
+      if (doesFocusableExist(nextKey)) setFocus(nextKey);
+      return false;
+    }
+
+    if (direction === 'right') {
+      const nextIndex = (secondRowIndex + 1) % secondRow.length;
       const nextKey = secondRow[nextIndex];
       if (doesFocusableExist(nextKey)) setFocus(nextKey);
       return false;
@@ -135,7 +150,7 @@ export const InstanceFilterBar: React.FC<InstanceFilterBarProps> = ({
       <div className="flex flex-col gap-4">
         {/* ROW 1: BACK BTN, TITLE, ENVIRONMENT */}
         <div className="flex w-full items-center justify-between gap-4">
-          <div className="flex flex-1 justify-start">
+          <div className="flex flex-1 justify-start gap-2">
             {showBackButton && (
               <button
                 onClick={onBack}
@@ -146,6 +161,43 @@ export const InstanceFilterBar: React.FC<InstanceFilterBarProps> = ({
                 </div>
                 返回
               </button>
+            )}
+            {showBackFromAuthorButton && (
+              <FocusItem
+                focusKey="inst-filter-btn-back-author"
+                onArrowPress={(direction) => {
+                  if (direction === 'down') {
+                    return moveFocusToResults();
+                  }
+                  if (direction === 'right') {
+                    if (doesFocusableExist('inst-filter-source')) {
+                      setFocus('inst-filter-source');
+                      return false;
+                    }
+                  }
+                  if (direction === 'left') {
+                    if (doesFocusableExist('inst-filter-btn-reset')) {
+                      setFocus('inst-filter-btn-reset');
+                      return false;
+                    }
+                  }
+                  return true;
+                }}
+                onEnter={onBackFromAuthor}
+              >
+                {({ ref, focused }) => (
+                  <button
+                    ref={ref as React.RefObject<HTMLButtonElement>}
+                    onClick={onBackFromAuthor}
+                    className={`flex h-[2.75rem] w-[2.75rem] cursor-pointer items-center justify-center rounded-sm border border-[#3C8527]/30 transition-all hover:bg-[#6CC349]/20 hover:text-white active:scale-95 ${
+                      focused ? 'bg-[#6CC349]/20 ring-2 ring-[#6CC349]' : 'bg-[#6CC349]/10 text-[#6CC349]'
+                    }`}
+                    title="返回刚才位置"
+                  >
+                    <Undo2 size={16} />
+                  </button>
+                )}
+              </FocusItem>
             )}
           </div>
 

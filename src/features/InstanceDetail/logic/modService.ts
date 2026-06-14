@@ -352,10 +352,20 @@ export const modService = {
     platform: string,
     projectId: string,
     fileId: string,
-    version?: string
+    version?: string,
+    oldFileName?: string
   ) => {
     modManifestCache.delete(instanceId);
-    return invoke('update_mod_manifest', { instanceId, fileName, sourceKind, platform, projectId, fileId, version })
+    return invoke('update_mod_manifest', {
+      instanceId,
+      fileName,
+      sourceKind,
+      platform,
+      projectId,
+      fileId,
+      version,
+      oldFileName
+    })
       .finally(() => {
         modManifestCache.delete(instanceId);
       });

@@ -19,6 +19,7 @@ import {
   getPlatformFileId,
   getPlatformProjectId
 } from '../utils/modDetailUtils';
+import { hasCurseForgeApiKey } from '../../../../../../../Download/logic/curseforgeApi';
 
 interface ModVersionHistoryProps {
   mod: ModMeta;
@@ -62,6 +63,7 @@ export const ModVersionHistory: React.FC<ModVersionHistoryProps> = ({
   onInstallVersion
 }) => {
   const { t } = useTranslation();
+  const isCfKeyMissing = activePlatform === 'curseforge' && !hasCurseForgeApiKey();
 
   const versionInstallLabels: Record<ModVersionInstallAction, string> = {
     install: t('instanceDetail.mods.versionHistory.actions.install', { defaultValue: '安装' }),
@@ -117,6 +119,10 @@ export const ModVersionHistory: React.FC<ModVersionHistoryProps> = ({
       </div>
       {isLoadingVersions ? (
         <VersionListSkeleton />
+      ) : isCfKeyMissing ? (
+        <div className="text-center text-ore-text-muted py-8 font-minecraft text-sm border-[2px] border-dashed border-[var(--ore-border-color)] bg-transparent rounded-sm flex flex-col items-center justify-center gap-2 px-4">
+          <span className="text-red-400/90">{t('download.apiKeyMissing', { defaultValue: '未配置 VITE_CURSEFORGE_API_KEY，CurseForge 接口不可用。' })}</span>
+        </div>
       ) : modVersions.length > 0 ? (
         <div className="border-[2px] border-[var(--ore-border-color)] rounded-sm overflow-hidden flex-1 flex flex-col min-h-0 bg-transparent">
           <Virtuoso

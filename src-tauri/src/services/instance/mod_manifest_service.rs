@@ -81,8 +81,36 @@ impl ModManifestService {
 
                 let key = mod_manifest_key(&file_name);
                 let file_state = build_file_state(&path)?;
+
+                let raw_entry = match raw_manifest.remove(&key) {
+                    Some(entry) => Some(entry),
+                    None => {
+                        // Try to find an entry in raw_manifest with the same file hash (representing manual renaming)
+                        if let Ok(file_hash) = compute_file_hash(&path) {
+                            let found_key = raw_manifest.iter().find_map(|(k, v)| {
+                                if let Some(ref h) = v.hash {
+                                    if h.value == file_hash.value && h.algorithm == file_hash.algorithm {
+                                        Some(k.clone())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            });
+                            if let Some(k) = found_key {
+                                raw_manifest.remove(&k)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                };
+
                 let normalized = normalize_manifest_entry(
-                    raw_manifest.remove(&key),
+                    raw_entry,
                     &path,
                     file_state,
                     ModSourceKind::ExternalImport,
@@ -138,6 +166,7 @@ impl ModManifestService {
         project_id: Option<String>,
         file_id: Option<String>,
         version: Option<String>,
+        old_file_name: Option<String>,
     ) -> Result<(), String> {
         let is_modpack = check_is_modpack(manifest_path);
         let has_platform = platform.as_deref().map(|p| !p.trim().is_empty()).unwrap_or(false);
@@ -165,6 +194,39 @@ impl ModManifestService {
         }
         if locked_settings.is_some() {
             entry.metadata_settings = locked_settings;
+        }
+
+        if let Ok(fingerprint) = crate::domain::mod_manifest::compute_curseforge_fingerprint(target_path) {
+            entry.curseforge_fingerprint = Some(fingerprint);
+        }
+
+        if let Some(old_name) = old_file_name {
+            let old_key = mod_manifest_key(&old_name);
+            let manifest = Self::read_manifest_robust(manifest_path);
+            if let Some(old_entry) = manifest.get(&old_key) {
+                if entry.mod_id.is_none() {
+                    entry.mod_id = old_entry.mod_id.clone();
+                }
+                if entry.name.is_none() {
+                    entry.name = old_entry.name.clone();
+                }
+                if entry.description.is_none() {
+                    entry.description = old_entry.description.clone();
+                }
+                if entry.icon_rel_path.is_none() {
+                    entry.icon_rel_path = old_entry.icon_rel_path.clone();
+                }
+                if entry.matched_platforms.is_empty() {
+                    entry.matched_platforms = old_entry.matched_platforms.clone();
+                } else {
+                    for (p, m) in &old_entry.matched_platforms {
+                        entry.matched_platforms.entry(p.clone()).or_insert_with(|| m.clone());
+                    }
+                }
+                if entry.metadata_settings.is_none() {
+                    entry.metadata_settings = old_entry.metadata_settings.clone();
+                }
+            }
         }
 
         let file_name = target_path
@@ -639,6 +701,7 @@ mod tests {
             Some("proj123".to_string()),
             Some("file123".to_string()),
             Some("1.0.0".to_string()),
+            None,
         ).unwrap();
 
         let content = fs::read_to_string(&manifest_path).unwrap();
@@ -656,6 +719,7 @@ mod tests {
             Some("proj456".to_string()),
             Some("file456".to_string()),
             Some("1.0.1".to_string()),
+            None,
         ).unwrap();
 
         let content = fs::read_to_string(&manifest_path).unwrap();
@@ -677,6 +741,7 @@ mod tests {
             Some("proj789".to_string()),
             Some("file789".to_string()),
             Some("1.0.2".to_string()),
+            None,
         ).unwrap();
 
         let content = fs::read_to_string(&manifest_path).unwrap();
@@ -696,6 +761,7 @@ mod tests {
             &manifest_path,
             &jar_path2,
             ModSourceKind::ExternalImport,
+            None,
             None,
             None,
             None,

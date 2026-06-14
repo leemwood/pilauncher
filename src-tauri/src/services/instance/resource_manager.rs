@@ -237,6 +237,7 @@ impl ResourceManager {
         project_id: &str,
         file_id: &str,
         version: Option<String>,
+        old_file_name: Option<String>,
     ) -> Result<(), String> {
         let instance_root = Self::get_instance_root(app, instance_id)?;
         let manifest_path = instance_root.join("mod_manifest.json");
@@ -264,6 +265,7 @@ impl ResourceManager {
                 Some(file_id.to_string())
             },
             version,
+            old_file_name,
         )
     }
 

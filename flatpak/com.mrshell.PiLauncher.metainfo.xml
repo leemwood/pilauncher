@@ -49,6 +49,32 @@
   </categories>
 
   <releases>
+    <release version="0.1.42" date="2026-06-15">
+      <description>
+        <p xml:lang="zh_CN">新增资源下载页浏览历史返回功能，优化翻页加载稳定性与模组信息保留机制，并改善多处交互体验。</p>
+        <ul xml:lang="zh_CN">
+          <li>[新功能] 资源下载页支持浏览历史返回：点击作者名搜索后，可通过返回按钮或鼠标侧键回到之前的搜索结果和滚动位置。</li>
+          <li>[新功能] 翻页加载失败时会自动重试，多次失败后提供"手动继续加载"按钮，不再一翻页失败就丢失已有结果。</li>
+          <li>[优化] 翻页加载时底部显示骨架屏动画，替代之前的旋转图标，视觉体验更流畅。</li>
+          <li>[优化] 更新模组版本后，模组的名称、图标、描述等信息不再丢失，升级模组更省心。</li>
+          <li>[优化] 手动重命名模组文件后，启动器能自动识别并保留原有的模组信息记录。</li>
+          <li>[优化] 刷新模组列表时，已加载的图标和更新状态不再闪烁消失，列表更稳定。</li>
+          <li>[优化] 模组详情中切换到 CurseForge 源时，若未配置 API Key 会给出明确提示。</li>
+          <li>[优化] "重新识别全部模组"操作前会自动保存当前的元数据平台设置，避免设置丢失。</li>
+        </ul>
+        <p>Added browsing history navigation in the download pages, improved load-more reliability with auto-retry, and enhanced mod metadata retention across updates.</p>
+        <ul>
+          <li>[New] Added browsing history back-navigation in the download pages: after clicking an author name to search, you can go back to your previous search results and scroll position via a back button or mouse side button.</li>
+          <li>[New] Load-more now automatically retries on failure, and shows a manual "Retry" button after repeated failures instead of discarding existing results.</li>
+          <li>[Optimization] Replaced the spinning loader with smooth skeleton animations when loading more results for a better visual experience.</li>
+          <li>[Optimization] Mod metadata (name, icon, description) is now preserved when updating to a new version, so you won't lose track of your mods after upgrading.</li>
+          <li>[Optimization] Manually renamed mod files are now automatically recognized and matched to their original metadata records.</li>
+          <li>[Optimization] Refreshing the mod list no longer causes loaded icons and update status indicators to flicker or disappear.</li>
+          <li>[Optimization] A clear message is now shown in Mod Details when CurseForge is selected but no API key is configured.</li>
+          <li>[Optimization] The "Re-identify All Mods" action now auto-saves your current metadata platform settings before running.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.41" date="2026-06-10">
       <description>
         <p xml:lang="zh_CN">新增已删除实例的友好提示，优化第三方登录与皮肤站的开启逻辑，并进一步提升了局域网联机安全性与设置页面的流畅度。</p>

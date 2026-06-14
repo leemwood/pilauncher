@@ -19,6 +19,7 @@ type MatchedPlatforms = Record<MatchPlatform, ModPlatformMatch>;
 interface SyncCloudMetadataOptions {
   force?: boolean;
   onProgress?: (current: number, total: number) => void;
+  globalMetadataPlatform?: string;
 }
 
 const PLATFORM_PRIORITY: MatchPlatform[] = ['modrinth', 'curseforge'];
@@ -26,6 +27,20 @@ const PLATFORM_PRIORITY: MatchPlatform[] = ['modrinth', 'curseforge'];
 const hasCompletePlatformReference = (mod: ModMeta, platform: MatchPlatform) => {
   const reference = getModPlatformReference(mod, platform);
   return !!reference?.projectId && !!reference.fileId;
+};
+
+const getModPreferredPlatformWithGlobal = (
+  mod: ModMeta,
+  globalMetadataPlatform?: string
+): MatchPlatform | undefined => {
+  const preferred = getModPreferredPlatform(mod, 'metadata');
+  if (preferred) return preferred;
+
+  if (globalMetadataPlatform === 'curseforge' || globalMetadataPlatform === 'modrinth') {
+    return globalMetadataPlatform;
+  }
+
+  return undefined;
 };
 
 const mergePlatformMatch = (
@@ -40,8 +55,12 @@ const mergePlatformMatch = (
   }
 });
 
-const choosePrimaryPlatform = (mod: ModMeta, matches: Partial<MatchedPlatforms>) => {
-  const preferred = getModPreferredPlatform(mod, 'metadata');
+const choosePrimaryPlatform = (
+  mod: ModMeta,
+  matches: Partial<MatchedPlatforms>,
+  globalMetadataPlatform?: string
+) => {
+  const preferred = getModPreferredPlatformWithGlobal(mod, globalMetadataPlatform);
   if (preferred === 'curseforge' || preferred === 'modrinth') {
     const list: MatchPlatform[] = preferred === 'curseforge'
       ? ['curseforge', 'modrinth']
@@ -53,7 +72,8 @@ const choosePrimaryPlatform = (mod: ModMeta, matches: Partial<MatchedPlatforms>)
 
 const buildMatchedManifestEntry = (
   mod: ModMeta,
-  matches: Partial<MatchedPlatforms>
+  matches: Partial<MatchedPlatforms>,
+  globalMetadataPlatform?: string
 ): ModMeta['manifestEntry'] => {
   const entry = mod.manifestEntry;
   if (!entry) return entry;
@@ -63,7 +83,7 @@ const buildMatchedManifestEntry = (
     ...matches
   };
 
-  const preferred = getModPreferredPlatform(mod, 'metadata');
+  const preferred = getModPreferredPlatformWithGlobal(mod, globalMetadataPlatform);
   const source = entry.source;
   const currentPlatform = source?.platform;
 
@@ -78,7 +98,7 @@ const buildMatchedManifestEntry = (
   }
 
   if (!shouldUpdatePrimary && (!source?.platform || !source.projectId || !source.fileId)) {
-    primaryPlatform = choosePrimaryPlatform(mod, matchedPlatforms);
+    primaryPlatform = choosePrimaryPlatform(mod, matchedPlatforms, globalMetadataPlatform);
     shouldUpdatePrimary = true;
   }
 
@@ -102,10 +122,11 @@ const persistPlatformMatches = async (
   instanceId: string,
   mod: ModMeta,
   matches: Partial<MatchedPlatforms>,
-  version?: string
+  version?: string,
+  globalMetadataPlatform?: string
 ) => {
   const entry = mod.manifestEntry;
-  const preferred = getModPreferredPlatform(mod, 'metadata');
+  const preferred = getModPreferredPlatformWithGlobal(mod, globalMetadataPlatform);
   const source = entry?.source;
   const currentPlatform = source?.platform;
 
@@ -125,7 +146,7 @@ const persistPlatformMatches = async (
   }
 
   if (!shouldUpdatePrimary && (!source?.platform || !source.projectId || !source.fileId)) {
-    primaryPlatform = choosePrimaryPlatform(mod, matchedPlatforms);
+    primaryPlatform = choosePrimaryPlatform(mod, matchedPlatforms, globalMetadataPlatform);
     shouldUpdatePrimary = true;
   }
 
@@ -160,6 +181,7 @@ export const useModCloudSync = (instanceId: string) => {
     const versionByFileName = new Map<string, string>();
     const modrinthDetailCache = new Map<string, Promise<ModrinthProject>>();
     const curseForgeDetailCache = new Map<string, ReturnType<typeof getCurseForgeProjectDetails>>();
+    const globalPlatform = options.globalMetadataPlatform;
 
     const recordMatch = (
       mod: ModMeta,
@@ -176,7 +198,7 @@ export const useModCloudSync = (instanceId: string) => {
       }
 
       if (meta) {
-        const preferredPlatform = getModPreferredPlatform(mod, 'metadata');
+        const preferredPlatform = getModPreferredPlatformWithGlobal(mod, globalPlatform);
         const currentMeta = matchedByFileName.get(mod.fileName);
         const shouldUseMeta = !currentMeta || preferredPlatform === platform || (!preferredPlatform && platform === 'modrinth');
         if (shouldUseMeta) {
@@ -229,10 +251,11 @@ export const useModCloudSync = (instanceId: string) => {
                 modrinthDetailCache.set(version.project_id, fetchModrinthProjectById(version.project_id));
               }
               detail = await modrinthDetailCache.get(version.project_id);
-              if (detail && mod.cacheKey) {
+              if (detail) {
                 const dbIcon = mod.manifestEntry?.icon_rel_path || detail.icon_url || '';
+                const cacheKey = `modrinth_${version.project_id}`;
                 await modService.updateModCache(
-                  mod.cacheKey,
+                  cacheKey,
                   detail.title,
                   detail.description,
                   dbIcon
@@ -282,10 +305,11 @@ export const useModCloudSync = (instanceId: string) => {
                   curseForgeDetailCache.set(version.project_id, getCurseForgeProjectDetails(version.project_id));
                 }
                 detail = await curseForgeDetailCache.get(version.project_id);
-                if (detail && mod.cacheKey) {
+                if (detail) {
                   const dbIcon = mod.manifestEntry?.icon_rel_path || detail.icon_url || '';
+                  const cacheKey = `curseforge_${version.project_id}`;
                   await modService.updateModCache(
-                    mod.cacheKey,
+                    cacheKey,
                     detail.title,
                     detail.description,
                     dbIcon
@@ -326,7 +350,7 @@ export const useModCloudSync = (instanceId: string) => {
 
       try {
         const matchedVersion = versionByFileName.get(mod.fileName);
-        await persistPlatformMatches(instanceId, mod, matches, matchedVersion);
+        await persistPlatformMatches(instanceId, mod, matches, matchedVersion, globalPlatform);
       } catch (error) {
         console.error('Persist mod platform matches failed', error);
       }
@@ -345,7 +369,7 @@ export const useModCloudSync = (instanceId: string) => {
         ...mod,
         ...matched,
         version: mod.version || matchedVersion || matched?.version,
-        manifestEntry: matches ? buildMatchedManifestEntry(mod, matches) : mod.manifestEntry,
+        manifestEntry: matches ? buildMatchedManifestEntry(mod, matches, globalPlatform) : mod.manifestEntry,
         isFetchingNetwork: false
       };
     });

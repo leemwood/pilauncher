@@ -285,6 +285,7 @@ export const InstanceModDownloadView: React.FC<{
     setSource,
     categoryOptions,
     results,
+    offset,
     hasMore,
     isLoading,
     isLoadingMore,
@@ -297,7 +298,10 @@ export const InstanceModDownloadView: React.FC<{
     mcVersionOptions,
     handleSearchClick,
     handleResetClick,
-    loadMore
+    loadMore,
+    restoreState,
+    loadMoreFailed,
+    retryLoadMore
   } = useResourceDownload(instanceId, { lockInstanceEnvironment: true });
 
   const [selectedProject, setSelectedProject] = useState<ModrinthProject | null>(null);
@@ -326,6 +330,72 @@ export const InstanceModDownloadView: React.FC<{
   const [batchDownloadable, setBatchDownloadable] = useState<{ version: OreProjectVersion; projectId: string }[]>([]);
   const [resultsScrollTop, setResultsScrollTop] = useState(0);
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
+
+  interface DownloadHistoryItem {
+    query: string;
+    category: string;
+    results: ModrinthProject[];
+    offset: number;
+    hasMore: boolean;
+    scrollTop: number;
+  }
+
+  const [historyStack, setHistoryStack] = useState<DownloadHistoryItem[]>([]);
+  const [prevResourceTab, setPrevResourceTab] = useState(resourceTab);
+  const [prevActiveTab, setPrevActiveTab] = useState(activeTab);
+
+  if (resourceTab !== prevResourceTab || activeTab !== prevActiveTab) {
+    setPrevResourceTab(resourceTab);
+    setPrevActiveTab(activeTab);
+    setHistoryStack([]);
+  }
+
+  const handleBackFromAuthor = useCallback(() => {
+    if (historyStack.length === 0) return;
+
+    const prevStack = [...historyStack];
+    const lastState = prevStack.pop()!;
+    setHistoryStack(prevStack);
+
+    restoreState(
+      lastState.query,
+      lastState.category,
+      lastState.results,
+      lastState.offset,
+      lastState.hasMore
+    );
+
+    setTimeout(() => {
+      const scrollHost = document.getElementById('instance-mod-download-results');
+      if (scrollHost) {
+        scrollHost.scrollTop = lastState.scrollTop;
+      }
+    }, 50);
+  }, [historyStack, restoreState]);
+
+  useEffect(() => {
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleBackFromAuthor();
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, [handleBackFromAuthor]);
 
   const [hasInitialLoaded, setHasInitialLoaded] = useState(() => isEnvLoaded && syncStep >= 3 && !isLoading);
 
@@ -524,7 +594,8 @@ export const InstanceModDownloadView: React.FC<{
         }
 
         if (projectId && cachedDetail) {
-          const cacheKey = version.file_name.replace(/\.disabled$/, '').replace(/\.jar$/, '');
+          const platform = source === 'curseforge' ? 'curseforge' : 'modrinth';
+          const cacheKey = `${platform}_${projectId}`;
           await modService.updateModCache(
             cacheKey,
             cachedDetail.title || cachedDetail.name || '',
@@ -889,6 +960,8 @@ export const InstanceModDownloadView: React.FC<{
         <InstanceFilterBar
           onBack={onBack}
           showBackButton={showFilterBackButton}
+          showBackFromAuthorButton={historyStack.length > 0}
+          onBackFromAuthor={handleBackFromAuthor}
           resourceTab={resourceTab}
           lockedMcVersion={targetMc}
           lockedLoaderType={targetLoader}
@@ -937,10 +1010,23 @@ export const InstanceModDownloadView: React.FC<{
             scrollContainerId="instance-mod-download-results"
             onScrollTopChange={setResultsScrollTop}
             onClickAuthor={(author) => {
+              setHistoryStack((prev) => [
+                ...prev,
+                {
+                  query,
+                  category,
+                  results,
+                  offset,
+                  hasMore,
+                  scrollTop: resultsScrollTop
+                }
+              ]);
               setCategory('');
               setQuery(author, true);
             }}
             selectedProjectId={selectedProjectIdForTransition}
+            loadMoreFailed={loadMoreFailed}
+            onRetryLoadMore={retryLoadMore}
           />
 
           <ContextualActionBar

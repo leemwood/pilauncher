@@ -496,11 +496,13 @@ export const useModPanelController = (instanceId: string) => {
     openDeleteConfirm([fileName]);
   }, [openDeleteConfirm]);
 
-  const saveGlobalMetadataSettings = useCallback(async (settings: ModMetadataSettings) => {
+  const saveGlobalMetadataSettings = useCallback(async (settings: ModMetadataSettings, skipReload = false) => {
     try {
       await modService.updateAllModsMetadataSettings(instanceId, settings);
       addToast('success', t('instanceDetail.mods.globalMetadataSettingsSaved', '全局元数据设置已保存'));
-      void loadMods();
+      if (!skipReload) {
+        void loadMods();
+      }
     } catch (error) {
       console.error(error);
       addToast('error', t('instanceDetail.mods.globalMetadataSettingsSaveFailed', '保存全局元数据设置失败'));
@@ -511,22 +513,12 @@ export const useModPanelController = (instanceId: string) => {
     try {
       await modService.resetAllModsPlatformMetadata(instanceId);
       addToast('success', t('instanceDetail.mods.metadataResetStart', '元数据已重置，正在重新云端匹配所有模组...'));
-      const clearedMods = mods.map((mod) => ({
-        ...mod,
-        manifestEntry: mod.manifestEntry
-          ? {
-              ...mod.manifestEntry,
-              source: {
-                ...mod.manifestEntry.source,
-                platform: undefined,
-                projectId: undefined,
-                fileId: undefined
-              },
-              matchedPlatforms: {}
-            }
-          : mod.manifestEntry
-      }));
-      const synced = await syncCloudMetadata(clearedMods, { force: true, onProgress });
+      const freshMods = await modService.getMods(instanceId);
+      const synced = await syncCloudMetadata(freshMods, {
+        force: true,
+        onProgress,
+        globalMetadataPlatform: instanceConfig?.globalMetadataSettings?.metadataPlatform
+      });
       setMods(synced);
       addToast('success', t('instanceDetail.mods.cloudMatchComplete', '云端匹配完成'));
     } catch (error) {
@@ -534,7 +526,7 @@ export const useModPanelController = (instanceId: string) => {
       addToast('error', t('instanceDetail.mods.cloudMatchFailed', '重新匹配失败'));
       throw error;
     }
-  }, [instanceId, mods, syncCloudMetadata, setMods, addToast, t]);
+  }, [instanceId, syncCloudMetadata, setMods, addToast, t, instanceConfig]);
 
   const filteredMods = useMemo(() => {
     return filterModsByQuery(mods, searchQuery);

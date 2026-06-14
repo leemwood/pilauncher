@@ -190,6 +190,100 @@ pub fn compute_file_hash(path: &Path) -> Result<ModFileHash, String> {
     Ok(ModFileHash::sha1(compute_sha1(path)?))
 }
 
+pub fn is_curseforge_fingerprint_whitespace(byte: u8) -> bool {
+    matches!(byte, b'\t' | b'\n' | b'\r' | b' ')
+}
+
+pub fn mix_murmur_hash2_block(hash: &mut u32, block: [u8; 4]) {
+    const M: u32 = 0x5bd1e995;
+    const R: u32 = 24;
+
+    let mut k = u32::from_le_bytes(block);
+
+    k = k.wrapping_mul(M);
+    k ^= k >> R;
+    k = k.wrapping_mul(M);
+
+    *hash = hash.wrapping_mul(M);
+    *hash ^= k;
+}
+
+pub fn compute_curseforge_fingerprint(path: &Path) -> Result<u32, String> {
+    const BUFFER_SIZE: usize = 64 * 1024;
+    const SEED: u32 = 1;
+
+    let mut file = File::open(path).map_err(|e| e.to_string())?;
+    let mut buffer = [0u8; BUFFER_SIZE];
+    let mut filtered_len = 0u32;
+
+    loop {
+        let bytes_read = file.read(&mut buffer).map_err(|e| e.to_string())?;
+        if bytes_read == 0 {
+            break;
+        }
+
+        filtered_len = filtered_len.wrapping_add(
+            buffer[..bytes_read]
+                .iter()
+                .filter(|byte| !is_curseforge_fingerprint_whitespace(**byte))
+                .count() as u32,
+        );
+    }
+
+    let mut file = File::open(path).map_err(|e| e.to_string())?;
+    let mut hash = SEED ^ filtered_len;
+    let mut pending = [0u8; 4];
+    let mut pending_len = 0usize;
+
+    loop {
+        let bytes_read = file.read(&mut buffer).map_err(|e| e.to_string())?;
+        if bytes_read == 0 {
+            break;
+        }
+
+        for byte in buffer[..bytes_read]
+            .iter()
+            .copied()
+            .filter(|byte| !is_curseforge_fingerprint_whitespace(*byte))
+        {
+            pending[pending_len] = byte;
+            pending_len += 1;
+
+            if pending_len == 4 {
+                mix_murmur_hash2_block(&mut hash, pending);
+                pending = [0u8; 4];
+                pending_len = 0;
+            }
+        }
+    }
+
+    match pending_len {
+        3 => {
+            hash ^= (pending[2] as u32) << 16;
+            hash ^= (pending[1] as u32) << 8;
+            hash ^= pending[0] as u32;
+            hash = hash.wrapping_mul(0x5bd1e995);
+        }
+        2 => {
+            hash ^= (pending[1] as u32) << 8;
+            hash ^= pending[0] as u32;
+            hash = hash.wrapping_mul(0x5bd1e995);
+        }
+        1 => {
+            hash ^= pending[0] as u32;
+            hash = hash.wrapping_mul(0x5bd1e995);
+        }
+        _ => {}
+    }
+
+    hash ^= hash >> 13;
+    hash = hash.wrapping_mul(0x5bd1e995);
+    hash ^= hash >> 15;
+
+    Ok(hash)
+}
+
+
 pub fn build_manifest_source(
     kind: ModSourceKind,
     platform: Option<String>,
@@ -321,6 +415,11 @@ pub fn normalize_manifest_entry(
 
     let mut entry = build_manifest_entry(source, hash, file_state);
     copy_cached_metadata_from_raw(raw.as_ref(), &mut entry);
+    if entry.curseforge_fingerprint.is_none() {
+        if let Ok(fingerprint) = compute_curseforge_fingerprint(path) {
+            entry.curseforge_fingerprint = Some(fingerprint);
+        }
+    }
     Ok(entry)
 }
 
@@ -330,22 +429,30 @@ fn copy_cached_metadata_from_raw(raw: Option<&RawModManifestEntry>, entry: &mut 
     };
 
     entry.mod_id = raw.mod_id.clone();
+    entry.name = raw.name.clone();
     entry.version = raw.version.clone();
     entry.description = raw.description.clone();
+    entry.icon_rel_path = raw.icon_rel_path.clone();
     entry.curseforge_fingerprint = raw.curseforge_fingerprint;
     entry.matched_platforms = raw.matched_platforms.clone();
     entry.metadata_settings = raw.metadata_settings.clone();
 }
 
-fn merge_cached_metadata(target: &mut ModManifestEntry, source: &ModManifestEntry) {
+pub fn merge_cached_metadata(target: &mut ModManifestEntry, source: &ModManifestEntry) {
     if target.mod_id.is_none() {
         target.mod_id = source.mod_id.clone();
+    }
+    if target.name.is_none() {
+        target.name = source.name.clone();
     }
     if target.version.is_none() {
         target.version = source.version.clone();
     }
     if target.description.is_none() {
         target.description = source.description.clone();
+    }
+    if target.icon_rel_path.is_none() {
+        target.icon_rel_path = source.icon_rel_path.clone();
     }
     if target.curseforge_fingerprint.is_none() {
         target.curseforge_fingerprint = source.curseforge_fingerprint;
@@ -454,13 +561,13 @@ mod tests {
         .expect("normalize manifest");
 
         assert_eq!(normalized.mod_id.as_deref(), Some("demo_mod"));
-        assert_eq!(normalized.name, None);
+        assert_eq!(normalized.name.as_deref(), Some("Demo Mod"));
         assert_eq!(normalized.version.as_deref(), Some("1.0.0"));
         assert_eq!(
             normalized.description.as_deref(),
             Some("Cached description")
         );
-        assert_eq!(normalized.icon_rel_path, None);
+        assert_eq!(normalized.icon_rel_path.as_deref(), Some("icons/demo.png"));
         assert_eq!(
             normalized
                 .matched_platforms
@@ -534,10 +641,10 @@ mod tests {
 
         assert_eq!(entry.source.platform.as_deref(), Some("modrinth"));
         assert_eq!(entry.mod_id.as_deref(), Some("demo_mod"));
-        assert_eq!(entry.name, None);
+        assert_eq!(entry.name.as_deref(), Some("Demo Mod"));
         assert_eq!(entry.version.as_deref(), Some("1.0.0"));
         assert_eq!(entry.description.as_deref(), Some("Keep me"));
-        assert_eq!(entry.icon_rel_path, None);
+        assert_eq!(entry.icon_rel_path.as_deref(), Some("icons/demo.png"));
         assert_eq!(
             entry
                 .matched_platforms

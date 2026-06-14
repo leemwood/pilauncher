@@ -147,7 +147,9 @@ export const useModOperations = ({
       const name = mod.name || mod.networkInfo?.title || '';
       const description = mod.description || mod.networkInfo?.description || '';
       const iconUrl = mod.networkIconUrl || mod.networkInfo?.icon_url || '';
-      const cacheKey = targetFileName.replace(/\.disabled$/, '').replace(/\.jar$/, '');
+      const cacheKey = platform && projectId
+        ? `${platform}_${projectId}`
+        : targetFileName.replace(/\.disabled$/, '').replace(/\.jar$/, '');
       if (name) {
         await modService.updateModCache(cacheKey, name, description, iconUrl)
           .catch((err) => console.error('Failed to update mod cache:', err));
@@ -159,7 +161,9 @@ export const useModOperations = ({
         'launcherDownload',
         platform,
         projectId,
-        targetVersionId
+        targetVersionId,
+        undefined,
+        oldFileName !== targetFileName ? oldFileName : undefined
       );
       if (platform) {
         const matchedPlatforms = {
