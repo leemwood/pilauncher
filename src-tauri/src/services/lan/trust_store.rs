@@ -56,10 +56,8 @@ impl TrustStore {
         if private_key_b64.is_empty() || public_key_b64.is_empty() {
             use base64::{engine::general_purpose, Engine as _};
             use ed25519_dalek::SigningKey;
-            use rand_core::OsRng;
-
-            let mut csprng = OsRng;
-            let signing_key = SigningKey::generate(&mut csprng);
+            let secret_bytes: [u8; 32] = rand::random();
+            let signing_key = SigningKey::from_bytes(&secret_bytes);
             let private_bytes = signing_key.to_bytes();
             let public_bytes = signing_key.verifying_key().to_bytes();
 
