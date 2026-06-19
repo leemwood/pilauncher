@@ -77,6 +77,9 @@ jobs:
         env:
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
 
+      - name: Initialize iOS Project
+        run: pnpm tauri ios init
+
       - name: Build Signed iOS App (IPA)
         if: env.APPLE_CERTIFICATE_BASE64 != ''
         env:
@@ -102,7 +105,7 @@ jobs:
           CLIENT_INSTALLATION_TRACK_API_KEY: ${{ secrets.CLIENT_INSTALLATION_TRACK_API_KEY }}
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
         # Excludes code signing variables to compile an unsigned app
-        run: pnpm tauri ios build --no-bundle --ci -- --code-sign-identity="" --development-team="" --provisioning-profile-specifier=""
+        run: pnpm tauri ios build --ci -- --code-sign-identity="" --development-team="" --provisioning-profile-specifier=""
 
       - name: Upload iOS App Artifact
         uses: actions/upload-artifact@v4

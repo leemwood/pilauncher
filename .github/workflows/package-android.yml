@@ -67,6 +67,9 @@ jobs:
           CLIENT_INSTALLATION_TRACK_API_URL: ${{ secrets.CLIENT_INSTALLATION_TRACK_API_URL }}
           CLIENT_INSTALLATION_TRACK_API_KEY: ${{ secrets.CLIENT_INSTALLATION_TRACK_API_KEY }}
 
+      - name: Initialize Android Project
+        run: pnpm tauri android init
+
       - name: Build Android App (APK)
         env:
           MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
