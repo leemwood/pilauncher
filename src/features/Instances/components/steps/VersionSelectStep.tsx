@@ -53,10 +53,10 @@ const versionTypeOptions = VERSION_TYPES.map((type) => ({
   )
 }));
 
-export const VersionSelectStep: React.FC<StepProps> = ({
+export const VersionSelectStep: React.FC<StepProps & { onCancel?: () => void }> = ({
   gameVersion, setGameVersion, versionType, setVersionType, 
   filteredVersionGroups, isLoadingVersions, handleNextStep, 
-  handleRefreshVersions, handleOpenWiki
+  handleRefreshVersions, handleOpenWiki, onCancel
 }) => {
 
   // ======================= 🎮 快捷键挂载 =======================
@@ -97,12 +97,20 @@ export const VersionSelectStep: React.FC<StepProps> = ({
           <h2 className={STEP_TITLE_CLASS}>选择游戏版本</h2>
           <p className={STEP_SUBTITLE_CLASS}>Step 1: 确定核心游戏版本</p>
         </div>
-        <OreButton variant="primary" size="auto" onClick={handleNextStep} disabled={!gameVersion}>
-          <span className="flex items-center">
-            <GamepadButtonIcon button="Y" size="md" />
-            <span className="ml-[0.375rem] flex items-center">下一步 <ArrowRight size="1.125rem" className="ml-[0.25rem]" /></span>
-          </span>
-        </OreButton>
+        <div className="flex space-x-3">
+          <OreButton variant="secondary" size="auto" onClick={onCancel}>
+            <span className="flex items-center">
+              <GamepadButtonIcon button="B" size="md" />
+              <span className="ml-[0.375rem]">返回</span>
+            </span>
+          </OreButton>
+          <OreButton variant="primary" size="auto" onClick={handleNextStep} disabled={!gameVersion}>
+            <span className="flex items-center">
+              <GamepadButtonIcon button="Y" size="md" />
+              <span className="ml-[0.375rem] flex items-center">下一步 <ArrowRight size="1.125rem" className="ml-[0.25rem]" /></span>
+            </span>
+          </OreButton>
+        </div>
       </div>
 
       <div className={STEP_TOOLBAR_CLASS}>

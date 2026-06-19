@@ -137,7 +137,7 @@ export const Settings: React.FC = () => {
       className="flex flex-col w-full h-full overflow-hidden"
     >
       <h1 className="sr-only">{t('nav.settings', '设置')}</h1>
-      <div className="settings-tabs-header z-10 flex-shrink-0 border-b-[2px] border-[#1E1E1F] bg-[#242425]/92 px-[clamp(16px,2vw,32px)] py-[clamp(12px,1.6vh,20px)] shadow-[inset_0_2px_0_rgba(255,255,255,0.08)]">
+      <div className="settings-tabs-header z-10 flex-shrink-0 border-b-[2px] border-[#1E1E1F] bg-[#242425]/92 px-[clamp(16px,2vw,32px)] py-[clamp(6px,1vh,12px)] shadow-[inset_0_2px_0_rgba(255,255,255,0.08)]">
         <div className="settings-tabs-shell mx-auto grid w-full max-w-[120rem] grid-cols-[clamp(42px,4vw,64px)_minmax(0,1fr)_clamp(42px,4vw,64px)] items-center gap-[clamp(10px,1.4vw,20px)]">
           <div
             className={`settings-tabs-trigger flex cursor-pointer items-center justify-center transition-transform duration-150 ${

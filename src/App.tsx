@@ -14,6 +14,7 @@ import { FocusProvider } from './ui/focus/FocusProvider';
 import { OreToastContainer } from './ui/primitives/OreToast';
 import i18n from './ui/i18';
 import { TitleBar } from './ui/layout/TitleBar';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import './ui/i18';
 
 import Home from './pages/Home';
@@ -201,6 +202,30 @@ const App: React.FC = () => {
       }
     })();
   }, [hasHydrated, javaAutoDetect, triggerJavaAutoDetect]);
+
+  useEffect(() => {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || 
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isMobile) {
+      // Force fullscreen via Tauri appWindow
+      try {
+        const appWindow = getCurrentWindow();
+        appWindow.setFullscreen(true).catch((err: any) => {
+          console.warn('[App] Failed to set fullscreen via Tauri:', err);
+        });
+      } catch (err) {
+        console.warn('[App] Failed to access Tauri getCurrentWindow:', err);
+      }
+
+      // Force landscape orientation via Screen Orientation API
+      const orientation = screen.orientation as any;
+      if (orientation && typeof orientation.lock === 'function') {
+        orientation.lock('landscape').catch((err: any) => {
+          console.warn('[App] Orientation lock failed:', err);
+        });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     void ensureSessionRefresh();

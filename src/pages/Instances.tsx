@@ -98,7 +98,7 @@ const Instances: React.FC = () => {
     <FocusBoundary
       id="instances-page"
       isActive={!isDirModalOpen}
-      className="flex h-full w-full flex-col overflow-hidden px-6 pb-6 pt-3 sm:px-8 sm:pb-8 sm:pt-4"
+      className="flex h-full w-full flex-col overflow-hidden px-6 pb-6 pt-1 sm:pt-2 md:pt-4 sm:px-8 sm:pb-8"
     >
       <h1 className="sr-only">{t('nav.instances', '实例')}</h1>
       <div className="mb-4 flex w-full flex-wrap items-center justify-between gap-4 lg:mb-5">

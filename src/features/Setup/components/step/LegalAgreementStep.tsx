@@ -21,7 +21,7 @@ export const LegalAgreementStep: React.FC<LegalAgreementStepProps> = ({ onAgree 
   }, [i18n.language]);
 
   return (
-    <div className="flex w-full flex-col items-center">
+    <div className="flex w-full flex-1 flex-col items-center min-h-0">
       <div className="mb-4 flex flex-col items-center">
         <div className="mb-2 rounded-full bg-[#3C8527]/20 p-3">
           <FileText className="text-[#3C8527]" size="1.75rem" />
@@ -38,7 +38,7 @@ export const LegalAgreementStep: React.FC<LegalAgreementStepProps> = ({ onAgree 
         </div>
       )}
 
-      <div className="relative mb-6 block w-[30rem] h-[18.75rem] overflow-hidden rounded-[2px] border-[3px] border-black bg-[#0f1115]">
+      <div className="relative mb-6 flex-1 min-h-[8rem] max-h-[18.75rem] w-full max-w-[30rem] overflow-hidden rounded-[2px] border-[3px] border-black bg-[#0f1115]">
         <div className="h-full w-full overflow-y-auto p-5 text-[#cfcfcf] custom-scrollbar text-xs leading-[1.7] select-text">
           <EulaComponent currentDate={CURRENT_EULA_DATE} />
         </div>

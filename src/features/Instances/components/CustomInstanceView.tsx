@@ -7,7 +7,7 @@ import { VersionSelectStep } from './steps/VersionSelectStep';
 import { LoaderSelectStep } from './steps/LoaderSelectStep';
 import { FinalConfigStep } from './steps/FinalConfigStep';
 
-export const CustomInstanceView: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) => {
+export const CustomInstanceView: React.FC<{ onSuccess?: () => void; onCancel?: () => void }> = ({ onSuccess, onCancel }) => {
   // ✅ 1. 整个流程只在这里调用一次 Hook
   const instanceState = useCustomInstance();
   const { step, direction } = instanceState;
@@ -24,7 +24,7 @@ export const CustomInstanceView: React.FC<{ onSuccess?: () => void }> = ({ onSuc
           className="flex-1 flex flex-col w-full min-h-0 no-scrollbar"
         >
           {/* ✅ 2. 把所有状态和方法通过 props 传给子组件 */}
-          {step === 1 && <VersionSelectStep {...instanceState} />}
+          {step === 1 && <VersionSelectStep {...instanceState} onCancel={onCancel} />}
           {step === 2 && <LoaderSelectStep {...instanceState} />}
           {step === 3 && (
             <FinalConfigStep 
