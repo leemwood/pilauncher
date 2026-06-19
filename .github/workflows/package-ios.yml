@@ -106,7 +106,7 @@ jobs:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           TAURI_APPLE_DEVELOPMENT_TEAM: "ABC123XYZ0"
         # Excludes code signing variables to compile an unsigned app
-        run: pnpm tauri ios build --ci -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=ABC123XYZ0
+        run: pnpm tauri ios build --no-sign --ci
 
       - name: Upload iOS App Artifact
         uses: actions/upload-artifact@v4
