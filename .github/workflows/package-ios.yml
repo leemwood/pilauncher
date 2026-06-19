@@ -123,8 +123,20 @@ jobs:
         # Excludes code signing variables to compile an unsigned app
         run: pnpm tauri ios build --no-sign --ci
 
+      - name: Package IPA
+        run: |
+          APP_DIR=$(find src-tauri/gen/apple/build -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            echo "Error: No .app directory found!"
+            exit 1
+          fi
+          echo "Found .app at: $APP_DIR"
+          mkdir -p Payload
+          cp -r "$APP_DIR" Payload/
+          zip -r pilauncher.ipa Payload
+
       - name: Upload iOS App Artifact
         uses: actions/upload-artifact@v4
         with:
           name: pilauncher-ios-app
-          path: src-tauri/gen/apple/build/Build/Products/Debug-iphoneos/*.app
+          path: pilauncher.ipa
