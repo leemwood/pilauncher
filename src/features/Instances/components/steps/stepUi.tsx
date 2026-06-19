@@ -1,24 +1,24 @@
 
 export const STEP_PAGE_CLASS =
-  'mx-auto flex h-full min-h-0 w-full flex-col px-[clamp(0.75rem,2vw,1.5rem)] pt-[1rem]';
+  'mx-auto flex h-full min-h-0 w-full flex-col px-[clamp(0.75rem,2vw,1.5rem)] pt-[clamp(0.25rem,1vw,0.75rem)]';
 
 export const STEP_HEADER_CLASS =
-  'mb-[1rem] flex flex-wrap items-end justify-between gap-[1rem]';
+  'mb-[clamp(0.5rem,1.5vw,1rem)] flex flex-wrap items-end justify-between gap-[0.5rem] sm:gap-[1rem]';
 
 export const STEP_HEADER_LARGE_CLASS =
-  'mb-[2rem] flex flex-wrap items-end justify-between gap-[1rem]';
+  'mb-[clamp(1rem,3vw,2rem)] flex flex-wrap items-end justify-between gap-[0.5rem] sm:gap-[1rem]';
 
 export const STEP_ACTIONS_CLASS =
-  'flex flex-wrap items-center justify-end gap-[1rem]';
+  'flex flex-wrap items-center justify-end gap-[0.5rem] sm:gap-[1rem]';
 
 export const STEP_TITLE_CLASS =
-  'ore-text-shadow font-minecraft text-[1.5rem] leading-[2rem] text-white';
+  'ore-text-shadow font-minecraft text-[clamp(1.125rem,3.5vw,1.5rem)] leading-[clamp(1.5rem,4.5vw,2rem)] text-white';
 
 export const STEP_SUBTITLE_CLASS =
-  'mt-[0.25rem] font-minecraft text-[0.875rem] leading-[1.25rem] tracking-widest text-ore-text-muted';
+  'mt-[0.125rem] sm:mt-[0.25rem] font-minecraft text-[clamp(0.75rem,2.2vw,0.875rem)] leading-[clamp(1rem,3vw,1.25rem)] tracking-widest text-ore-text-muted';
 
 export const STEP_TOOLBAR_CLASS =
-  'mb-[1.5rem] flex w-full flex-wrap items-center justify-between gap-[1rem]';
+  'mb-[clamp(0.5rem,2vw,1.5rem)] flex w-full flex-wrap items-center justify-between gap-[0.5rem] sm:gap-[1rem]';
 
 export const STEP_CONTROL_GROUP_CLASS =
   'flex min-w-0 flex-wrap items-center gap-[0.75rem]';

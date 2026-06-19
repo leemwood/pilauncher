@@ -119,6 +119,14 @@ export const TitleBar: React.FC = () => {
     setActiveTab(navTabs[nextIndex].id as any);
   };
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || 
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setIsMobile(mobile);
+  }, []);
+
   useInputAction('TAB_LEFT', () => handleSwitchTab(-1));
   useInputAction('TAB_RIGHT', () => handleSwitchTab(1));
 
@@ -126,16 +134,18 @@ export const TitleBar: React.FC = () => {
     <>
       <div
         data-tauri-drag-region
-        className="z-50 flex min-h-[56px] w-full select-none items-center gap-3 px-4 pb-2 pt-[14px]"
+        className={`z-50 flex min-h-[48px] md:min-h-[56px] w-full select-none items-center gap-3 px-4 pb-1 md:pb-2 pt-[8px] md:pt-[14px] ${isMobile ? 'justify-center' : ''}`}
       >
-        <div
-          data-tauri-drag-region
-          className="flex min-w-[112px] flex-1 items-center font-minecraft text-sm tracking-wider text-white drop-shadow-md"
-        >
-          <div data-tauri-drag-region className="pointer-events-none">
-            PiLauncher
+        {!isMobile && (
+          <div
+            data-tauri-drag-region
+            className="flex min-w-[112px] flex-1 items-center font-minecraft text-sm tracking-wider text-white drop-shadow-md"
+          >
+            <div data-tauri-drag-region className="pointer-events-none">
+              PiLauncher
+            </div>
           </div>
-        </div>
+        )}
 
         <nav
           aria-label="主导航"
@@ -187,39 +197,41 @@ export const TitleBar: React.FC = () => {
           </button>
         </nav>
 
-        <div
-          data-tauri-drag-region
-          className="flex min-w-[112px] flex-1 items-center justify-end"
-        >
-          {!isFullscreen && (
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={handleMinimize}
-                aria-label="最小化窗口"
-                className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-white/10 active:bg-white/20"
-              >
-                <Minus size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={handleMaximize}
-                aria-label="最大化/还原窗口"
-                className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-white/10 active:bg-white/20"
-              >
-                <Square size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleClose()}
-                aria-label="关闭窗口"
-                className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-red-600 active:bg-red-700"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
-        </div>
+        {!isMobile && (
+          <div
+            data-tauri-drag-region
+            className="flex min-w-[112px] flex-1 items-center justify-end"
+          >
+            {!isFullscreen && (
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleMinimize}
+                  aria-label="最小化窗口"
+                  className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-white/10 active:bg-white/20"
+                >
+                  <Minus size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMaximize}
+                  aria-label="最大化/还原窗口"
+                  className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-white/10 active:bg-white/20"
+                >
+                  <Square size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleClose()}
+                  aria-label="关闭窗口"
+                  className="rounded p-1 text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white hover:bg-red-600 active:bg-red-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <OreConfirmDialog
         isOpen={isExitConfirmOpen}

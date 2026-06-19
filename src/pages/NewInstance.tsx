@@ -40,14 +40,13 @@ interface SponsorItem {
 }
 
 const SAFE_AREA_STYLE = {
-  paddingTop: 'env(safe-area-inset-top)',
-  paddingRight: 'env(safe-area-inset-right)',
   paddingBottom: 'env(safe-area-inset-bottom)',
-  paddingLeft: 'env(safe-area-inset-left)'
+  paddingLeft: 'max(0px, env(safe-area-inset-left), env(safe-area-inset-right))',
+  paddingRight: 'max(0px, env(safe-area-inset-left), env(safe-area-inset-right))'
 };
 
 const MAIN_CARD_BASE_CLASS =
-  'w-[12.5rem] aspect-[5/6] md:w-[15rem] 2xl:w-[16rem] bg-[#2A2A2C] border-[0.1875rem] border-[#1E1E1F] flex flex-col cursor-pointer shadow-xl select-none shrink-0';
+  'flex-1 min-w-0 max-w-[15rem] aspect-[5/6] bg-[#2A2A2C] border-[0.1875rem] border-[#1E1E1F] flex flex-col cursor-pointer shadow-xl select-none transition-all';
 
 const MAIN_CARD_FOCUS_CLASS =
   'outline outline-[0.25rem] outline-offset-[0.25rem] z-20';
@@ -131,14 +130,9 @@ export default function NewInstance() {
       
       {/* 视图 1：大卡片主菜单 */}
       {view === 'menu' && (
-        <div className="relative flex h-full min-h-0 w-full flex-col overflow-y-auto px-[1.5rem] pb-[1.5rem] pt-[1rem] sm:px-[2rem] md:px-[3rem] md:pb-[3rem] md:pt-[1.5rem] custom-scrollbar">
+        <div className="relative flex h-full min-h-0 w-full flex-col overflow-y-auto px-[1.5rem] pb-[1.5rem] pt-[0.25rem] sm:pt-[0.5rem] md:pt-[1rem] sm:px-[2rem] md:px-[3rem] md:pb-[3rem] custom-scrollbar">
           
-          <div className="mb-[1.5rem] text-center">
-            <h1 className="font-minecraft text-[1.875rem] leading-[2.25rem] tracking-widest text-white drop-shadow-md">新建实例环境</h1>
-            <p className="mt-[0.375rem] font-minecraft text-[0.875rem] leading-[1.25rem] text-[#A0A0A0]">选择一种方式来开启你的新冒险</p>
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-[2rem] px-[0.5rem] py-[0.75rem] xl:gap-[3rem]">
+          <div className="flex flex-row flex-nowrap min-h-0 flex-1 items-center justify-center gap-[4vw] sm:gap-[2rem] w-full max-w-[48rem] mx-auto px-[0.5rem] py-[0.75rem]">
             <FocusItem focusKey="card-custom" onEnter={() => handleSetView('custom')}>
               {({ ref, focused }) => (
                 <motion.div
@@ -147,14 +141,14 @@ export default function NewInstance() {
                   variants={OreMotionTokens.bedrockCardHover as Variants}
                   className={`${MAIN_CARD_BASE_CLASS} ${focused ? `${MAIN_CARD_FOCUS_CLASS} outline-ore-green` : ''}`}
                 >
-                  <div className="flex-1 flex items-center justify-center bg-[#1E1E1F]/50 relative overflow-hidden">
-                    <Hammer size="7.5rem" className="absolute bottom-[-1.25rem] right-[-1.25rem] text-white/5" />
-                    <motion.div variants={OreMotionTokens.bedrockIconHover as Variants}>
-                      <Hammer size="4.5rem" className="text-ore-green drop-shadow-[0_0_0.9375rem_rgba(56,133,39,0.5)]" />
+                  <div className="h-[75%] w-full flex items-center justify-center bg-[#1E1E1F]/50 relative overflow-hidden">
+                    <Hammer size="100%" className="absolute -bottom-[15%] -right-[15%] w-[60%] h-[60%] text-white/5" />
+                    <motion.div variants={OreMotionTokens.bedrockIconHover as Variants} className="w-[35%] h-[35%] max-w-[4.5rem] max-h-[4.5rem]">
+                      <Hammer size="100%" className="text-ore-green drop-shadow-[0_0_15px_rgba(56,133,39,0.5)]" />
                     </motion.div>
                   </div>
-                  <div className="flex h-[4rem] items-center justify-center border-t-[0.1875rem] border-[#1E1E1F] bg-[#3A3B3D] md:h-[4.5rem]">
-                    <span className="font-minecraft text-[1.25rem] font-bold leading-[1.5rem] tracking-wider text-white">完全自建</span>
+                  <div className="h-[25%] w-full flex items-center justify-center border-t-[0.1875rem] border-[#1E1E1F] bg-[#3A3B3D]">
+                    <span className="font-minecraft text-[clamp(0.9rem,2.8vw,1.25rem)] font-bold tracking-wider text-white px-2 text-center truncate">完全自建</span>
                   </div>
                 </motion.div>
               )}
@@ -168,14 +162,14 @@ export default function NewInstance() {
                   variants={OreMotionTokens.bedrockCardHover as Variants}
                   className={`${MAIN_CARD_BASE_CLASS} ${focused ? `${MAIN_CARD_FOCUS_CLASS} outline-blue-500` : ''}`}
                 >
-                  <div className="flex-1 flex items-center justify-center bg-[#1E1E1F]/50 relative overflow-hidden">
-                    <PackagePlus size="7.5rem" className="absolute bottom-[-1.25rem] right-[-1.25rem] text-white/5" />
-                    <motion.div variants={OreMotionTokens.bedrockIconHover as Variants}>
-                      <PackagePlus size="4.5rem" className="text-blue-400 drop-shadow-[0_0_0.9375rem_rgba(59,130,246,0.5)]" />
+                  <div className="h-[75%] w-full flex items-center justify-center bg-[#1E1E1F]/50 relative overflow-hidden">
+                    <PackagePlus size="100%" className="absolute -bottom-[15%] -right-[15%] w-[60%] h-[60%] text-white/5" />
+                    <motion.div variants={OreMotionTokens.bedrockIconHover as Variants} className="w-[35%] h-[35%] max-w-[4.5rem] max-h-[4.5rem]">
+                      <PackagePlus size="100%" className="text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
                     </motion.div>
                   </div>
-                  <div className="flex h-[4rem] items-center justify-center border-t-[0.1875rem] border-[#1E1E1F] bg-[#3A3B3D] md:h-[4.5rem]">
-                    <span className="font-minecraft text-[1.25rem] font-bold leading-[1.5rem] tracking-wider text-white">下载整合包</span>
+                  <div className="h-[25%] w-full flex items-center justify-center border-t-[0.1875rem] border-[#1E1E1F] bg-[#3A3B3D]">
+                    <span className="font-minecraft text-[clamp(0.9rem,2.8vw,1.25rem)] font-bold tracking-wider text-white px-2 text-center truncate">下载整合包</span>
                   </div>
                 </motion.div>
               )}
@@ -189,14 +183,14 @@ export default function NewInstance() {
                   variants={OreMotionTokens.bedrockCardHover as Variants}
                   className={`${MAIN_CARD_BASE_CLASS} ${focused ? `${MAIN_CARD_FOCUS_CLASS} outline-orange-400` : ''}`}
                 >
-                  <div className="flex-1 flex items-center justify-center bg-[#1E1E1F]/50 relative overflow-hidden">
-                    <FolderArchive size="7.5rem" className="absolute bottom-[-1.25rem] right-[-1.25rem] text-white/5" />
-                    <motion.div variants={OreMotionTokens.bedrockIconHover as Variants}>
-                      <FolderArchive size="4.5rem" className="text-orange-400 drop-shadow-[0_0_0.9375rem_rgba(251,146,60,0.5)]" />
+                  <div className="h-[75%] w-full flex items-center justify-center bg-[#1E1E1F]/50 relative overflow-hidden">
+                    <FolderArchive size="100%" className="absolute -bottom-[15%] -right-[15%] w-[60%] h-[60%] text-white/5" />
+                    <motion.div variants={OreMotionTokens.bedrockIconHover as Variants} className="w-[35%] h-[35%] max-w-[4.5rem] max-h-[4.5rem]">
+                      <FolderArchive size="100%" className="text-orange-400 drop-shadow-[0_0_15px_rgba(251,146,60,0.5)]" />
                     </motion.div>
                   </div>
-                  <div className="flex h-[4rem] items-center justify-center border-t-[0.1875rem] border-[#1E1E1F] bg-[#3A3B3D] md:h-[4.5rem]">
-                    <span className="font-minecraft text-[1.25rem] font-bold leading-[1.5rem] tracking-wider text-white">本地导入</span>
+                  <div className="h-[25%] w-full flex items-center justify-center border-t-[0.1875rem] border-[#1E1E1F] bg-[#3A3B3D]">
+                    <span className="font-minecraft text-[clamp(0.9rem,2.8vw,1.25rem)] font-bold tracking-wider text-white px-2 text-center truncate">本地导入</span>
                   </div>
                 </motion.div>
               )}
@@ -285,32 +279,33 @@ export default function NewInstance() {
       {/* 视图 2：子功能容器（保持不变） */}
       {view !== 'menu' && (
         <div className="flex flex-col w-full h-full">
-          <div className="z-20 flex h-[3.5rem] flex-shrink-0 items-center border-b-[0.125rem] border-[#141415] bg-[#1E1E1F] px-[1rem]">
-            <button 
-              onClick={() => handleSetView('menu')} 
-              tabIndex={-1}
-              className={`
-                flex items-center rounded-[0.125rem] px-[1rem] py-[0.5rem] font-minecraft text-ore-text-muted outline-none transition-colors hover:bg-white/5 hover:text-white
-              `}
-            >
-              <ArrowLeft size="1.125rem" className="mr-[0.5rem]" />
-              返回创建菜单
-              <div className="ml-[0.75rem] flex items-center text-[0.625rem] text-ore-text-muted/60">
-                <GamepadButtonIcon button="B" size="sm" />
+          {view !== 'custom' && (
+            <div className="z-20 flex h-[3.5rem] flex-shrink-0 items-center border-b-[0.125rem] border-[#141415] bg-[#1E1E1F] px-[1rem]">
+              <button 
+                onClick={() => handleSetView('menu')} 
+                tabIndex={-1}
+                className={`
+                  flex items-center rounded-[0.125rem] px-[1rem] py-[0.5rem] font-minecraft text-ore-text-muted outline-none transition-colors hover:bg-white/5 hover:text-white
+                `}
+              >
+                <ArrowLeft size="1.125rem" className="mr-[0.5rem]" />
+                返回创建菜单
+                <div className="ml-[0.75rem] flex items-center text-[0.625rem] text-ore-text-muted/60">
+                  <GamepadButtonIcon button="B" size="sm" />
+                </div>
+              </button>
+              
+              <div className="ml-auto flex items-center pr-[1rem]">
+                <h1 className="font-minecraft text-[1.125rem] font-bold leading-[1.75rem] text-white">
+                  {view === 'download' && '下载整合包'}
+                  {view === 'import' && '导入本地整合包'}
+                </h1>
               </div>
-            </button>
-            
-            <div className="ml-auto flex items-center pr-[1rem]">
-              <h1 className="font-minecraft text-[1.125rem] font-bold leading-[1.75rem] text-white">
-                {view === 'custom' && '自建实例'}
-                {view === 'download' && '下载整合包'}
-                {view === 'import' && '导入本地整合包'}
-              </h1>
             </div>
-          </div>
+          )}
 
           <div className="relative flex-1 overflow-hidden pt-[0.25rem]">
-            {view === 'custom' && <CustomInstanceView onSuccess={() => handleSetView('menu')} />}
+            {view === 'custom' && <CustomInstanceView onSuccess={() => handleSetView('menu')} onCancel={() => handleSetView('menu')} />}
             {view === 'download' && <ModpackView />}
             {view === 'import' && <LocalImportView />}
           </div>
