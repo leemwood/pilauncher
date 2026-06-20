@@ -73,8 +73,7 @@ jobs:
             fi
           done
           if [ ${#missing[@]} -ne 0 ]; then
-            echo "::error::Missing required build secrets: ${missing[*]}"
-            exit 1
+            echo "::warning::Missing secrets (runtime-only, build continues): ${missing[*]}"
           fi
         env:
           DONORS_API_URL: ${{ secrets.DONORS_API_URL }}
