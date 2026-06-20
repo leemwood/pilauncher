@@ -31,3 +31,4 @@ build-signed.bat
 Terracotta-master/
 mclogs-js-sdk/
 docs/ore-ui-preview.html
+src-tauri/gen
